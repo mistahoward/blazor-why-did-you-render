@@ -1,0 +1,23 @@
+---
+description: C# and Razor Style Guidelines for Blazor WhyDidYouRender
+alwaysApply: true
+---
+
+# C# and Razor Style Guidelines
+
+All code contributions and AI-generated code must follow these style rules:
+
+- **Indentation:** Use tabs for all C# and Razor files.
+- **Brace Style:** Use One True Brace Style (1TBS) — opening braces on the same line.
+- **One-line Returns/Lambdas:** Prefer one-line returns and expression-bodied members (lambdas) where possible.
+- **Namespace Style:** Use file-scoped namespaces (`namespace MyNamespace;`).
+- **Max Line Length:** 140 characters.
+- **String Quotes:** Use double quotes for strings (C# default).
+- **Naming:** Private fields should be _camelCase.
+- **End of File:** Always end files with a newline.
+- **Encoding:** Use UTF-8.
+- **Razor Files:** Apply the same indentation and line length rules as C#.
+
+> These rules are enforced in `.editorconfig` at the project root. All agents and contributors must follow them for consistency.
+
+For reference, see `.editorconfig` in the project root.

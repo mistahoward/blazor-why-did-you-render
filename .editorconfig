@@ -1,0 +1,55 @@
+# .editorconfig for Blazor WhyDidYouRender (C# Style)
+root = true
+
+[*.cs]
+# Use tabs for indentation
+indent_style = tab
+indent_size = tab
+
+# 1TBS (One True Brace Style)
+csharp_new_line_before_open_brace = none
+
+# Prefer one-line statements where possible (experimental, IDE support required)
+csharp_style_allow_embedded_statements_on_same_line_experimental = true:suggestion
+
+# Prefer expression-bodied members (lambdas) where possible
+csharp_style_expression_bodied_methods = when_possible:suggestion
+csharp_style_expression_bodied_properties = when_possible:suggestion
+csharp_style_expression_bodied_ctors = when_possible:suggestion
+csharp_style_expression_bodied_accessors = when_possible:suggestion
+
+# Prefer file-scoped namespaces (newer C# style)
+csharp_style_namespace_declarations = file_scoped:suggestion
+
+# Max line length
+max_line_length = 140
+
+# End of file newline
+insert_final_newline = true
+
+# File encoding
+charset = utf-8
+
+# C# specific code style
+dotnet_sort_system_directives_first = true
+dotnet_separate_import_directive_groups = true
+
+# Naming conventions (private fields should be _camelCase)
+dotnet_naming_rule.private_fields_should_be__camel_case.severity = suggestion
+dotnet_naming_rule.private_fields_should_be__camel_case.symbols = private_fields
+dotnet_naming_rule.private_fields_should_be__camel_case.style = _camel_case_style
+
+dotnet_naming_symbols.private_fields.applicable_kinds = field
+dotnet_naming_symbols.private_fields.applicable_accessibilities = private
+dotnet_naming_symbols.private_fields.required_modifiers =
+
+dotnet_naming_style._camel_case_style.capitalization = camel_case
+dotnet_naming_style._camel_case_style.required_prefix = _
+
+# For Razor files (optional)
+[*.razor]
+indent_style = tab
+indent_size = tab
+max_line_length = 140
+insert_final_newline = true
+charset = utf-8 

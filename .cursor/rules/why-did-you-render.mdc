@@ -1,0 +1,35 @@
+---
+description: WhyDidYouRender for Blazor SSR – Project Context and Rules
+alwaysApply: true
+---
+
+# Project Idea & Purpose
+
+Create a WhyDidYouRender-style extension for Blazor SSR to help developers understand when, why, and how their components render, including initial renders, lifecycle re-renders, and manual StateHasChanged calls. The goal is actionable diagnostics for performance and developer experience.
+
+# Core Goals & Philosophy
+
+- Transparency: Make render behavior visible and understandable.
+- Actionability: Provide clear, actionable diagnostics.
+- Non-intrusiveness: Easy opt-in/out, minimal production impact.
+- SSR Focus: All tracking/reporting must work in Blazor SSR, including multi-user/server.
+- Extensibility: Configurable, filterable, and hookable.
+
+# Coding & Architectural Rules
+
+- Use a base class or attribute for tracking.
+- Always track OnInitialized, OnParametersSet, OnAfterRender, and StateHasChanged.
+- Log with context: component name, render type, trigger, parameter changes, timestamps, session/user info.
+- Configuration-first: All features configurable via appsettings.json, env vars, or code.
+- No production overhead: Tracking can be disabled with zero/minimal impact.
+- Respect privacy: Be mindful of user/session data in logs.
+- Write clear documentation for all features and integration steps.
+
+# Process Rules
+
+- Track progress using the implementation plan checklist.
+- Update documentation as the project evolves.
+- Always test and validate in SSR scenarios.
+- Gather and incorporate feedback from users/contributors.
+
+---

@@ -6,12 +6,42 @@
     <Nullable>enable</Nullable>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
+
+    <!-- NuGet Package Metadata -->
+    <PackageId>Blazor.WhyDidYouRender</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>Your Name</Authors>
+    <Company>Your Company</Company>
+    <Product>Blazor WhyDidYouRender</Product>
+    <Description>A powerful performance monitoring and debugging tool for Blazor applications that helps identify unnecessary re-renders and optimize component performance. Inspired by the React why-did-you-render library.</Description>
+    <Summary>Performance monitoring and debugging tool for Blazor applications to identify unnecessary re-renders.</Summary>
+    <PackageTags>blazor;performance;debugging;monitoring;render;optimization;component;aspnetcore;dotnet</PackageTags>
+    <PackageProjectUrl>https://github.com/yourusername/blazor-why-did-you-render</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/yourusername/blazor-why-did-you-render</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageLicenseExpression>GPL-3.0-or-later</PackageLicenseExpression>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <PackageReleaseNotes>Initial release of Blazor WhyDidYouRender - Performance monitoring and debugging tool for Blazor applications.</PackageReleaseNotes>
+    <Copyright>Copyright (c) 2024 Your Name</Copyright>
+
+    <!-- Package Build Configuration -->
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 
+  <!-- Package Content -->
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <!-- Exclude Sample App from Package -->
   <ItemGroup>
     <Compile Remove="RenderTracker.SampleApp\**" />
     <EmbeddedResource Remove="RenderTracker.SampleApp\**" />

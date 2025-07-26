@@ -297,7 +297,7 @@ We welcome contributions in these areas:
 
 ## 📋 Contributor License Agreement
 
-By contributing to this project, you agree that your contributions will be licensed under the same license as the project (MIT License).
+By contributing to this project, you agree that your contributions will be licensed under the same license as the project (GNU General Public License v3.0 or later).
 
 ## 🙏 Recognition
 

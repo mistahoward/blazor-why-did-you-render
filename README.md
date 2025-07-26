@@ -263,9 +263,7 @@ Use the insights to optimize parameter passing:
 ## 🚧 Roadmap
 
 - **Testing Suite**: Comprehensive test coverage (waiting for .NET 9.0 compatibility)
-- **Visual Studio Extension**: IDE integration for enhanced debugging
 - **Performance Profiler**: Advanced performance analysis tools
-- **React DevTools Integration**: Familiar debugging experience
 - **Custom Formatters**: Extensible output formatting
 
 ## 🤝 Contributing

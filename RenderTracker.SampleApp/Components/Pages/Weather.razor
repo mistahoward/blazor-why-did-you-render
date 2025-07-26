@@ -1,10 +1,28 @@
 ﻿@page "/weather"
+@attribute [StreamRendering]
+@rendermode InteractiveServer
+@inherits TrackedComponentBase
 
 <PageTitle>Weather</PageTitle>
 
 <h1>Weather</h1>
 
-<p>This component demonstrates showing data.</p>
+<p>This component demonstrates async data loading and tracking with streaming rendering.</p>
+
+<div class="mb-3">
+    <button class="btn btn-primary" @onclick="RefreshData" disabled="@isLoading">
+        @if (isLoading)
+        {
+            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+            <span>Loading...</span>
+        }
+        else
+        {
+            <span>Refresh Data</span>
+        }
+    </button>
+    <button class="btn btn-secondary" @onclick="ForceRender">Force Re-render</button>
+</div>
 
 @if (forecasts == null)
 {
@@ -37,10 +55,20 @@ else
 
 @code {
     private WeatherForecast[]? forecasts;
+    private bool isLoading = false;
 
     protected override async Task OnInitializedAsync()
     {
-        // Simulate asynchronous loading to demonstrate a loading indicator
+        // Call base to ensure tracking
+        await base.OnInitializedAsync();
+
+        // Load initial data
+        await LoadWeatherData();
+    }
+
+    private async Task LoadWeatherData()
+    {
+        // Simulate asynchronous loading to demonstrate streaming rendering
         await Task.Delay(500);
 
         var startDate = DateOnly.FromDateTime(DateTime.Now);
@@ -51,6 +79,23 @@ else
             TemperatureC = Random.Shared.Next(-20, 55),
             Summary = summaries[Random.Shared.Next(summaries.Length)]
         }).ToArray();
+    }
+
+    private async Task RefreshData()
+    {
+        isLoading = true;
+        StateHasChanged(); // This will be tracked
+
+        await LoadWeatherData();
+
+        isLoading = false;
+        StateHasChanged(); // This will also be tracked
+    }
+
+    private void ForceRender()
+    {
+        // This will call our tracked StateHasChanged method
+        StateHasChanged();
     }
 
     private class WeatherForecast

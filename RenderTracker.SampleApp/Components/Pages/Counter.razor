@@ -1,4 +1,6 @@
 ﻿@page "/counter"
+@rendermode InteractiveServer
+@inherits TrackedComponentBase
 
 <PageTitle>Counter</PageTitle>
 
@@ -8,11 +10,19 @@
 
 <button class="btn btn-primary" @onclick="IncrementCount">Click me</button>
 
+<button class="btn btn-secondary" @onclick="ForceRender">Force Re-render</button>
+
 @code {
     private int currentCount = 0;
 
     private void IncrementCount()
     {
         currentCount++;
+    }
+
+    private void ForceRender()
+    {
+        // This will call our tracked StateHasChanged method
+        StateHasChanged();
     }
 }

@@ -1,0 +1,39 @@
+@inherits TrackedComponentBase
+
+<div class="card">
+    <div class="card-header">
+        <h5>Child Component</h5>
+    </div>
+    <div class="card-body">
+        <p>Received message: <strong>@Message</strong></p>
+        <p>Internal counter: @internalCounter</p>
+        <button class="btn btn-sm btn-info" @onclick="IncrementInternal">Increment Internal Counter</button>
+        <button class="btn btn-sm btn-warning" @onclick="ForceChildRender">Force Child Re-render</button>
+    </div>
+</div>
+
+@code {
+    [Parameter] public string Message { get; set; } = string.Empty;
+    
+    private int internalCounter = 0;
+
+    private void IncrementInternal()
+    {
+        internalCounter++;
+    }
+
+    private void ForceChildRender()
+    {
+        // This will call our tracked StateHasChanged method
+        StateHasChanged();
+    }
+
+    protected override void OnParametersSet()
+    {
+        // Call the base implementation which includes our tracking
+        base.OnParametersSet();
+        
+        // You could add custom logic here if needed
+        Console.WriteLine($"[Custom Logic] Child component received new parameters. Message: {Message}");
+    }
+}

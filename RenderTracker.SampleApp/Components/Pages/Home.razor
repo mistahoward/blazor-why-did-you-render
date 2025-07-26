@@ -1,7 +1,200 @@
 ﻿@page "/"
+@rendermode InteractiveServer
+@inherits TrackedComponentBase
+@inject IJSRuntime JSRuntime
+@inject IServiceProvider ServiceProvider
 
 <PageTitle>Home</PageTitle>
 
-<h1>Hello, world!</h1>
+<h1>Blazor WhyDidYouRender Demo</h1>
 
-Welcome to your new app.
+<p>Welcome to the WhyDidYouRender demonstration app! This page shows how component renders are tracked.</p>
+
+<div class="row">
+    <div class="col-md-6">
+        <h3>Parent Component Controls</h3>
+        <p>Current message: <strong>@message</strong></p>
+        <button class="btn btn-primary" @onclick="UpdateMessage">Update Message</button>
+        <button class="btn btn-secondary" @onclick="ForceParentRender">Force Parent Re-render</button>
+        <button class="btn btn-warning" @onclick="TriggerUnnecessaryRerender">Trigger Unnecessary Re-render</button>
+        <button class="btn btn-danger" @onclick="TriggerFrequentRerenders">Trigger Frequent Re-renders</button>
+    </div>
+    <div class="col-md-6">
+        <h3>Child Component</h3>
+        <TrackedChildComponent Message="@message" />
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-6">
+        <h3>Complex Object Demo</h3>
+        <button class="btn btn-success" @onclick="UpdateComplexObjects">Update Complex Objects</button>
+        <button class="btn btn-info" @onclick="AddItem">Add Item</button>
+        <button class="btn btn-warning" @onclick="ToggleTheme">Toggle Theme</button>
+    </div>
+    <div class="col-md-6">
+        <ComplexObjectDemo UserData="@userData" Settings="@appSettings" Items="@productItems" />
+    </div>
+</div>
+
+<div class="mt-4">
+    <h4>Instructions:</h4>
+    <ul>
+        <li>Check the browser console to see render tracking logs</li>
+        <li>Click "Update Message" to see parameter changes trigger child re-renders</li>
+        <li>Click "Force Parent Re-render" to see manual StateHasChanged calls</li>
+        <li>Navigate to the Counter page to see more tracking examples</li>
+    </ul>
+</div>
+
+@code {
+    private string message = "Hello from parent!";
+    private int updateCount = 0;
+    private bool browserLoggerInitialized = false;
+
+    // Complex object data for demonstration
+    private ComplexObjectDemo.UserInfo userData = new() {
+        Name = "John Doe",
+        Email = "john.doe@example.com",
+        Age = 30,
+        Address = new() {
+            Street = "123 Main St",
+            City = "Anytown",
+            State = "CA",
+            ZipCode = "12345"
+        }
+    };
+
+    private ComplexObjectDemo.AppSettings appSettings = new() {
+        Theme = "Light",
+        EnableNotifications = true,
+        Language = "English",
+        CustomSettings = new Dictionary<string, object> {
+            { "AutoSave", true },
+            { "RefreshInterval", 30 },
+            { "MaxItems", 100 }
+        }
+    };
+
+    private List<ComplexObjectDemo.ProductItem> productItems = new() {
+        new() {
+            Name = "Laptop",
+            Price = 999.99m,
+            Category = "Electronics",
+            CreatedDate = DateTime.Now.AddDays(-5),
+            Metadata = new Dictionary<string, string> {
+                { "Brand", "TechCorp" },
+                { "Model", "Pro-2024" },
+                { "Warranty", "2 years" }
+            }
+        },
+        new() {
+            Name = "Coffee Mug",
+            Price = 12.99m,
+            Category = "Kitchen",
+            CreatedDate = DateTime.Now.AddDays(-2),
+            Metadata = new Dictionary<string, string> {
+                { "Material", "Ceramic" },
+                { "Capacity", "12oz" },
+                { "Color", "Blue" }
+            }
+        }
+    };
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !browserLoggerInitialized)
+        {
+            // Initialize WhyDidYouRender browser logging
+            Console.WriteLine("[WhyDidYouRender] Attempting to initialize browser logging from Home component...");
+            await ServiceProvider.InitializeWhyDidYouRenderAsync(JSRuntime);
+            browserLoggerInitialized = true;
+        }
+
+        await base.OnAfterRenderAsync(firstRender);
+    }
+
+    private void UpdateMessage()
+    {
+        updateCount++;
+        message = $"Updated message #{updateCount}";
+    }
+
+    private void ForceParentRender()
+    {
+        // This will call our tracked StateHasChanged method
+        StateHasChanged();
+    }
+
+    private void UpdateComplexObjects()
+    {
+        // Update user data with new values
+        userData = new ComplexObjectDemo.UserInfo {
+            Name = $"Jane Smith {DateTime.Now.Second}",
+            Email = "jane.smith@newcompany.com",
+            Age = userData.Age + 1,
+            Address = new() {
+                Street = "456 Oak Avenue",
+                City = "New City",
+                State = "NY",
+                ZipCode = "67890"
+            }
+        };
+
+        // Update settings
+        appSettings = new ComplexObjectDemo.AppSettings {
+            Theme = appSettings.Theme == "Light" ? "Dark" : "Light",
+            EnableNotifications = !appSettings.EnableNotifications,
+            Language = appSettings.Language == "English" ? "Spanish" : "English",
+            CustomSettings = new Dictionary<string, object> {
+                { "AutoSave", false },
+                { "RefreshInterval", 60 },
+                { "MaxItems", 200 },
+                { "NewSetting", "Added!" }
+            }
+        };
+    }
+
+    private void AddItem()
+    {
+        var newItem = new ComplexObjectDemo.ProductItem {
+            Name = $"New Product {productItems.Count + 1}",
+            Price = (decimal)(Random.Shared.NextDouble() * 100),
+            Category = Random.Shared.Next(2) == 0 ? "Electronics" : "Home",
+            CreatedDate = DateTime.Now,
+            Metadata = new Dictionary<string, string> {
+                { "Source", "Auto-generated" },
+                { "ID", Guid.NewGuid().ToString()[..8] }
+            }
+        };
+
+        productItems = new List<ComplexObjectDemo.ProductItem>(productItems) { newItem };
+    }
+
+    private void ToggleTheme()
+    {
+        appSettings = new ComplexObjectDemo.AppSettings {
+            Theme = appSettings.Theme == "Light" ? "Dark" : "Light",
+            EnableNotifications = appSettings.EnableNotifications,
+            Language = appSettings.Language,
+            CustomSettings = new Dictionary<string, object>(appSettings.CustomSettings)
+        };
+    }
+
+    private void TriggerUnnecessaryRerender()
+    {
+        // This will call StateHasChanged() but won't actually change any state
+        // Should be detected as unnecessary
+        StateHasChanged();
+    }
+
+    private async Task TriggerFrequentRerenders()
+    {
+        // Trigger multiple re-renders in quick succession to test frequency detection
+        for (int i = 0; i < 10; i++)
+        {
+            StateHasChanged();
+            await Task.Delay(50); // Small delay between renders
+        }
+    }
+}

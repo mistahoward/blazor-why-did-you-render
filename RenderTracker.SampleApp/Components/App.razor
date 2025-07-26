@@ -1,4 +1,6 @@
-﻿<!DOCTYPE html>
+﻿@namespace RenderTracker.SampleApp.Component
+
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -10,11 +12,11 @@
     <link rel="stylesheet" href="@Assets["RenderTracker.SampleApp.styles.css"]" />
     <ImportMap />
     <link rel="icon" type="image/png" href="favicon.png" />
-    <HeadOutlet @rendermode="InteractiveServer" />
+    <HeadOutlet />
 </head>
 
 <body>
-    <Routes @rendermode="InteractiveServer" />
+    <Routes />
     <script src="_framework/blazor.web.js"></script>
 </body>
 

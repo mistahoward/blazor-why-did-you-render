@@ -1,0 +1,73 @@
+@inherits TrackedComponentBase
+
+<div class="card">
+    <div class="card-header">
+        <h5>Complex Object Demo</h5>
+    </div>
+    <div class="card-body">
+        <h6>User Information:</h6>
+        <p><strong>Name:</strong> @UserData?.Name</p>
+        <p><strong>Email:</strong> @UserData?.Email</p>
+        <p><strong>Age:</strong> @UserData?.Age</p>
+        <p><strong>Address:</strong> @UserData?.Address?.Street, @UserData?.Address?.City</p>
+        
+        <h6>Settings:</h6>
+        <p><strong>Theme:</strong> @Settings?.Theme</p>
+        <p><strong>Notifications:</strong> @Settings?.EnableNotifications</p>
+        <p><strong>Language:</strong> @Settings?.Language</p>
+        
+        <h6>Items (@Items?.Count items):</h6>
+        @if (Items?.Any() == true)
+        {
+            <ul>
+                @foreach (var item in Items.Take(3))
+                {
+                    <li>@item.Name - $@item.Price (@item.Category)</li>
+                }
+                @if (Items.Count > 3)
+                {
+                    <li><em>... and @(Items.Count - 3) more items</em></li>
+                }
+            </ul>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public UserInfo? UserData { get; set; }
+    [Parameter] public AppSettings? Settings { get; set; }
+    [Parameter] public List<ProductItem>? Items { get; set; }
+
+    public class UserInfo
+    {
+        public string Name { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public int Age { get; set; }
+        public Address? Address { get; set; }
+    }
+
+    public class Address
+    {
+        public string Street { get; set; } = string.Empty;
+        public string City { get; set; } = string.Empty;
+        public string State { get; set; } = string.Empty;
+        public string ZipCode { get; set; } = string.Empty;
+    }
+
+    public class AppSettings
+    {
+        public string Theme { get; set; } = "Light";
+        public bool EnableNotifications { get; set; } = true;
+        public string Language { get; set; } = "English";
+        public Dictionary<string, object> CustomSettings { get; set; } = new();
+    }
+
+    public class ProductItem
+    {
+        public string Name { get; set; } = string.Empty;
+        public decimal Price { get; set; }
+        public string Category { get; set; } = string.Empty;
+        public DateTime CreatedDate { get; set; } = DateTime.Now;
+        public Dictionary<string, string> Metadata { get; set; } = new();
+    }
+}

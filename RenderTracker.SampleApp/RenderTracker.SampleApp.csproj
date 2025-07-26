@@ -8,6 +8,7 @@
     <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+	<OutputType>Exe</OutputType>
   </PropertyGroup>
 
 </Project>

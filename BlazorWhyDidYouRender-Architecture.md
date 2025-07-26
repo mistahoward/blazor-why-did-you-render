@@ -102,8 +102,8 @@
 ## 8. Main Components & Implementation Plan
 
 **Core Classes:**
-- `TrackedComponentBase`: Inherits from `ComponentBase`, overrides lifecycle methods and `StateHasChanged` to inject tracking logic.
-- `RenderTrackerService`: Handles data collection, reporting, and configuration management.
+- `TrackedComponentBase`: Inherits from `ComponentBase`, overrides lifecycle methods and `StateHasChanged` to inject tracking logic. Located in the `Tracking` folder for organization.
+- `RenderTrackerService`: Handles data collection, reporting, and configuration management. Also located in the `Tracking` folder.
 - Optional: `WhyDidYouRenderAttribute`: Attribute for opt-in tracking on a per-component basis.
 
 **Implementation Steps:**

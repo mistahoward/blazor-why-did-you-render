@@ -1,7 +1,12 @@
 {
 	"cSpell.words": [
+		"Antiforgery",
 		"appsettings",
 		"Blazor",
-		"hookable"
-	]
+		"hookable",
+		"Hsts"
+	],
+	"[csharp]": {
+		"editor.formatOnSave": true
+	}
 }

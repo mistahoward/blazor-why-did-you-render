@@ -133,4 +133,46 @@ public class WhyDidYouRenderConfig {
 	/// Components exceeding this threshold will be flagged for potential optimization.
 	/// </summary>
 	public double FrequentRerenderThreshold { get; set; } = 5.0;
+
+	/// <summary>
+	/// Gets or sets whether to include user information in tracking data.
+	/// Should be disabled in production for privacy compliance.
+	/// </summary>
+	public bool IncludeUserInfo { get; set; } = false;
+
+	/// <summary>
+	/// Gets or sets whether to include client information (IP, User-Agent) in tracking data.
+	/// Should be disabled in production for privacy compliance.
+	/// </summary>
+	public bool IncludeClientInfo { get; set; } = false;
+
+	/// <summary>
+	/// Gets or sets whether to track components during prerendering.
+	/// May be disabled to reduce noise in SSR scenarios.
+	/// </summary>
+	public bool TrackDuringPrerendering { get; set; } = true;
+
+	/// <summary>
+	/// Gets or sets whether to track components during hydration.
+	/// Useful for debugging SSR hydration issues.
+	/// </summary>
+	public bool TrackDuringHydration { get; set; } = true;
+
+	/// <summary>
+	/// Gets or sets the maximum number of sessions to track concurrently.
+	/// Helps prevent memory issues in high-traffic scenarios.
+	/// </summary>
+	public int MaxConcurrentSessions { get; set; } = 1000;
+
+	/// <summary>
+	/// Gets or sets the session data cleanup interval in minutes.
+	/// Older session data will be cleaned up to prevent memory leaks.
+	/// </summary>
+	public int SessionCleanupIntervalMinutes { get; set; } = 30;
+
+	/// <summary>
+	/// Gets or sets whether to enable enhanced security mode.
+	/// When enabled, all potentially sensitive data is sanitized or excluded.
+	/// </summary>
+	public bool EnableSecurityMode { get; set; } = false;
 }

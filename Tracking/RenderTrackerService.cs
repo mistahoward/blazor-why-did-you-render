@@ -9,6 +9,8 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 
@@ -114,6 +116,26 @@ public class RenderTrackerService {
 	private BrowserConsoleLogger? _browserLogger;
 
 	/// <summary>
+	/// Session context service for SSR scenarios.
+	/// </summary>
+	private ISessionContextService? _sessionContextService;
+
+	/// <summary>
+	/// Host environment information.
+	/// </summary>
+	private IHostEnvironment? _hostEnvironment;
+
+	/// <summary>
+	/// Cache to store session-specific data for cleanup.
+	/// </summary>
+	private readonly ConcurrentDictionary<string, DateTime> _sessionLastActivity = new();
+
+	/// <summary>
+	/// Timer for periodic cleanup of old session data.
+	/// </summary>
+	private Timer? _cleanupTimer;
+
+	/// <summary>
 	/// Gets the singleton instance of the <see cref="RenderTrackerService"/>.
 	/// </summary>
 	public static RenderTrackerService Instance => _instance.Value;
@@ -150,6 +172,27 @@ public class RenderTrackerService {
 	}
 
 	/// <summary>
+	/// Sets the session context service for SSR scenarios.
+	/// </summary>
+	/// <param name="sessionContextService">The session context service.</param>
+	public void SetSessionContextService(ISessionContextService sessionContextService) {
+		_sessionContextService = sessionContextService;
+	}
+
+	/// <summary>
+	/// Sets the host environment information.
+	/// </summary>
+	/// <param name="hostEnvironment">The host environment.</param>
+	public void SetHostEnvironment(IHostEnvironment hostEnvironment) {
+		_hostEnvironment = hostEnvironment;
+
+		// Start cleanup timer in production environments
+		if (_hostEnvironment.IsProduction() && _cleanupTimer == null) {
+			StartCleanupTimer();
+		}
+	}
+
+	/// <summary>
 	/// Gets the current configuration.
 	/// </summary>
 	public WhyDidYouRenderConfig GetConfig() => _config;
@@ -161,8 +204,8 @@ public class RenderTrackerService {
 	/// <param name="method">The lifecycle method or trigger causing the render.</param>
 	/// <param name="firstRender">Indicates if this is the first render (optional).</param>
 	public void Track(ComponentBase component, string method, bool? firstRender = null) {
-		// Check if tracking is enabled
-		if (!_config.Enabled) return;
+		// Check if tracking is enabled and appropriate for current context
+		if (!ShouldTrackInCurrentContext() || component == null) return;
 
 		var componentType = component.GetType();
 		var componentName = componentType.Name;
@@ -457,12 +500,19 @@ public class RenderTrackerService {
 	}
 
 	/// <summary>
-	/// Gets the session ID for the current request context (simplified for demo).
+	/// Gets the session ID for the current request context.
 	/// </summary>
 	/// <returns>A session identifier or null if not available.</returns>
 	private string? GetSessionId() {
-		// In a real implementation, you might get this from HttpContext or SignalR connection
-		// For now, we'll use a simplified approach
+		// Try to get session context from the service
+		var sessionContext = _sessionContextService?.GetCurrentContext();
+		if (sessionContext != null) {
+			// Update session activity for cleanup tracking
+			_sessionLastActivity[sessionContext.SessionId] = DateTime.UtcNow;
+			return sessionContext.SessionId;
+		}
+
+		// Fallback to thread-based ID for non-SSR scenarios
 		return $"session-{Environment.CurrentManagedThreadId}";
 	}
 
@@ -658,5 +708,98 @@ public class RenderTrackerService {
 
 			changeCount++;
 		}
+	}
+
+	/// <summary>
+	/// Starts the cleanup timer for session data management.
+	/// </summary>
+	private void StartCleanupTimer() {
+		var interval = TimeSpan.FromMinutes(_config.SessionCleanupIntervalMinutes);
+		_cleanupTimer = new Timer(CleanupOldSessionData, null, interval, interval);
+	}
+
+	/// <summary>
+	/// Cleans up old session data to prevent memory leaks.
+	/// </summary>
+	/// <param name="state">Timer state (unused).</param>
+	private void CleanupOldSessionData(object? state) {
+		try {
+			var cutoffTime = DateTime.UtcNow.AddMinutes(-_config.SessionCleanupIntervalMinutes);
+			var sessionsToRemove = _sessionLastActivity
+				.Where(kvp => kvp.Value < cutoffTime)
+				.Select(kvp => kvp.Key)
+				.ToList();
+
+			foreach (var sessionId in sessionsToRemove) {
+				_sessionLastActivity.TryRemove(sessionId, out _);
+
+				// Clean up session-specific data from other caches
+				CleanupSessionSpecificData(sessionId);
+			}
+
+			// Also enforce max concurrent sessions limit
+			if (_sessionLastActivity.Count > _config.MaxConcurrentSessions) {
+				var oldestSessions = _sessionLastActivity
+					.OrderBy(kvp => kvp.Value)
+					.Take(_sessionLastActivity.Count - _config.MaxConcurrentSessions)
+					.Select(kvp => kvp.Key)
+					.ToList();
+
+				foreach (var sessionId in oldestSessions) {
+					_sessionLastActivity.TryRemove(sessionId, out _);
+					CleanupSessionSpecificData(sessionId);
+				}
+			}
+		}
+		catch (Exception ex) {
+			// Log cleanup errors but don't let them crash the application
+			Console.WriteLine($"[WhyDidYouRender] Session cleanup error: {ex.Message}");
+		}
+	}
+
+	/// <summary>
+	/// Cleans up session-specific data from component caches.
+	/// </summary>
+	/// <param name="sessionId">The session ID to clean up.</param>
+	private void CleanupSessionSpecificData(string sessionId) {
+		// Note: This is a simplified cleanup. In a real implementation,
+		// you might want to track which components belong to which sessions
+		// and clean them up more precisely.
+
+		// For now, we'll just clean up old render history entries
+		var componentsToClean = _renderHistory
+			.Where(kvp => kvp.Value.Count > 0 &&
+						 kvp.Value.All(time => time < DateTime.UtcNow.AddMinutes(-_config.SessionCleanupIntervalMinutes)))
+			.Select(kvp => kvp.Key)
+			.ToList();
+
+		foreach (var component in componentsToClean) {
+			_renderHistory.TryRemove(component, out _);
+			_previousParameters.TryRemove(component, out _);
+			_renderTimers.TryRemove(component, out _);
+			_componentStateSnapshots.TryRemove(component, out _);
+		}
+	}
+
+	/// <summary>
+	/// Checks if tracking should be enabled for the current context.
+	/// </summary>
+	/// <returns>True if tracking should be enabled; otherwise, false.</returns>
+	private bool ShouldTrackInCurrentContext() {
+		var sessionContext = _sessionContextService?.GetCurrentContext();
+		if (sessionContext == null) return true; // Default to tracking if no context
+
+		// Check prerendering setting
+		if (sessionContext.IsPrerendering && !_config.TrackDuringPrerendering) {
+			return false;
+		}
+
+		// In production with security mode, be more restrictive
+		if (_hostEnvironment?.IsProduction() == true && _config.EnableSecurityMode) {
+			// Only track if explicitly enabled for production
+			return _config.Enabled;
+		}
+
+		return _config.Enabled;
 	}
 }

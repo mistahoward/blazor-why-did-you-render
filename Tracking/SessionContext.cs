@@ -1,5 +1,6 @@
 using System;
 using System.Security.Claims;
+
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.SignalR;
 
@@ -173,15 +174,29 @@ public class SessionContextService : ISessionContextService {
 	}
 
 	private string GetOrCreateSessionId(HttpContext httpContext) {
-		// Try to get existing session ID
-		if (httpContext.Session.IsAvailable) {
-			var sessionId = httpContext.Session.Id;
-			if (!string.IsNullOrEmpty(sessionId)) {
-				return sessionId;
+		try {
+			// Try to get existing session ID
+			if (httpContext.Session.IsAvailable) {
+				var sessionId = httpContext.Session.Id;
+				if (!string.IsNullOrEmpty(sessionId)) {
+					return sessionId;
+				}
 			}
+		}
+		catch (InvalidOperationException) {
+			// Session not configured - fall back to alternative ID generation
+		}
+		catch (Exception) {
+			// Any other session-related error - fall back gracefully
 		}
 
 		// Fallback to connection ID or generate one
+		var connectionId = httpContext.Connection.Id;
+		if (!string.IsNullOrEmpty(connectionId)) {
+			return $"conn-{connectionId}";
+		}
+
+		// Final fallback - generate a unique ID
 		return $"session-{Guid.NewGuid():N}";
 	}
 
@@ -226,35 +241,35 @@ public class SessionContextService : ISessionContextService {
 	// Privacy/Security sanitization methods
 	private string SanitizeSessionId(string sessionId) {
 		if (string.IsNullOrEmpty(sessionId)) return sessionId;
-		
+
 		// For privacy, only show first 8 characters + hash
 		return sessionId.Length > 8 ? $"{sessionId[..8]}***" : sessionId;
 	}
 
 	private string? SanitizeConnectionId(string? connectionId) {
 		if (string.IsNullOrEmpty(connectionId)) return connectionId;
-		
+
 		// Similar to session ID
 		return connectionId.Length > 8 ? $"{connectionId[..8]}***" : connectionId;
 	}
 
 	private string? SanitizeUserId(string? userId) {
 		if (string.IsNullOrEmpty(userId) || !_config.IncludeUserInfo) return null;
-		
+
 		// Hash or truncate user ID for privacy
 		return userId.Length > 6 ? $"{userId[..3]}***{userId[^3..]}" : "***";
 	}
 
 	private string? SanitizeUserName(string? userName) {
 		if (string.IsNullOrEmpty(userName) || !_config.IncludeUserInfo) return null;
-		
+
 		// Only show first letter + length for privacy
 		return $"{userName[0]}*** ({userName.Length} chars)";
 	}
 
 	private string? SanitizeIpAddress(string? ipAddress) {
 		if (string.IsNullOrEmpty(ipAddress) || !_config.IncludeClientInfo) return null;
-		
+
 		// Mask last octet for IPv4, or significant portion for IPv6
 		if (ipAddress.Contains('.')) {
 			var parts = ipAddress.Split('.');
@@ -262,19 +277,19 @@ public class SessionContextService : ISessionContextService {
 				return $"{parts[0]}.{parts[1]}.{parts[2]}.***";
 			}
 		}
-		
+
 		return "***";
 	}
 
 	private string? SanitizeUserAgent(string? userAgent) {
 		if (string.IsNullOrEmpty(userAgent) || !_config.IncludeClientInfo) return null;
-		
+
 		// Extract just browser name and version, remove detailed system info
 		if (userAgent.Contains("Chrome")) return "Chrome/***";
 		if (userAgent.Contains("Firefox")) return "Firefox/***";
 		if (userAgent.Contains("Safari")) return "Safari/***";
 		if (userAgent.Contains("Edge")) return "Edge/***";
-		
+
 		return "Unknown/***";
 	}
 }

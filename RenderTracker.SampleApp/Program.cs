@@ -2,6 +2,14 @@ using Blazor.WhyDidYouRender.Tracking;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Add session support for WhyDidYouRender
+builder.Services.AddDistributedMemoryCache();
+builder.Services.AddSession(options => {
+	options.IdleTimeout = TimeSpan.FromMinutes(30);
+	options.Cookie.HttpOnly = true;
+	options.Cookie.IsEssential = true;
+});
+
 // Add services to the container.
 builder.Services.AddRazorComponents()
 	.AddInteractiveServerComponents();
@@ -22,6 +30,15 @@ builder.Services.AddWhyDidYouRender(config => {
 	config.HighlightUnnecessaryRerenders = true;
 	config.FrequentRerenderThreshold = 3.0; // Lower threshold for demo
 
+	// SSR-specific settings (for demo - in production, be more restrictive)
+	config.IncludeUserInfo = true; // Enable for demo
+	config.IncludeClientInfo = true; // Enable for demo
+	config.TrackDuringPrerendering = true;
+	config.TrackDuringHydration = true;
+	config.MaxConcurrentSessions = 100; // Lower for demo
+	config.SessionCleanupIntervalMinutes = 5; // More frequent cleanup for demo
+	config.EnableSecurityMode = false; // Disabled for demo
+
 	// Example filtering - exclude system components
 	config.ExcludeNamespaces = new List<string> { "Microsoft.*", "System.*" };
 
@@ -30,6 +47,9 @@ builder.Services.AddWhyDidYouRender(config => {
 });
 
 var app = builder.Build();
+
+// Initialize SSR services for WhyDidYouRender
+app.Services.InitializeSSRServices();
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment()) {
@@ -40,6 +60,8 @@ if (!app.Environment.IsDevelopment()) {
 
 app.UseHttpsRedirection();
 
+// Enable session middleware for WhyDidYouRender
+app.UseSession();
 
 app.UseAntiforgery();
 

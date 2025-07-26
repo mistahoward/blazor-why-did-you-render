@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.JSInterop;
 
 namespace Blazor.WhyDidYouRender.Tracking;
@@ -17,6 +18,10 @@ public static class ServiceCollectionExtensions {
 	public static IServiceCollection AddWhyDidYouRender(
 		this IServiceCollection services,
 		IConfiguration? configuration = null) {
+		// Register SSR-specific services
+		services.AddHttpContextAccessor();
+		services.AddSingleton<ISessionContextService, SessionContextService>();
+
 		// Register the browser console logger
 		services.AddScoped<BrowserConsoleLogger>();
 
@@ -43,6 +48,10 @@ public static class ServiceCollectionExtensions {
 	public static IServiceCollection AddWhyDidYouRender(
 		this IServiceCollection services,
 		Action<WhyDidYouRenderConfig> configureOptions) {
+		// Register SSR-specific services
+		services.AddHttpContextAccessor();
+		services.AddSingleton<ISessionContextService, SessionContextService>();
+
 		// Register the browser console logger
 		services.AddScoped<BrowserConsoleLogger>();
 
@@ -54,6 +63,9 @@ public static class ServiceCollectionExtensions {
 
 		// Apply configuration to the singleton service
 		RenderTrackerService.Instance.Configure(config);
+
+		// Configure SSR services (will be called after service provider is built)
+		ConfigureSSRServices(services);
 
 		return services;
 	}
@@ -79,6 +91,36 @@ public static class ServiceCollectionExtensions {
 		}
 		else {
 			Console.WriteLine("[WhyDidYouRender] Browser logger service not found in DI container");
+		}
+	}
+
+	/// <summary>
+	/// Configures SSR-specific services for the render tracker.
+	/// </summary>
+	/// <param name="services">The service collection.</param>
+	private static void ConfigureSSRServices(IServiceCollection services) {
+		// This will be called during service registration to set up SSR services
+		// The actual configuration happens when the service provider is built
+	}
+
+	/// <summary>
+	/// Initializes SSR services after the service provider is built.
+	/// Call this method in your application startup after building the service provider.
+	/// </summary>
+	/// <param name="serviceProvider">The built service provider.</param>
+	public static void InitializeSSRServices(this IServiceProvider serviceProvider) {
+		var tracker = RenderTrackerService.Instance;
+
+		// Set up session context service
+		var sessionContextService = serviceProvider.GetService<ISessionContextService>();
+		if (sessionContextService != null) {
+			tracker.SetSessionContextService(sessionContextService);
+		}
+
+		// Set up host environment
+		var hostEnvironment = serviceProvider.GetService<IHostEnvironment>();
+		if (hostEnvironment != null) {
+			tracker.SetHostEnvironment(hostEnvironment);
 		}
 	}
 }

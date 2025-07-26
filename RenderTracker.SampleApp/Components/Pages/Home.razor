@@ -10,6 +10,12 @@
 
 <p>Welcome to the WhyDidYouRender demonstration app! This page shows how component renders are tracked.</p>
 
+<div class="alert alert-info">
+    <h4>🔍 WhyDidYouRender Demo</h4>
+    <p>This page demonstrates the WhyDidYouRender tracking system. Open your browser's developer console to see detailed tracking information.</p>
+    <p><strong>🛠️ Error Diagnostics:</strong> <a href="/_whydidyourender/errors" target="_blank">View Error Dashboard</a></p>
+</div>
+
 <div class="row">
     <div class="col-md-6">
         <h3>Parent Component Controls</h3>
@@ -18,6 +24,7 @@
         <button class="btn btn-secondary" @onclick="ForceParentRender">Force Parent Re-render</button>
         <button class="btn btn-warning" @onclick="TriggerUnnecessaryRerender">Trigger Unnecessary Re-render</button>
         <button class="btn btn-danger" @onclick="TriggerFrequentRerenders">Trigger Frequent Re-renders</button>
+        <button class="btn btn-dark" @onclick="TriggerTrackingError">Trigger Tracking Error (Test)</button>
     </div>
     <div class="col-md-6">
         <h3>Child Component</h3>
@@ -196,5 +203,44 @@
             StateHasChanged();
             await Task.Delay(50); // Small delay between renders
         }
+    }
+
+    private void TriggerTrackingError()
+    {
+        // This will intentionally cause an error in tracking to test error handling
+        // We'll create a scenario that would cause an error during parameter tracking
+
+        // First, let's manually trigger an error in the error tracker if it exists
+        var errorTracker = ServiceProvider.GetService<Blazor.WhyDidYouRender.Tracking.IErrorTracker>();
+        if (errorTracker != null)
+        {
+            errorTracker.TrackError("Test error triggered manually from UI", new Dictionary<string, object?> {
+                ["ComponentName"] = "Home",
+                ["TrackingMethod"] = "TriggerTrackingError",
+                ["TestScenario"] = "Manual error trigger"
+            }, Blazor.WhyDidYouRender.Tracking.ErrorSeverity.Warning);
+
+            // Also trigger a more serious error
+            try
+            {
+                throw new InvalidOperationException("Simulated tracking error for testing");
+            }
+            catch (Exception ex)
+            {
+                errorTracker.TrackError(ex, new Dictionary<string, object?> {
+                    ["ComponentName"] = "Home",
+                    ["TrackingMethod"] = "TriggerTrackingError",
+                    ["TestScenario"] = "Exception during tracking"
+                }, Blazor.WhyDidYouRender.Tracking.ErrorSeverity.Error);
+            }
+
+            Console.WriteLine("[Test] Errors have been logged to the error tracking system");
+        }
+        else
+        {
+            Console.WriteLine("[Test] Error tracker service not found!");
+        }
+
+        StateHasChanged();
     }
 }

@@ -22,6 +22,9 @@ public static class ServiceCollectionExtensions {
 		services.AddHttpContextAccessor();
 		services.AddSingleton<ISessionContextService, SessionContextService>();
 
+		// Register error tracking
+		services.AddSingleton<IErrorTracker, ErrorTracker>();
+
 		// Register the browser console logger
 		services.AddScoped<BrowserConsoleLogger>();
 
@@ -51,6 +54,9 @@ public static class ServiceCollectionExtensions {
 		// Register SSR-specific services
 		services.AddHttpContextAccessor();
 		services.AddSingleton<ISessionContextService, SessionContextService>();
+
+		// Register error tracking
+		services.AddSingleton<IErrorTracker, ErrorTracker>();
 
 		// Register the browser console logger
 		services.AddScoped<BrowserConsoleLogger>();
@@ -111,16 +117,38 @@ public static class ServiceCollectionExtensions {
 	public static void InitializeSSRServices(this IServiceProvider serviceProvider) {
 		var tracker = RenderTrackerService.Instance;
 
+		Console.WriteLine("[WhyDidYouRender] Initializing SSR services...");
+
+		// Set up error tracking
+		var errorTracker = serviceProvider.GetService<IErrorTracker>();
+		if (errorTracker != null) {
+			tracker.SetErrorTracker(errorTracker);
+			Console.WriteLine("[WhyDidYouRender] Error tracker initialized successfully");
+		}
+		else {
+			Console.WriteLine("[WhyDidYouRender] ERROR: Error tracker service not found!");
+		}
+
 		// Set up session context service
 		var sessionContextService = serviceProvider.GetService<ISessionContextService>();
 		if (sessionContextService != null) {
 			tracker.SetSessionContextService(sessionContextService);
+			Console.WriteLine("[WhyDidYouRender] Session context service initialized successfully");
+		}
+		else {
+			Console.WriteLine("[WhyDidYouRender] ERROR: Session context service not found!");
 		}
 
 		// Set up host environment
 		var hostEnvironment = serviceProvider.GetService<IHostEnvironment>();
 		if (hostEnvironment != null) {
 			tracker.SetHostEnvironment(hostEnvironment);
+			Console.WriteLine("[WhyDidYouRender] Host environment initialized successfully");
 		}
+		else {
+			Console.WriteLine("[WhyDidYouRender] ERROR: Host environment service not found!");
+		}
+
+		Console.WriteLine("[WhyDidYouRender] SSR services initialization complete");
 	}
 }

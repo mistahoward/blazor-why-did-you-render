@@ -136,6 +136,11 @@ public class RenderTrackerService {
 	private Timer? _cleanupTimer;
 
 	/// <summary>
+	/// Error tracker for handling and logging errors.
+	/// </summary>
+	private IErrorTracker? _errorTracker;
+
+	/// <summary>
 	/// Gets the singleton instance of the <see cref="RenderTrackerService"/>.
 	/// </summary>
 	public static RenderTrackerService Instance => _instance.Value;
@@ -193,6 +198,14 @@ public class RenderTrackerService {
 	}
 
 	/// <summary>
+	/// Sets the error tracker for handling and logging errors.
+	/// </summary>
+	/// <param name="errorTracker">The error tracker instance.</param>
+	public void SetErrorTracker(IErrorTracker errorTracker) {
+		_errorTracker = errorTracker;
+	}
+
+	/// <summary>
 	/// Gets the current configuration.
 	/// </summary>
 	public WhyDidYouRenderConfig GetConfig() => _config;
@@ -204,6 +217,19 @@ public class RenderTrackerService {
 	/// <param name="method">The lifecycle method or trigger causing the render.</param>
 	/// <param name="firstRender">Indicates if this is the first render (optional).</param>
 	public void Track(ComponentBase component, string method, bool? firstRender = null) {
+		// Use safe execution to prevent tracking errors from breaking components
+		SafeExecutor.ExecuteTracking(component, method, () => {
+			TrackInternal(component, method, firstRender);
+		}, _errorTracker);
+	}
+
+	/// <summary>
+	/// Internal tracking implementation with error handling.
+	/// </summary>
+	/// <param name="component">The component being rendered.</param>
+	/// <param name="method">The lifecycle method being called.</param>
+	/// <param name="firstRender">Whether this is the first render (optional).</param>
+	private void TrackInternal(ComponentBase component, string method, bool? firstRender = null) {
 		// Check if tracking is enabled and appropriate for current context
 		if (!ShouldTrackInCurrentContext() || component == null) return;
 
@@ -216,7 +242,12 @@ public class RenderTrackerService {
 
 		// Detect parameter changes (respecting configuration)
 		var parameterChanges = _config.TrackParameterChanges
-			? DetectParameterChanges(component, method)
+			? SafeExecutor.ExecuteTracking(
+				component,
+				"DetectParameterChanges",
+				() => DetectParameterChanges(component, method),
+				null,
+				_errorTracker)
 			: null;
 
 		// Detect unnecessary re-renders if enabled

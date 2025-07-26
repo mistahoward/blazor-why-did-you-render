@@ -175,4 +175,22 @@ public class WhyDidYouRenderConfig {
 	/// When enabled, all potentially sensitive data is sanitized or excluded.
 	/// </summary>
 	public bool EnableSecurityMode { get; set; } = false;
+
+	/// <summary>
+	/// Gets or sets whether to enable error tracking and reporting.
+	/// When enabled, errors during tracking operations are logged and reported.
+	/// </summary>
+	public bool EnableErrorTracking { get; set; } = true;
+
+	/// <summary>
+	/// Gets or sets the maximum number of errors to keep in memory for diagnostics.
+	/// Older errors are automatically cleaned up to prevent memory issues.
+	/// </summary>
+	public int MaxErrorHistorySize { get; set; } = 1000;
+
+	/// <summary>
+	/// Gets or sets the error cleanup interval in minutes.
+	/// Errors older than this interval will be cleaned up automatically.
+	/// </summary>
+	public int ErrorCleanupIntervalMinutes { get; set; } = 60;
 }

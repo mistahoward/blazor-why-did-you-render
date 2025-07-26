@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 
 using Microsoft.JSInterop;
+using Microsoft.Extensions.Logging;
 
 namespace Blazor.WhyDidYouRender.Tracking;
 
@@ -14,6 +15,7 @@ public class BrowserConsoleLogger : IAsyncDisposable {
 	private readonly IJSRuntime _jsRuntime;
 	private IJSObjectReference? _module;
 	private bool _isInitialized = false;
+	private IErrorTracker? _errorTracker;
 
 	/// <summary>
 	/// Initializes a new instance of the <see cref="BrowserConsoleLogger"/> class.
@@ -21,6 +23,14 @@ public class BrowserConsoleLogger : IAsyncDisposable {
 	/// <param name="jsRuntime">The JavaScript runtime for interop.</param>
 	public BrowserConsoleLogger(IJSRuntime jsRuntime) {
 		_jsRuntime = jsRuntime;
+	}
+
+	/// <summary>
+	/// Sets the error tracker for handling JavaScript interop errors.
+	/// </summary>
+	/// <param name="errorTracker">The error tracker instance.</param>
+	public void SetErrorTracker(IErrorTracker errorTracker) {
+		_errorTracker = errorTracker;
 	}
 
 	/// <summary>
@@ -45,6 +55,19 @@ public class BrowserConsoleLogger : IAsyncDisposable {
 	/// </summary>
 	/// <param name="renderEvent">The render event to log.</param>
 	public async Task LogRenderEventAsync(RenderEvent renderEvent) {
+		await SafeExecutor.ExecuteAsync(async () => {
+			await LogRenderEventInternalAsync(renderEvent);
+		}, _errorTracker, new Dictionary<string, object?> {
+			["ComponentName"] = renderEvent.ComponentName,
+			["Method"] = renderEvent.Method
+		}, renderEvent.ComponentName, "BrowserConsoleLog");
+	}
+
+	/// <summary>
+	/// Internal implementation of browser console logging.
+	/// </summary>
+	/// <param name="renderEvent">The render event to log.</param>
+	private async Task LogRenderEventInternalAsync(RenderEvent renderEvent) {
 		if (!_isInitialized) {
 			await InitializeAsync();
 		}

@@ -69,4 +69,7 @@ app.MapStaticAssets();
 app.MapRazorComponents<RenderTracker.SampleApp.Component.App>()
 	.AddInteractiveServerRenderMode();
 
+// Add error diagnostics endpoints (development only)
+app.MapErrorDiagnostics();
+
 app.Run();

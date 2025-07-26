@@ -36,7 +36,7 @@ public static class ServiceCollectionExtensions {
 
 			services.AddSingleton<WhyDidYouRenderConfig>(config);
 
-			RenderTrackerService.Instance.Configure(config);
+			RenderTrackerService.Instance.Configure(c => configuration.Bind(c));
 		}
 
 		return services;
@@ -63,7 +63,7 @@ public static class ServiceCollectionExtensions {
 
 		services.AddSingleton<WhyDidYouRenderConfig>(config);
 
-		RenderTrackerService.Instance.Configure(config);
+		RenderTrackerService.Instance.Configure(configureOptions);
 
 		ConfigureSSRServices(services);
 

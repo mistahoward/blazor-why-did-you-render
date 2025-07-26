@@ -14,7 +14,7 @@ namespace Blazor.WhyDidYouRender.Helpers;
 /// <summary>
 /// Service for logging render tracking information to the browser console via JavaScript interop.
 /// </summary>
-public class BrowserConsoleLogger : IAsyncDisposable {
+public class BrowserConsoleLogger : IBrowserConsoleLogger {
 	private readonly IJSRuntime _jsRuntime;
 	private IJSObjectReference? _module = null;
 	private bool _isInitialized = false;

@@ -3,6 +3,7 @@
 @inherits TrackedComponentBase
 @inject IJSRuntime JSRuntime
 @inject IServiceProvider ServiceProvider
+@using Blazor.WhyDidYouRender.Extensions
 
 <PageTitle>Home</PageTitle>
 
@@ -211,14 +212,14 @@
         // We'll create a scenario that would cause an error during parameter tracking
 
         // First, let's manually trigger an error in the error tracker if it exists
-        var errorTracker = ServiceProvider.GetService<Blazor.WhyDidYouRender.Tracking.IErrorTracker>();
+        var errorTracker = ServiceProvider.GetService<Blazor.WhyDidYouRender.Diagnostics.IErrorTracker>();
         if (errorTracker != null)
         {
             errorTracker.TrackError("Test error triggered manually from UI", new Dictionary<string, object?> {
                 ["ComponentName"] = "Home",
                 ["TrackingMethod"] = "TriggerTrackingError",
                 ["TestScenario"] = "Manual error trigger"
-            }, Blazor.WhyDidYouRender.Tracking.ErrorSeverity.Warning);
+            }, Blazor.WhyDidYouRender.Records.ErrorSeverity.Warning);
 
             // Also trigger a more serious error
             try
@@ -231,7 +232,7 @@
                     ["ComponentName"] = "Home",
                     ["TrackingMethod"] = "TriggerTrackingError",
                     ["TestScenario"] = "Exception during tracking"
-                }, Blazor.WhyDidYouRender.Tracking.ErrorSeverity.Error);
+                }, Blazor.WhyDidYouRender.Records.ErrorSeverity.Error);
             }
 
             Console.WriteLine("[Test] Errors have been logged to the error tracking system");

@@ -1,4 +1,6 @@
-using Blazor.WhyDidYouRender.Tracking;
+using Blazor.WhyDidYouRender.Extensions;
+using Blazor.WhyDidYouRender.Configuration;
+using Blazor.WhyDidYouRender.Diagnostics;
 
 var builder = WebApplication.CreateBuilder(args);
 

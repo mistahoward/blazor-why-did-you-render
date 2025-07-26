@@ -111,11 +111,55 @@ public class RenderTrackerService {
 	}
 
 	/// <summary>
+	/// Sets the browser logger for client-side logging.
+	/// </summary>
+	/// <param name="browserLogger">The browser logger instance.</param>
+	public void SetBrowserLogger(IBrowserConsoleLogger browserLogger) {
+		_browserLogger = browserLogger;
+	}
+
+	/// <summary>
+	/// Sets the error tracker for handling errors.
+	/// </summary>
+	/// <param name="errorTracker">The error tracker instance.</param>
+	public void SetErrorTracker(IErrorTracker errorTracker) {
+		_errorTracker = errorTracker;
+	}
+
+	/// <summary>
+	/// Sets the session context service for session management.
+	/// </summary>
+	/// <param name="sessionContextService">The session context service instance.</param>
+	public void SetSessionContextService(ISessionContextService sessionContextService) {
+		// Store reference if needed for future use
+	}
+
+	/// <summary>
+	/// Sets the host environment for environment-specific behavior.
+	/// </summary>
+	/// <param name="hostEnvironment">The host environment instance.</param>
+	public void SetHostEnvironment(IHostEnvironment hostEnvironment) {
+		if (hostEnvironment?.IsDevelopment() == true) {
+			StartCleanupTimer();
+		}
+	}
+
+	/// <summary>
 	/// Starts timing a render operation for a component.
 	/// </summary>
 	/// <param name="component">The component being rendered.</param>
 	public void StartRenderTiming(ComponentBase component) {
 		_performanceTracker.StartRenderTiming(component);
+	}
+
+	/// <summary>
+	/// Tracks a render event for the specified component.
+	/// </summary>
+	/// <param name="component">The component being rendered.</param>
+	/// <param name="method">The lifecycle method that triggered the render.</param>
+	/// <param name="firstRender">Whether this is the first render of the component.</param>
+	public void Track(ComponentBase component, string method, bool? firstRender = null) {
+		TrackRender(component, method, firstRender);
 	}
 
 	/// <summary>
@@ -130,8 +174,8 @@ public class RenderTrackerService {
 		SafeExecutor.ExecuteTracking(
 			component,
 			"TrackRender",
-			() => TrackRenderInternal(component, method, firstRender),
-			null,
+			() => { TrackRenderInternal(component, method, firstRender); return true; },
+			false,
 			_errorTracker);
 	}
 
@@ -260,7 +304,7 @@ public class RenderTrackerService {
 			}
 		}
 		catch (Exception ex) {
-			_errorTracker?.TrackError(ex, "LogRenderEventAsync", ErrorSeverity.Warning);
+			_errorTracker?.TrackError(ex, new Dictionary<string, object?> { ["Method"] = "LogRenderEventAsync" }, ErrorSeverity.Warning);
 		}
 	}
 

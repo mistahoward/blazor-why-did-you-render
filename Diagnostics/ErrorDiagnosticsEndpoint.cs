@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
-namespace Blazor.WhyDidYouRender.Tracking;
+namespace Blazor.WhyDidYouRender.Diagnostics;
 
 /// <summary>
 /// Provides diagnostic endpoints for viewing error tracking information.
@@ -19,14 +19,12 @@ public static class ErrorDiagnosticsEndpoint {
     /// <param name="basePath">The base path for diagnostics endpoints (default: "/_whydidyourender").</param>
     /// <returns>The web application for chaining.</returns>
     public static WebApplication MapErrorDiagnostics(this WebApplication app, string basePath = "/_whydidyourender") {
-        // Only enable in development environment for security
         if (!app.Environment.IsDevelopment()) {
             return app;
         }
 
         var group = app.MapGroup(basePath);
 
-        // Error statistics endpoint
         group.MapGet("/errors/stats", async (HttpContext context) => {
             var errorTracker = context.RequestServices.GetService<IErrorTracker>();
             if (errorTracker == null) {
@@ -44,7 +42,6 @@ public static class ErrorDiagnosticsEndpoint {
             await context.Response.WriteAsync(json);
         });
 
-        // Recent errors endpoint
         group.MapGet("/errors/recent", async (HttpContext context) => {
             var errorTracker = context.RequestServices.GetService<IErrorTracker>();
             if (errorTracker == null) {
@@ -65,14 +62,12 @@ public static class ErrorDiagnosticsEndpoint {
             await context.Response.WriteAsync(json);
         });
 
-        // Error dashboard HTML endpoint
         group.MapGet("/errors", async (HttpContext context) => {
             var html = GenerateErrorDashboardHtml(basePath);
             context.Response.ContentType = "text/html";
             await context.Response.WriteAsync(html);
         });
 
-        // Clear old errors endpoint
         group.MapPost("/errors/clear", async (HttpContext context) => {
             var errorTracker = context.RequestServices.GetService<IErrorTracker>();
             if (errorTracker == null) {
@@ -160,7 +155,6 @@ public static class ErrorDiagnosticsEndpoint {
                 const stats = await response.json();
                 console.log('Received stats:', stats);
 
-                // Safely access properties with fallbacks
                 const totalErrors = stats.totalErrors || stats.TotalErrors || 0;
                 const errorsLastHour = stats.errorsLastHour || stats.ErrorsLastHour || 0;
                 const errorsLast24Hours = stats.errorsLast24Hours || stats.ErrorsLast24Hours || 0;
@@ -202,7 +196,6 @@ public static class ErrorDiagnosticsEndpoint {
                 const errors = await response.json();
                 console.log('Received errors:', errors);
 
-                // Debug: log the first error to see the structure
                 if (errors.length > 0) {
                     console.log('First error structure:', errors[0]);
                     console.log('Severity value:', errors[0].severity || errors[0].Severity);
@@ -219,13 +212,10 @@ public static class ErrorDiagnosticsEndpoint {
                 }
 
                 const errorsHtml = errors.map(error => {
-                    // Safely access properties with fallbacks
                     const errorId = error.errorId || error.ErrorId || 'unknown';
 
-                    // Handle severity - could be string or number (enum)
                     let severity = error.severity || error.Severity || 'unknown';
                     if (typeof severity === 'number') {
-                        // Convert enum number to string
                         const severityNames = ['info', 'warning', 'error', 'critical'];
                         severity = severityNames[severity] || 'unknown';
                     }
@@ -268,7 +258,6 @@ public static class ErrorDiagnosticsEndpoint {
             loadErrors();
         }
 
-        // Load data on page load and refresh every 30 seconds
         loadData();
         setInterval(loadData, 30000);
     </script>

@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Components;
 
-namespace Blazor.WhyDidYouRender.Tracking;
+using Blazor.WhyDidYouRender.Core;
+
+namespace Blazor.WhyDidYouRender.Components;
 
 /// <summary>
 /// Base class for Blazor components that automatically tracks and logs render events for diagnostics.

@@ -4,7 +4,9 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.SignalR;
 
-namespace Blazor.WhyDidYouRender.Tracking;
+using Blazor.WhyDidYouRender.Configuration;
+
+namespace Blazor.WhyDidYouRender.Helpers;
 
 /// <summary>
 /// Represents the context information for a user session in SSR scenarios.
@@ -147,7 +149,7 @@ public class SessionContextService : ISessionContextService {
 			UserId = GetUserId(hubContext),
 			UserName = GetUserName(hubContext),
 			IsAuthenticated = hubContext.User?.Identity?.IsAuthenticated ?? false,
-			IsPrerendering = false // SignalR connections are never prerendering
+			IsPrerendering = false
 		};
 
 		return SanitizeForLogging(context);
@@ -155,7 +157,6 @@ public class SessionContextService : ISessionContextService {
 
 	/// <inheritdoc />
 	public SessionContext SanitizeForLogging(SessionContext context) {
-		// Create a copy for sanitization
 		var sanitized = new SessionContext {
 			SessionId = SanitizeSessionId(context.SessionId),
 			ConnectionId = SanitizeConnectionId(context.ConnectionId),
@@ -175,7 +176,6 @@ public class SessionContextService : ISessionContextService {
 
 	private string GetOrCreateSessionId(HttpContext httpContext) {
 		try {
-			// Try to get existing session ID
 			if (httpContext.Session.IsAvailable) {
 				var sessionId = httpContext.Session.Id;
 				if (!string.IsNullOrEmpty(sessionId)) {
@@ -190,13 +190,11 @@ public class SessionContextService : ISessionContextService {
 			// Any other session-related error - fall back gracefully
 		}
 
-		// Fallback to connection ID or generate one
 		var connectionId = httpContext.Connection.Id;
 		if (!string.IsNullOrEmpty(connectionId)) {
 			return $"conn-{connectionId}";
 		}
 
-		// Final fallback - generate a unique ID
 		return $"session-{Guid.NewGuid():N}";
 	}
 
@@ -217,7 +215,6 @@ public class SessionContextService : ISessionContextService {
 	}
 
 	private string? GetClientIpAddress(HttpContext httpContext) {
-		// Check for forwarded headers first (for load balancers/proxies)
 		var forwardedFor = httpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault();
 		if (!string.IsNullOrEmpty(forwardedFor)) {
 			return forwardedFor.Split(',')[0].Trim();
@@ -232,45 +229,37 @@ public class SessionContextService : ISessionContextService {
 	}
 
 	private bool IsPrerendering(HttpContext httpContext) {
-		// Check if this is a prerendering request
-		// This can be detected by checking for specific headers or request characteristics
 		return httpContext.Request.Headers.ContainsKey("X-Prerendering") ||
 			   httpContext.Request.Query.ContainsKey("prerender");
 	}
 
-	// Privacy/Security sanitization methods
 	private string SanitizeSessionId(string sessionId) {
 		if (string.IsNullOrEmpty(sessionId)) return sessionId;
 
-		// For privacy, only show first 8 characters + hash
 		return sessionId.Length > 8 ? $"{sessionId[..8]}***" : sessionId;
 	}
 
 	private string? SanitizeConnectionId(string? connectionId) {
 		if (string.IsNullOrEmpty(connectionId)) return connectionId;
 
-		// Similar to session ID
 		return connectionId.Length > 8 ? $"{connectionId[..8]}***" : connectionId;
 	}
 
 	private string? SanitizeUserId(string? userId) {
 		if (string.IsNullOrEmpty(userId) || !_config.IncludeUserInfo) return null;
 
-		// Hash or truncate user ID for privacy
 		return userId.Length > 6 ? $"{userId[..3]}***{userId[^3..]}" : "***";
 	}
 
 	private string? SanitizeUserName(string? userName) {
 		if (string.IsNullOrEmpty(userName) || !_config.IncludeUserInfo) return null;
 
-		// Only show first letter + length for privacy
 		return $"{userName[0]}*** ({userName.Length} chars)";
 	}
 
 	private string? SanitizeIpAddress(string? ipAddress) {
 		if (string.IsNullOrEmpty(ipAddress) || !_config.IncludeClientInfo) return null;
 
-		// Mask last octet for IPv4, or significant portion for IPv6
 		if (ipAddress.Contains('.')) {
 			var parts = ipAddress.Split('.');
 			if (parts.Length == 4) {
@@ -284,7 +273,6 @@ public class SessionContextService : ISessionContextService {
 	private string? SanitizeUserAgent(string? userAgent) {
 		if (string.IsNullOrEmpty(userAgent) || !_config.IncludeClientInfo) return null;
 
-		// Extract just browser name and version, remove detailed system info
 		if (userAgent.Contains("Chrome")) return "Chrome/***";
 		if (userAgent.Contains("Firefox")) return "Firefox/***";
 		if (userAgent.Contains("Safari")) return "Safari/***";

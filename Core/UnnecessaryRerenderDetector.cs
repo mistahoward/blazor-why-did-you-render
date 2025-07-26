@@ -1,0 +1,177 @@
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
+
+using Microsoft.AspNetCore.Components;
+
+using Blazor.WhyDidYouRender.Configuration;
+using Blazor.WhyDidYouRender.Records;
+
+namespace Blazor.WhyDidYouRender.Core;
+
+/// <summary>
+/// Service responsible for detecting unnecessary re-renders in Blazor components.
+/// </summary>
+public class UnnecessaryRerenderDetector {
+	/// <summary>
+	/// Cache to store component state snapshots for comparison.
+	/// </summary>
+	private readonly ConcurrentDictionary<ComponentBase, object?> _componentStates = new();
+
+	/// <summary>
+	/// Configuration for unnecessary re-render detection.
+	/// </summary>
+	private readonly WhyDidYouRenderConfig _config;
+
+	/// <summary>
+	/// Initializes a new instance of the <see cref="UnnecessaryRerenderDetector"/> class.
+	/// </summary>
+	/// <param name="config">The configuration for detection.</param>
+	public UnnecessaryRerenderDetector(WhyDidYouRenderConfig config) {
+		_config = config;
+	}
+
+	/// <summary>
+	/// Detects if a render is unnecessary based on component state and parameter changes.
+	/// </summary>
+	/// <param name="component">The component being rendered.</param>
+	/// <param name="method">The lifecycle method being called.</param>
+	/// <param name="parameterChanges">Any parameter changes detected.</param>
+	/// <param name="firstRender">Whether this is the first render.</param>
+	/// <returns>A tuple indicating if the render is unnecessary and the reason.</returns>
+	public (bool IsUnnecessary, string? Reason) DetectUnnecessaryRerender(
+		ComponentBase component,
+		string method,
+		Dictionary<string, object?>? parameterChanges,
+		bool? firstRender) {
+
+		// First renders are never unnecessary
+		if (firstRender == true) {
+			return (false, null);
+		}
+
+		// Check for OnParametersSet with no meaningful changes
+		if (method == "OnParametersSet") {
+			if (parameterChanges == null || parameterChanges.Count == 0) {
+				return (true, "OnParametersSet called but no parameter changes detected");
+			}
+
+			// Check if parameter changes are meaningful
+			var hasMeaningfulChanges = parameterChanges.Values
+				.Any(ParameterChangeDetector.HasMeaningfulParameterChange);
+
+			if (!hasMeaningfulChanges) {
+				return (true, "OnParametersSet called but parameter changes are not meaningful");
+			}
+		}
+
+		// Check for StateHasChanged with no actual state changes
+		if (method == "StateHasChanged") {
+			var currentState = CreateComponentStateSnapshot(component);
+			var previousState = _componentStates.GetOrAdd(component, currentState);
+
+			if (AreStatesEquivalent(previousState, currentState)) {
+				return (true, "StateHasChanged called but component state hasn't changed");
+			}
+
+			_componentStates[component] = currentState;
+		}
+
+		return (false, null);
+	}
+
+	/// <summary>
+	/// Creates a snapshot of the component's current state for comparison.
+	/// </summary>
+	/// <param name="component">The component to snapshot.</param>
+	/// <returns>A snapshot object representing the component's current state.</returns>
+	private static Dictionary<string, object?>? CreateComponentStateSnapshot(ComponentBase component) {
+		try {
+			var componentType = component.GetType();
+			var fields = componentType.GetFields(BindingFlags.NonPublic | BindingFlags.Instance)
+				.Where(f => !f.Name.StartsWith('<') && // Skip compiler-generated fields
+						   !f.Name.Contains("k__BackingField") && // Skip auto-property backing fields
+						   f.FieldType != typeof(RenderTrackerService)) // Skip our tracker
+				.ToList();
+
+			if (fields.Count == 0) return null;
+
+			var snapshot = new Dictionary<string, object?>();
+			foreach (var field in fields) {
+				try {
+					snapshot[field.Name] = field.GetValue(component);
+				}
+				catch {
+					snapshot[field.Name] = "[Unable to read]";
+				}
+			}
+
+			return snapshot;
+		}
+		catch {
+			return null;
+		}
+	}
+
+	/// <summary>
+	/// Compares two state snapshots to determine if they are equivalent.
+	/// </summary>
+	/// <param name="previous">Previous state snapshot.</param>
+	/// <param name="current">Current state snapshot.</param>
+	/// <returns>True if states are equivalent; otherwise, false.</returns>
+	private static bool AreStatesEquivalent(object? previous, object? current) {
+		if (previous == null && current == null) return true;
+		if (previous == null || current == null) return false;
+		if (ReferenceEquals(previous, current)) return true;
+
+		if (previous is Dictionary<string, object?> prevDict && current is Dictionary<string, object?> currDict) {
+			if (prevDict.Count != currDict.Count) return false;
+
+			foreach (var kvp in prevDict) {
+				if (!currDict.TryGetValue(kvp.Key, out var currValue)) return false;
+				if (!Equals(kvp.Value, currValue)) return false;
+			}
+
+			return true;
+		}
+
+		return previous.Equals(current);
+	}
+
+	/// <summary>
+	/// Cleans up state snapshots for components that are no longer active.
+	/// </summary>
+	/// <param name="activeComponents">Set of currently active components.</param>
+	public void CleanupInactiveComponents(IEnumerable<ComponentBase> activeComponents) {
+		var activeSet = activeComponents.ToHashSet();
+		var keysToRemove = _componentStates.Keys.Where(key => !activeSet.Contains(key)).ToList();
+
+		foreach (var key in keysToRemove) {
+			_componentStates.TryRemove(key, out _);
+		}
+	}
+
+	/// <summary>
+	/// Gets the current state snapshot count for diagnostics.
+	/// </summary>
+	/// <returns>The number of components being tracked for state changes.</returns>
+	public int GetTrackedComponentCount() => _componentStates.Count;
+
+	/// <summary>
+	/// Clears all state snapshots.
+	/// </summary>
+	public void ClearAll() => _componentStates.Clear();
+
+	/// <summary>
+	/// Gets statistics about unnecessary re-render detection.
+	/// </summary>
+	/// <returns>Statistics about the detection process.</returns>
+	public UnnecessaryRerenderStatistics GetStatistics() {
+		return new UnnecessaryRerenderStatistics {
+			TrackedComponents = _componentStates.Count,
+			IsEnabled = _config.DetectUnnecessaryRerenders
+		};
+	}
+}

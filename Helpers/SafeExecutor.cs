@@ -2,7 +2,10 @@ using System;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 
-namespace Blazor.WhyDidYouRender.Tracking;
+using Blazor.WhyDidYouRender.Diagnostics;
+using Blazor.WhyDidYouRender.Records;
+
+namespace Blazor.WhyDidYouRender.Helpers;
 
 /// <summary>
 /// Provides safe execution of tracking operations with comprehensive error handling.
@@ -23,7 +26,7 @@ public static class SafeExecutor {
 		Dictionary<string, object?>? context = null,
 		string? componentName = null,
 		string? method = null) {
-		
+
 		try {
 			action();
 			return true;
@@ -52,7 +55,7 @@ public static class SafeExecutor {
 		Dictionary<string, object?>? context = null,
 		string? componentName = null,
 		string? method = null) {
-		
+
 		try {
 			return func();
 		}
@@ -77,7 +80,7 @@ public static class SafeExecutor {
 		Dictionary<string, object?>? context = null,
 		string? componentName = null,
 		string? method = null) {
-		
+
 		try {
 			await action();
 			return true;
@@ -106,7 +109,7 @@ public static class SafeExecutor {
 		Dictionary<string, object?>? context = null,
 		string? componentName = null,
 		string? method = null) {
-		
+
 		try {
 			return await func();
 		}
@@ -129,7 +132,7 @@ public static class SafeExecutor {
 		string trackingMethod,
 		Action action,
 		IErrorTracker? errorTracker) {
-		
+
 		var componentName = component?.GetType().Name ?? "Unknown";
 		var context = new Dictionary<string, object?> {
 			["ComponentType"] = component?.GetType().FullName,
@@ -155,7 +158,7 @@ public static class SafeExecutor {
 		Func<T> func,
 		T defaultValue,
 		IErrorTracker? errorTracker) {
-		
+
 		var componentName = component?.GetType().Name ?? "Unknown";
 		var context = new Dictionary<string, object?> {
 			["ComponentType"] = component?.GetType().FullName,
@@ -179,8 +182,7 @@ public static class SafeExecutor {
 		Dictionary<string, object?>? context,
 		string? componentName,
 		string? method) {
-		
-		// Enhance context with error details
+
 		var errorContext = context ?? new Dictionary<string, object?>();
 		if (!string.IsNullOrEmpty(componentName)) {
 			errorContext["ComponentName"] = componentName;
@@ -189,14 +191,12 @@ public static class SafeExecutor {
 			errorContext["TrackingMethod"] = method;
 		}
 
-		// Determine severity based on exception type
 		var severity = DetermineSeverity(exception);
 
-		// Track the error
 		if (errorTracker != null) {
 			errorTracker.TrackError(exception, errorContext, severity);
-		} else {
-			// Fallback logging if no error tracker available
+		}
+		else {
 			Console.WriteLine($"[WhyDidYouRender] Error in {method ?? "tracking"}: {exception.Message}");
 		}
 	}
@@ -231,25 +231,23 @@ public static class SafeExecutor {
 		Action recoveryAction,
 		IErrorTracker? errorTracker,
 		Dictionary<string, object?>? context = null) {
-		
+
 		try {
 			recoveryAction();
-			
-			// Log successful recovery
+
 			errorTracker?.TrackError(
 				"Recovery action completed successfully",
 				context,
 				ErrorSeverity.Info);
-			
+
 			return true;
 		}
 		catch (Exception ex) {
-			// Log failed recovery
 			errorTracker?.TrackError(
 				ex,
 				context,
 				ErrorSeverity.Error);
-			
+
 			return false;
 		}
 	}

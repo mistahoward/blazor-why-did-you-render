@@ -3,7 +3,12 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.JSInterop;
 
-namespace Blazor.WhyDidYouRender.Tracking;
+using Blazor.WhyDidYouRender.Configuration;
+using Blazor.WhyDidYouRender.Core;
+using Blazor.WhyDidYouRender.Diagnostics;
+using Blazor.WhyDidYouRender.Helpers;
+
+namespace Blazor.WhyDidYouRender.Extensions;
 
 /// <summary>
 /// Extension methods for configuring WhyDidYouRender services.
@@ -18,24 +23,19 @@ public static class ServiceCollectionExtensions {
 	public static IServiceCollection AddWhyDidYouRender(
 		this IServiceCollection services,
 		IConfiguration? configuration = null) {
-		// Register SSR-specific services
 		services.AddHttpContextAccessor();
 		services.AddSingleton<ISessionContextService, SessionContextService>();
 
-		// Register error tracking
 		services.AddSingleton<IErrorTracker, ErrorTracker>();
 
-		// Register the browser console logger
 		services.AddScoped<BrowserConsoleLogger>();
 
-		// Configure the tracking service
 		if (configuration != null) {
 			var config = new WhyDidYouRenderConfig();
 			configuration.Bind(config);
 
 			services.AddSingleton<WhyDidYouRenderConfig>(config);
 
-			// Apply configuration to the singleton service
 			RenderTrackerService.Instance.Configure(config);
 		}
 
@@ -51,26 +51,20 @@ public static class ServiceCollectionExtensions {
 	public static IServiceCollection AddWhyDidYouRender(
 		this IServiceCollection services,
 		Action<WhyDidYouRenderConfig> configureOptions) {
-		// Register SSR-specific services
 		services.AddHttpContextAccessor();
 		services.AddSingleton<ISessionContextService, SessionContextService>();
 
-		// Register error tracking
 		services.AddSingleton<IErrorTracker, ErrorTracker>();
 
-		// Register the browser console logger
 		services.AddScoped<BrowserConsoleLogger>();
 
-		// Create and configure the config
 		var config = new WhyDidYouRenderConfig();
 		configureOptions(config);
 
 		services.AddSingleton<WhyDidYouRenderConfig>(config);
 
-		// Apply configuration to the singleton service
 		RenderTrackerService.Instance.Configure(config);
 
-		// Configure SSR services (will be called after service provider is built)
 		ConfigureSSRServices(services);
 
 		return services;
@@ -119,7 +113,6 @@ public static class ServiceCollectionExtensions {
 
 		Console.WriteLine("[WhyDidYouRender] Initializing SSR services...");
 
-		// Set up error tracking
 		var errorTracker = serviceProvider.GetService<IErrorTracker>();
 		if (errorTracker != null) {
 			tracker.SetErrorTracker(errorTracker);
@@ -129,7 +122,6 @@ public static class ServiceCollectionExtensions {
 			Console.WriteLine("[WhyDidYouRender] ERROR: Error tracker service not found!");
 		}
 
-		// Set up session context service
 		var sessionContextService = serviceProvider.GetService<ISessionContextService>();
 		if (sessionContextService != null) {
 			tracker.SetSessionContextService(sessionContextService);
@@ -139,7 +131,6 @@ public static class ServiceCollectionExtensions {
 			Console.WriteLine("[WhyDidYouRender] ERROR: Session context service not found!");
 		}
 
-		// Set up host environment
 		var hostEnvironment = serviceProvider.GetService<IHostEnvironment>();
 		if (hostEnvironment != null) {
 			tracker.SetHostEnvironment(hostEnvironment);

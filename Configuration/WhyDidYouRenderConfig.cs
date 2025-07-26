@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace Blazor.WhyDidYouRender.Tracking;
+namespace Blazor.WhyDidYouRender.Configuration;
 
 /// <summary>
 /// Verbosity levels for render tracking output.

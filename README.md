@@ -27,7 +27,7 @@ dotnet add package Blazor.WhyDidYouRender
 
 ### PackageReference
 ```xml
-<PackageReference Include="Blazor.WhyDidYouRender" Version="1.0.0" />
+<PackageReference Include="Blazor.WhyDidYouRender" Version="1.0.1" />
 ```
 
 ## 🛠️ Quick Start

@@ -49,12 +49,16 @@ builder.Services.AddServerSideBlazor();
 builder.Services.AddWhyDidYouRender(config =>
 {
     config.Enabled = true;
-    config.LogLevel = LogLevel.Warning;
-    config.IncludeProps = true;
-    config.IncludeState = true;
+    config.Verbosity = TrackingVerbosity.Normal;
+    config.Output = TrackingOutput.Both; // Server console AND browser console
+    config.TrackParameterChanges = true;
+    config.TrackPerformance = true;
 });
 
 var app = builder.Build();
+
+// Initialize WhyDidYouRender SSR services
+app.Services.InitializeSSRServices();
 
 // Configure pipeline...
 app.Run();
@@ -66,7 +70,10 @@ Update your components to inherit from `TrackedComponentBase`:
 
 ```csharp
 @using Blazor.WhyDidYouRender.Components
+@using Blazor.WhyDidYouRender.Extensions
 @inherits TrackedComponentBase
+@inject IJSRuntime JSRuntime
+@inject IServiceProvider ServiceProvider
 
 <h3>My Tracked Component</h3>
 <p>Current count: @currentCount</p>
@@ -74,8 +81,20 @@ Update your components to inherit from `TrackedComponentBase`:
 
 @code {
     private int currentCount = 0;
+    private bool browserLoggerInitialized = false;
 
     [Parameter] public string? Title { get; set; }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !browserLoggerInitialized)
+        {
+            // Initialize WhyDidYouRender browser logging
+            await ServiceProvider.InitializeWhyDidYouRenderAsync(JSRuntime);
+            browserLoggerInitialized = true;
+        }
+        await base.OnAfterRenderAsync(firstRender);
+    }
 
     private void IncrementCount()
     {
@@ -105,18 +124,21 @@ builder.Services.AddWhyDidYouRender(config =>
 {
     // Enable/disable tracking
     config.Enabled = true;
-    
-    // Set logging verbosity
-    config.LogLevel = LogLevel.Warning;
-    
+
+    // Set logging verbosity (Minimal, Normal, Verbose)
+    config.Verbosity = TrackingVerbosity.Normal;
+
+    // Set output destination (Console, BrowserConsole, Both)
+    config.Output = TrackingOutput.Both;
+
     // Track parameter changes
-    config.IncludeProps = true;
-    
-    // Track state changes
-    config.IncludeState = true;
-    
-    // Track hook usage
-    config.TrackHooks = true;
+    config.TrackParameterChanges = true;
+
+    // Track performance metrics
+    config.TrackPerformance = true;
+
+    // Include session information
+    config.IncludeSessionInfo = true;
 });
 ```
 
@@ -127,18 +149,18 @@ builder.Services.AddWhyDidYouRender(config =>
 {
     // Performance tracking
     config.TrackPerformance = true;
-    
-    // Only log when values actually change
-    config.LogOnDifferentValues = true;
-    
-    // Include owner component information
-    config.LogOwnerReasons = true;
-    
-    // Enable hot reload mode for development
-    config.HotReloadMode = builder.Environment.IsDevelopment();
-    
-    // Track all pure components
-    config.TrackAllPureComponents = false;
+
+    // Track parameter changes
+    config.TrackParameterChanges = true;
+
+    // Include session information in logs
+    config.IncludeSessionInfo = true;
+
+    // Set verbosity level
+    config.Verbosity = TrackingVerbosity.Verbose;
+
+    // Output to both server console and browser console
+    config.Output = TrackingOutput.Both;
 });
 ```
 
@@ -150,13 +172,16 @@ builder.Services.AddWhyDidYouRender(config =>
     if (builder.Environment.IsDevelopment())
     {
         config.Enabled = true;
-        config.LogLevel = LogLevel.Debug;
-        config.HotReloadMode = true;
+        config.Verbosity = TrackingVerbosity.Verbose;
+        config.Output = TrackingOutput.Both;
+        config.TrackParameterChanges = true;
+        config.TrackPerformance = true;
     }
     else if (builder.Environment.IsStaging())
     {
         config.Enabled = true;
-        config.LogLevel = LogLevel.Warning;
+        config.Verbosity = TrackingVerbosity.Normal;
+        config.Output = TrackingOutput.Console;
     }
     else
     {
@@ -237,10 +262,10 @@ Access diagnostics at: `https://yourapp.com/diagnostics/renders`
 config.Enabled = builder.Environment.IsDevelopment();
 ```
 
-### 2. Focus on Warning-Level Events
+### 2. Focus on Important Events
 ```csharp
-config.LogLevel = LogLevel.Warning;
-config.LogOnDifferentValues = true;
+config.Verbosity = TrackingVerbosity.Normal;
+config.TrackParameterChanges = true;
 ```
 
 ### 3. Selective Component Tracking

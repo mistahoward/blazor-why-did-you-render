@@ -31,12 +31,16 @@ builder.Services.AddServerSideBlazor();
 builder.Services.AddWhyDidYouRender(config =>
 {
     config.Enabled = builder.Environment.IsDevelopment();
-    config.LogLevel = LogLevel.Warning;
-    config.IncludeProps = true;
-    config.IncludeState = true;
+    config.Verbosity = TrackingVerbosity.Normal;
+    config.Output = TrackingOutput.Both;
+    config.TrackParameterChanges = true;
+    config.TrackPerformance = true;
 });
 
 var app = builder.Build();
+
+// Initialize WhyDidYouRender SSR services
+app.Services.InitializeSSRServices();
 
 if (!app.Environment.IsDevelopment())
 {
@@ -60,7 +64,10 @@ Update `Pages/Counter.razor`:
 ```csharp
 @page "/counter"
 @using Blazor.WhyDidYouRender.Components
+@using Blazor.WhyDidYouRender.Extensions
 @inherits TrackedComponentBase
+@inject IJSRuntime JSRuntime
+@inject IServiceProvider ServiceProvider
 
 <PageTitle>Counter</PageTitle>
 
@@ -72,6 +79,18 @@ Update `Pages/Counter.razor`:
 
 @code {
     private int currentCount = 0;
+    private bool browserLoggerInitialized = false;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !browserLoggerInitialized)
+        {
+            // Initialize WhyDidYouRender browser logging
+            await ServiceProvider.InitializeWhyDidYouRenderAsync(JSRuntime);
+            browserLoggerInitialized = true;
+        }
+        await base.OnAfterRenderAsync(firstRender);
+    }
 
     private void IncrementCount()
     {
@@ -94,7 +113,9 @@ In your existing `Program.cs`, add the service registration:
 builder.Services.AddWhyDidYouRender(config =>
 {
     config.Enabled = builder.Environment.IsDevelopment();
-    config.LogLevel = LogLevel.Warning;
+    config.Verbosity = TrackingVerbosity.Normal;
+    config.Output = TrackingOutput.Both;
+    config.TrackParameterChanges = true;
 });
 ```
 
@@ -133,7 +154,10 @@ builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.
 builder.Services.AddWhyDidYouRender(config =>
 {
     config.Enabled = builder.HostEnvironment.IsDevelopment();
-    config.LogLevel = LogLevel.Warning;
+    config.Verbosity = TrackingVerbosity.Normal;
+    config.Output = TrackingOutput.BrowserConsole; // WebAssembly only supports browser console
+    config.TrackParameterChanges = true;
+    config.TrackPerformance = true;
 });
 
 await builder.Build().RunAsync();
@@ -146,12 +170,11 @@ await builder.Build().RunAsync();
 builder.Services.AddWhyDidYouRender(config =>
 {
     config.Enabled = true;
-    config.LogLevel = LogLevel.Debug;
-    config.IncludeProps = true;
-    config.IncludeState = true;
-    config.TrackHooks = true;
+    config.Verbosity = TrackingVerbosity.Verbose;
+    config.Output = TrackingOutput.Both;
+    config.TrackParameterChanges = true;
     config.TrackPerformance = true;
-    config.HotReloadMode = true;
+    config.IncludeSessionInfo = true;
 });
 ```
 
@@ -168,9 +191,9 @@ builder.Services.AddWhyDidYouRender(config =>
 builder.Services.AddWhyDidYouRender(config =>
 {
     config.Enabled = true;
-    config.LogLevel = LogLevel.Error; // Only critical issues
+    config.Verbosity = TrackingVerbosity.Minimal;
+    config.Output = TrackingOutput.Console;
     config.TrackPerformance = true;
-    config.LogOnDifferentValues = true;
 });
 ```
 
@@ -185,11 +208,11 @@ public class WhyDidYouRenderConfigProvider
         return new WhyDidYouRenderConfig
         {
             Enabled = env.IsDevelopment() || env.IsStaging(),
-            LogLevel = env.IsDevelopment() ? LogLevel.Debug : LogLevel.Warning,
-            IncludeProps = true,
-            IncludeState = env.IsDevelopment(),
+            Verbosity = env.IsDevelopment() ? TrackingVerbosity.Verbose : TrackingVerbosity.Normal,
+            Output = env.IsDevelopment() ? TrackingOutput.Both : TrackingOutput.Console,
+            TrackParameterChanges = true,
             TrackPerformance = true,
-            HotReloadMode = env.IsDevelopment()
+            IncludeSessionInfo = env.IsDevelopment()
         };
     }
 }
@@ -276,16 +299,17 @@ builder.Services.AddWhyDidYouRender();
 
 **Solutions**:
 1. Check that tracking is enabled: `config.Enabled = true`
-2. Verify log level: `config.LogLevel = LogLevel.Debug`
+2. Verify output is set to browser: `config.Output = TrackingOutput.Both`
 3. Ensure components inherit from `TrackedComponentBase`
-4. Open browser developer tools console
+4. Initialize browser logging: `await ServiceProvider.InitializeWhyDidYouRenderAsync(JSRuntime)`
+5. Open browser developer tools console
 
 ### Issue 3: Too Much Logging
 **Problem**: Console is flooded with tracking information.
 
 **Solutions**:
-1. Increase log level: `config.LogLevel = LogLevel.Warning`
-2. Enable `LogOnDifferentValues = true`
+1. Reduce verbosity: `config.Verbosity = TrackingVerbosity.Minimal`
+2. Disable parameter tracking: `config.TrackParameterChanges = false`
 3. Disable in production: `config.Enabled = Environment.IsDevelopment()`
 
 ### Issue 4: Performance Impact

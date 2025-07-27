@@ -59,15 +59,11 @@ public class WhyDidYouRenderConfig
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
 | `Enabled` | `bool` | `true` | Enable/disable tracking |
-| `LogLevel` | `LogLevel` | `Warning` | Minimum log level for output |
-| `IncludeProps` | `bool` | `true` | Track parameter changes |
-| `IncludeState` | `bool` | `true` | Track state changes |
-| `TrackHooks` | `bool` | `true` | Track lifecycle hooks |
+| `Verbosity` | `TrackingVerbosity` | `Normal` | Tracking verbosity level (Minimal, Normal, Verbose) |
+| `Output` | `TrackingOutput` | `Console` | Output destination (Console, BrowserConsole, Both) |
+| `TrackParameterChanges` | `bool` | `true` | Track parameter changes |
 | `TrackPerformance` | `bool` | `true` | Track render performance |
-| `TrackAllPureComponents` | `bool` | `false` | Track all components regardless of changes |
-| `LogOnDifferentValues` | `bool` | `true` | Only log when values actually change |
-| `LogOwnerReasons` | `bool` | `false` | Include parent component information |
-| `HotReloadMode` | `bool` | `false` | Enable hot reload optimizations |
+| `IncludeSessionInfo` | `bool` | `true` | Include session information in logs |
 
 #### Usage Example
 
@@ -75,23 +71,44 @@ public class WhyDidYouRenderConfig
 builder.Services.AddWhyDidYouRender(config =>
 {
     config.Enabled = true;
-    config.LogLevel = LogLevel.Warning;
-    config.IncludeProps = true;
+    config.Verbosity = TrackingVerbosity.Normal;
+    config.Output = TrackingOutput.Both;
+    config.TrackParameterChanges = true;
     config.TrackPerformance = true;
 });
+
+var app = builder.Build();
+
+// Initialize WhyDidYouRender SSR services
+app.Services.InitializeSSRServices();
+
+// For browser console logging, initialize in a component:
+// await ServiceProvider.InitializeWhyDidYouRenderAsync(JSRuntime);
 ```
 
-### LogLevel Enum
+### TrackingVerbosity Enum
 
 Defines the verbosity levels for tracking output.
 
 ```csharp
-public enum LogLevel
+public enum TrackingVerbosity
 {
-    Debug = 0,
-    Info = 1,
-    Warning = 2,
-    Error = 3
+    Minimal = 0,
+    Normal = 1,
+    Verbose = 2
+}
+```
+
+### TrackingOutput Enum
+
+Defines where tracking output is sent.
+
+```csharp
+public enum TrackingOutput
+{
+    Console = 0,        // Server console only
+    BrowserConsole = 1, // Browser console only
+    Both = 2           // Both server and browser console
 }
 ```
 
@@ -262,7 +279,8 @@ services.AddWhyDidYouRender(config);
 services.AddWhyDidYouRender(config =>
 {
     config.Enabled = true;
-    config.LogLevel = LogLevel.Warning;
+    config.Verbosity = TrackingVerbosity.Normal;
+    config.Output = TrackingOutput.Both;
 });
 ```
 
@@ -280,7 +298,7 @@ public class BrowserConsoleLogger : IBrowserConsoleLogger
 
 | Method | Description | Parameters | Returns |
 |--------|-------------|------------|---------|
-| `LogAsync(LogLevel, string, object?)` | Log message to console | `level`: Log level<br>`message`: Message<br>`data`: Additional data | `Task` |
+| `LogAsync(TrackingVerbosity, string, object?)` | Log message to console | `verbosity`: Verbosity level<br>`message`: Message<br>`data`: Additional data | `Task` |
 | `LogRenderEventAsync(RenderEvent)` | Log render event | `renderEvent`: Event to log | `Task` |
 
 ### SafeExecutor
@@ -343,13 +361,14 @@ public interface IErrorTracker
 ```csharp
 // Development
 config.Enabled = true;
-config.LogLevel = LogLevel.Debug;
+config.Verbosity = TrackingVerbosity.Verbose;
+config.Output = TrackingOutput.Both;
 config.TrackPerformance = true;
 
 // Staging
 config.Enabled = true;
-config.LogLevel = LogLevel.Warning;
-config.LogOnDifferentValues = true;
+config.Verbosity = TrackingVerbosity.Normal;
+config.Output = TrackingOutput.Console;
 
 // Production
 config.Enabled = false;

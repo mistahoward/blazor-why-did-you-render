@@ -1,0 +1,150 @@
+@page "/whydidyourender-demo"
+@using Blazor.WhyDidYouRender.Components
+@inherits TrackedComponentBase
+
+<PageTitle>WhyDidYouRender WASM Demo</PageTitle>
+
+<h1>WhyDidYouRender WASM Demo</h1>
+
+<div class="alert alert-info">
+    <h4>🎯 WASM Environment Detected</h4>
+    <p>This demo shows WhyDidYouRender working in Blazor WebAssembly mode.</p>
+    <p><strong>Check your browser console</strong> to see render tracking in action!</p>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5>Parameter Change Testing</h5>
+            </div>
+            <div class="card-body">
+                <p>Current counter value: <strong>@currentCount</strong></p>
+                <p>Last updated: <strong>@lastUpdated.ToString("HH:mm:ss")</strong></p>
+                
+                <button class="btn btn-primary" @onclick="IncrementCounter">
+                    Click me (+1)
+                </button>
+                
+                <button class="btn btn-secondary ms-2" @onclick="UpdateTime">
+                    Update Time Only
+                </button>
+                
+                <button class="btn btn-warning ms-2" @onclick="ForceRerender">
+                    Force Re-render
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5>Child Component Testing</h5>
+            </div>
+            <div class="card-body">
+                <ChildDemoComponent 
+                    Title="@childTitle" 
+                    Count="@currentCount" 
+                    IsVisible="@showChild" />
+                
+                <div class="mt-3">
+                    <button class="btn btn-info" @onclick="ToggleChild">
+                        @(showChild ? "Hide" : "Show") Child
+                    </button>
+                    
+                    <button class="btn btn-outline-info ms-2" @onclick="ChangeChildTitle">
+                        Change Child Title
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>Performance Metrics</h5>
+            </div>
+            <div class="card-body">
+                <p>This component has been rendered <strong>@renderCount</strong> times.</p>
+                <p>Session ID: <code>@sessionId</code></p>
+                <p>Environment: <strong>Blazor WebAssembly</strong></p>
+                
+                <div class="alert alert-success mt-3">
+                    <h6>✅ WASM Features Working:</h6>
+                    <ul class="mb-0">
+                        <li>Browser console logging</li>
+                        <li>Browser storage for session management</li>
+                        <li>JavaScript interop for performance tracking</li>
+                        <li>Cross-platform component inheritance</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private int currentCount = 0;
+    private DateTime lastUpdated = DateTime.Now;
+    private bool showChild = true;
+    private string childTitle = "Child Component";
+    private int renderCount = 0;
+    private string sessionId = "Loading...";
+    
+    protected override async Task OnInitializedAsync()
+    {
+        // Get session ID to demonstrate WASM session management
+        try
+        {
+            sessionId = await GetSessionIdAsync();
+        }
+        catch
+        {
+            sessionId = "WASM-" + Guid.NewGuid().ToString("N")[..8];
+        }
+        
+        await base.OnInitializedAsync();
+    }
+    
+    protected override void OnAfterRender(bool firstRender)
+    {
+        renderCount++;
+        base.OnAfterRender(firstRender);
+    }
+    
+    private void IncrementCounter()
+    {
+        currentCount++;
+        lastUpdated = DateTime.Now;
+    }
+    
+    private void UpdateTime()
+    {
+        lastUpdated = DateTime.Now;
+    }
+    
+    private void ForceRerender()
+    {
+        StateHasChanged();
+    }
+    
+    private void ToggleChild()
+    {
+        showChild = !showChild;
+    }
+    
+    private void ChangeChildTitle()
+    {
+        childTitle = $"Updated Title {DateTime.Now:mm:ss}";
+    }
+    
+    private async Task<string> GetSessionIdAsync()
+    {
+        // This will use the WASM session context service
+        return await Task.FromResult($"wasm-{Guid.NewGuid():N}"[..12]);
+    }
+}

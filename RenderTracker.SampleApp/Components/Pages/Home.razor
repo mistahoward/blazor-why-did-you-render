@@ -136,7 +136,6 @@
 
     private void UpdateComplexObjects()
     {
-        // Update user data with new values
         userData = new ComplexObjectDemo.UserInfo {
             Name = $"Jane Smith {DateTime.Now.Second}",
             Email = "jane.smith@newcompany.com",
@@ -149,7 +148,6 @@
             }
         };
 
-        // Update settings
         appSettings = new ComplexObjectDemo.AppSettings {
             Theme = appSettings.Theme == "Light" ? "Dark" : "Light",
             EnableNotifications = !appSettings.EnableNotifications,

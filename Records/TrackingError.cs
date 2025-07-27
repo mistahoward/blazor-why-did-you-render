@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-
 namespace Blazor.WhyDidYouRender.Records;
 
 /// <summary>
@@ -50,7 +47,7 @@ public record TrackingError {
 	/// <summary>
 	/// Gets or sets additional context information.
 	/// </summary>
-	public Dictionary<string, object?> Context { get; init; } = new();
+	public Dictionary<string, object?> Context { get; init; } = [];
 
 	/// <summary>
 	/// Gets or sets the severity level of the error.
@@ -110,7 +107,12 @@ public record ErrorStatistics {
 	/// <summary>
 	/// Gets or sets the most common error types.
 	/// </summary>
-	public Dictionary<string, int> CommonErrorTypes { get; init; } = new();
+	public Dictionary<string, int> CommonErrorTypes { get; init; } = [];
+
+	/// <summary>
+	/// Gets or sets the most problematic components.
+	/// </summary>
+	public Dictionary<string, int> ProblematicComponents { get; init; } = [];
 
 	/// <summary>
 	/// Gets or sets the error rate (errors per minute).

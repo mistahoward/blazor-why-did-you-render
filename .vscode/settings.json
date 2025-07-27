@@ -4,7 +4,8 @@
 		"appsettings",
 		"Blazor",
 		"hookable",
-		"Hsts"
+		"Hsts",
+		"timespan"
 	],
 	"[csharp]": {
 		"editor.formatOnSave": true

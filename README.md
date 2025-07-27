@@ -1,17 +1,29 @@
 # Blazor WhyDidYouRender
 
-A powerful performance monitoring and debugging tool for Blazor applications that helps identify unnecessary re-renders and optimize component performance.
+A powerful **cross-platform** performance monitoring and debugging tool for Blazor applications that helps identify unnecessary re-renders and optimize component performance across **Server**, **WebAssembly**, and **SSR** environments.
+
+## 🌐 Cross-Platform Support
+
+**WhyDidYouRender v2.0** now supports all Blazor hosting models:
+
+| Environment | Support | Session Management | Console Logging | Performance Tracking |
+|-------------|---------|-------------------|-----------------|---------------------|
+| **🖥️ Blazor Server** | ✅ Full | HttpContext | Server + Browser | ✅ Full |
+| **🌐 Blazor WASM** | ✅ Full | Browser Storage | Browser Only | ✅ Full |
+| **📄 SSR** | ✅ Full | HttpContext | Server + Browser | ✅ Full |
 
 ## 🚀 Features
 
 - **🔍 Render Tracking**: Monitor when and why your Blazor components re-render
-- **📊 Performance Metrics**: Track render duration and frequency
+- **📊 Performance Metrics**: Track render duration and frequency across all environments
 - **🎯 Parameter Change Detection**: Identify which parameter changes trigger re-renders
 - **⚡ Unnecessary Render Detection**: Find components that re-render without actual changes
+- **🌐 Cross-Platform**: Works seamlessly in Server, WASM, and SSR environments
 - **🛠️ Developer-Friendly**: Easy integration with existing Blazor applications
-- **📱 Browser Console Logging**: Real-time debugging information in browser dev tools
-- **⚙️ Configurable**: Flexible configuration options for different environments
-- **🔧 Diagnostics Endpoint**: Optional HTTP endpoint for advanced monitoring
+- **📱 Smart Console Logging**: Adapts to environment (server console + browser console)
+- **💾 Flexible Session Management**: HttpContext (server) or Browser Storage (WASM)
+- **⚙️ Auto-Detection**: Automatically detects hosting environment and adapts
+- **🔧 Environment-Specific**: Optimized services for each hosting model
 
 ## 📦 Installation
 
@@ -27,14 +39,16 @@ dotnet add package Blazor.WhyDidYouRender
 
 ### PackageReference
 ```xml
-<PackageReference Include="Blazor.WhyDidYouRender" Version="1.0.1" />
+<PackageReference Include="Blazor.WhyDidYouRender" Version="2.0.0" />
 ```
+
+> **📢 Version 2.0 Breaking Changes**: See [Migration Guide](#-migration-from-v1x) for upgrading from v1.x
 
 ## 🛠️ Quick Start
 
-### 1. Register Services
+WhyDidYouRender **automatically detects** your hosting environment and configures itself appropriately. The same code works across all Blazor hosting models!
 
-Add WhyDidYouRender to your service collection in `Program.cs`:
+### 🖥️ Blazor Server / SSR Setup
 
 ```csharp
 using Blazor.WhyDidYouRender.Extensions;
@@ -45,7 +59,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();
 
-// Add WhyDidYouRender
+// Add WhyDidYouRender - works automatically!
 builder.Services.AddWhyDidYouRender(config =>
 {
     config.Enabled = true;
@@ -57,44 +71,56 @@ builder.Services.AddWhyDidYouRender(config =>
 
 var app = builder.Build();
 
-// Initialize WhyDidYouRender SSR services
+// Initialize WhyDidYouRender services
 app.Services.InitializeSSRServices();
 
-// Configure pipeline...
 app.Run();
 ```
 
-### 2. Inherit from TrackedComponentBase
+### 🌐 Blazor WebAssembly Setup
 
-Update your components to inherit from `TrackedComponentBase`:
+```csharp
+using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
+using Blazor.WhyDidYouRender.Extensions;
+
+var builder = WebAssemblyHostBuilder.CreateDefault(args);
+builder.RootComponents.Add<App>("#app");
+
+// Add WhyDidYouRender - automatically detects WASM!
+builder.Services.AddWhyDidYouRender(config =>
+{
+    config.Enabled = true;
+    config.Verbosity = TrackingVerbosity.Verbose;
+    config.Output = TrackingOutput.BrowserConsole; // Browser console only in WASM
+    config.TrackParameterChanges = true;
+    config.TrackPerformance = true;
+    // WASM storage is enabled by default
+});
+
+var host = builder.Build();
+
+await host.Services.InitializeWasmAsync(host.Services.GetRequiredService<IJSRuntime>());
+
+await host.RunAsync();
+```
+
+### 2. Use TrackedComponentBase (Cross-Platform)
+
+Update your components to inherit from `TrackedComponentBase` - **works in all environments**:
 
 ```csharp
 @using Blazor.WhyDidYouRender.Components
-@using Blazor.WhyDidYouRender.Extensions
 @inherits TrackedComponentBase
-@inject IJSRuntime JSRuntime
-@inject IServiceProvider ServiceProvider
 
 <h3>My Tracked Component</h3>
 <p>Current count: @currentCount</p>
+<p>Title: @Title</p>
 <button @onclick="IncrementCount">Click me</button>
 
 @code {
     private int currentCount = 0;
-    private bool browserLoggerInitialized = false;
 
     [Parameter] public string? Title { get; set; }
-
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (firstRender && !browserLoggerInitialized)
-        {
-            // Initialize WhyDidYouRender browser logging
-            await ServiceProvider.InitializeWhyDidYouRenderAsync(JSRuntime);
-            browserLoggerInitialized = true;
-        }
-        await base.OnAfterRenderAsync(firstRender);
-    }
 
     private void IncrementCount()
     {
@@ -103,44 +129,114 @@ Update your components to inherit from `TrackedComponentBase`:
 }
 ```
 
-### 3. Monitor in Browser Console
+### 3. Monitor Output (Environment-Aware)
 
-Open your browser's developer tools and watch the console for render tracking information:
+WhyDidYouRender automatically adapts its output based on your environment:
 
+#### 🖥️ Server/SSR Environment
+- **Server Console**: Detailed logging in your application console
+- **Browser Console**: Real-time debugging in browser dev tools
+- **Session Management**: Uses HttpContext for server-side session tracking
+
+#### 🌐 WASM Environment
+- **Browser Console**: All logging appears in browser dev tools
+- **Session Management**: Uses browser localStorage/sessionStorage
+- **Performance Tracking**: Client-side performance metrics
+
+**Example Output:**
 ```
-[WhyDidYouRender] Counter re-rendered
+[WhyDidYouRender] Counter re-rendered (WASM)
 ├─ Trigger: StateHasChanged
-├─ Duration: 2.3ms
+├─ Duration: 1.8ms
 ├─ Parameters: Title (unchanged)
+├─ Session: wasm-abc123def
 └─ Reason: Manual state change
 ```
 
 <img width="763" height="380" alt="image" src="https://github.com/user-attachments/assets/497fdcbe-75eb-4707-8ccb-4cb4ac07b1c6" />
 
+## 🌐 Cross-Platform Features
+
+### Automatic Environment Detection
+WhyDidYouRender automatically detects your hosting environment and adapts:
+
+```csharp
+// Same configuration works everywhere!
+builder.Services.AddWhyDidYouRender(config =>
+{
+    config.Enabled = true;
+    config.Output = TrackingOutput.Both; // Adapts automatically:
+    // Server: Console + Browser
+    // WASM: Browser only
+});
+```
+
+### Environment-Specific Services
+
+| Service | Server Implementation | WASM Implementation |
+|---------|----------------------|-------------------|
+| **Session Management** | `ServerSessionContextService` | `WasmSessionContextService` |
+| **Logging** | `ServerTrackingLogger` | `WasmTrackingLogger` |
+| **Error Tracking** | `ServerErrorTracker` | `WasmErrorTracker` |
+| **Storage** | HttpContext.Session | Browser Storage |
+
 ## 📖 Configuration
 
-### Basic Configuration
+### Cross-Platform Configuration
+
+The same configuration works across all environments, with automatic adaptation:
 
 ```csharp
 builder.Services.AddWhyDidYouRender(config =>
 {
-    // Enable/disable tracking
+    // Core settings (work everywhere)
     config.Enabled = true;
-
-    // Set logging verbosity (Minimal, Normal, Verbose)
     config.Verbosity = TrackingVerbosity.Normal;
-
-    // Set output destination (Console, BrowserConsole, Both)
-    config.Output = TrackingOutput.Both;
-
-    // Track parameter changes
     config.TrackParameterChanges = true;
-
-    // Track performance metrics
     config.TrackPerformance = true;
-
-    // Include session information
     config.IncludeSessionInfo = true;
+
+    // Output adapts automatically:
+    config.Output = TrackingOutput.Both;
+    // Server/SSR: Console + Browser
+    // WASM: Browser only (console not available)
+
+    // Environment detection (usually auto)
+    config.AutoDetectEnvironment = true;
+
+    // WASM-specific settings (ignored in server environments)
+    config.WasmStorageEnabled = true;
+    config.WasmStorageOptions = new WasmStorageOptions
+    {
+        UseSessionStorage = false, // Use localStorage by default
+        StorageKeyPrefix = "WhyDidYouRender_"
+    };
+});
+```
+
+### Environment-Specific Configuration
+
+#### 🖥️ Server/SSR Optimized
+```csharp
+builder.Services.AddWhyDidYouRender(config =>
+{
+    config.Enabled = true;
+    config.Output = TrackingOutput.Both; // Server console + browser
+    config.Verbosity = TrackingVerbosity.Verbose;
+    config.TrackPerformance = true;
+    config.IncludeSessionInfo = true;
+});
+```
+
+#### 🌐 WASM Optimized
+```csharp
+builder.Services.AddWhyDidYouRender(config =>
+{
+    config.Enabled = true;
+    config.Output = TrackingOutput.BrowserConsole; // Browser only
+    config.Verbosity = TrackingVerbosity.Normal;
+    config.WasmStorageEnabled = true;
+    config.TrackPerformance = true;
 });
 ```
 
@@ -149,11 +245,11 @@ builder.Services.AddWhyDidYouRender(config =>
 ```csharp
 builder.Services.AddWhyDidYouRender(config =>
 {
+    // Force specific environment (overrides auto-detection)
+    config.ForceHostingModel = BlazorHostingModel.WebAssembly;
+
     // Performance tracking
     config.TrackPerformance = true;
-
-    // Track parameter changes
-    config.TrackParameterChanges = true;
 
     // Include session information in logs
     config.IncludeSessionInfo = true;
@@ -287,11 +383,54 @@ Use the insights to optimize parameter passing:
 <ChildComponent Data="@stableDataObject" />
 ```
 
+## 🔄 Migration from v1.x
+
+### Breaking Changes in v2.0
+
+1. **Removed Error Diagnostics Endpoint** (incompatible with WASM)
+   - `UseWhyDidYouRenderDiagnostics()` method removed
+   - Use browser console logging instead
+
+2. **New Initialization Methods**
+   - Server: `app.Services.InitializeSSRServices()`
+   - WASM: `await host.Services.InitializeWasmServices()`
+
+3. **Configuration Changes**
+   - Added `WasmStorageEnabled` and `WasmStorageOptions`
+   - Added `AutoDetectEnvironment` and `ForceHostingModel`
+
+### Migration Steps
+
+#### From v1.x Server Setup:
+```csharp
+// v1.x (OLD)
+builder.Services.AddWhyDidYouRender();
+app.UseWhyDidYouRenderDiagnostics("/diagnostics"); // REMOVED
+
+// v2.0 (NEW)
+builder.Services.AddWhyDidYouRender(config => { /* same config */ });
+app.Services.InitializeSSRServices(); // NEW
+```
+
+#### Component Changes:
+```csharp
+// v1.x and v2.0 - NO CHANGES NEEDED
+@inherits TrackedComponentBase // Still works!
+```
+
+### New Features in v2.0
+- ✅ **Full WASM Support** - Works in all Blazor hosting models
+- ✅ **Automatic Environment Detection** - No manual configuration needed
+- ✅ **Cross-Platform Session Management** - Adapts to environment
+- ✅ **Smart Console Logging** - Server console + browser console
+- ✅ **Browser Storage Support** - localStorage/sessionStorage in WASM
+
 ## 🚧 Roadmap
 
-- **Testing Suite**: Comprehensive test coverage (waiting for .NET 9.0 compatibility)
+- **Testing Suite**: Comprehensive test coverage for cross-platform scenarios
 - **Performance Profiler**: Advanced performance analysis tools
 - **Custom Formatters**: Extensible output formatting
+- **Real-time Dashboard**: Web-based monitoring dashboard
 
 ## 🤝 Contributing
 

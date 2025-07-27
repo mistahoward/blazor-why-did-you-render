@@ -1,7 +1,4 @@
-using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
 
 using Microsoft.AspNetCore.Components;
@@ -14,7 +11,11 @@ namespace Blazor.WhyDidYouRender.Core;
 /// <summary>
 /// Service responsible for detecting unnecessary re-renders in Blazor components.
 /// </summary>
-public class UnnecessaryRerenderDetector {
+/// <remarks>
+/// Initializes a new instance of the <see cref="UnnecessaryRerenderDetector"/> class.
+/// </remarks>
+/// <param name="config">The configuration for detection.</param>
+public class UnnecessaryRerenderDetector(WhyDidYouRenderConfig config) {
 	/// <summary>
 	/// Cache to store component state snapshots for comparison.
 	/// </summary>
@@ -23,15 +24,7 @@ public class UnnecessaryRerenderDetector {
 	/// <summary>
 	/// Configuration for unnecessary re-render detection.
 	/// </summary>
-	private readonly WhyDidYouRenderConfig _config;
-
-	/// <summary>
-	/// Initializes a new instance of the <see cref="UnnecessaryRerenderDetector"/> class.
-	/// </summary>
-	/// <param name="config">The configuration for detection.</param>
-	public UnnecessaryRerenderDetector(WhyDidYouRenderConfig config) {
-		_config = config;
-	}
+	private readonly WhyDidYouRenderConfig _config = config;
 
 	/// <summary>
 	/// Detects if a render is unnecessary based on component state and parameter changes.
@@ -47,34 +40,26 @@ public class UnnecessaryRerenderDetector {
 		Dictionary<string, object?>? parameterChanges,
 		bool? firstRender) {
 
-		// First renders are never unnecessary
-		if (firstRender == true) {
+		if (firstRender == true)
 			return (false, null);
-		}
 
-		// Check for OnParametersSet with no meaningful changes
 		if (method == "OnParametersSet") {
-			if (parameterChanges == null || parameterChanges.Count == 0) {
+			if (parameterChanges == null || parameterChanges.Count == 0)
 				return (true, "OnParametersSet called but no parameter changes detected");
-			}
 
-			// Check if parameter changes are meaningful
 			var hasMeaningfulChanges = parameterChanges.Values
 				.Any(ParameterChangeDetector.HasMeaningfulParameterChange);
 
-			if (!hasMeaningfulChanges) {
+			if (!hasMeaningfulChanges)
 				return (true, "OnParametersSet called but parameter changes are not meaningful");
-			}
 		}
 
-		// Check for StateHasChanged with no actual state changes
 		if (method == "StateHasChanged") {
 			var currentState = CreateComponentStateSnapshot(component);
 			var previousState = _componentStates.GetOrAdd(component, currentState);
 
-			if (AreStatesEquivalent(previousState, currentState)) {
+			if (AreStatesEquivalent(previousState, currentState))
 				return (true, "StateHasChanged called but component state hasn't changed");
-			}
 
 			_componentStates[component] = currentState;
 		}
@@ -91,9 +76,9 @@ public class UnnecessaryRerenderDetector {
 		try {
 			var componentType = component.GetType();
 			var fields = componentType.GetFields(BindingFlags.NonPublic | BindingFlags.Instance)
-				.Where(f => !f.Name.StartsWith('<') && // Skip compiler-generated fields
-						   !f.Name.Contains("k__BackingField") && // Skip auto-property backing fields
-						   f.FieldType != typeof(RenderTrackerService)) // Skip our tracker
+				.Where(f => !f.Name.StartsWith('<') && // skip compiler-generated fields
+						   !f.Name.Contains("k__BackingField") && // skip auto-property backing fields
+						   f.FieldType != typeof(RenderTrackerService)) // skip our tracker
 				.ToList();
 
 			if (fields.Count == 0) return null;
@@ -148,9 +133,8 @@ public class UnnecessaryRerenderDetector {
 		var activeSet = activeComponents.ToHashSet();
 		var keysToRemove = _componentStates.Keys.Where(key => !activeSet.Contains(key)).ToList();
 
-		foreach (var key in keysToRemove) {
+		foreach (var key in keysToRemove)
 			_componentStates.TryRemove(key, out _);
-		}
 	}
 
 	/// <summary>

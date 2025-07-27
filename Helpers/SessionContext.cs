@@ -1,283 +1,111 @@
-using System;
-using System.Security.Claims;
-
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.SignalR;
-
-using Blazor.WhyDidYouRender.Configuration;
+using System.Collections.Concurrent;
 
 namespace Blazor.WhyDidYouRender.Helpers;
 
 /// <summary>
-/// Represents the context information for a user session in SSR scenarios.
+/// Represents session-specific context data for tracking render events and performance metrics.
 /// </summary>
-public class SessionContext {
+/// <remarks>
+/// Initializes a new instance of the <see cref="SessionContext"/> class.
+/// </remarks>
+/// <param name="sessionId">The unique session identifier.</param>
+public class SessionContext(string sessionId) {
 	/// <summary>
-	/// Gets or sets the unique session identifier.
+	/// Gets the unique session identifier.
 	/// </summary>
-	public string SessionId { get; set; } = string.Empty;
-
-	/// <summary>
-	/// Gets or sets the SignalR connection ID (for Blazor Server).
-	/// </summary>
-	public string? ConnectionId { get; set; }
-
-	/// <summary>
-	/// Gets or sets the user identifier (if authenticated).
-	/// </summary>
-	public string? UserId { get; set; }
+	public string SessionId { get; } = sessionId ?? throw new ArgumentNullException(nameof(sessionId));
 
 	/// <summary>
-	/// Gets or sets the user's display name (if available).
+	/// Gets the timestamp when this session was created.
 	/// </summary>
-	public string? UserName { get; set; }
+	public DateTime CreatedAt { get; } = DateTime.UtcNow;
 
 	/// <summary>
-	/// Gets or sets whether the user is authenticated.
+	/// Gets the timestamp when this session was last accessed.
 	/// </summary>
-	public bool IsAuthenticated { get; set; }
+	public DateTime LastAccessedAt { get; private set; } = DateTime.UtcNow;
 
 	/// <summary>
-	/// Gets or sets the client IP address.
+	/// Gets the total number of render events tracked in this session.
 	/// </summary>
-	public string? ClientIpAddress { get; set; }
+	public int RenderEventCount { get; private set; }
 
 	/// <summary>
-	/// Gets or sets the user agent string.
+	/// Gets the session-specific data storage.
 	/// </summary>
-	public string? UserAgent { get; set; }
+	public ConcurrentDictionary<string, object> Data { get; } = [];
 
 	/// <summary>
-	/// Gets or sets the current request path.
+	/// Updates the last accessed timestamp and increments the render event count.
 	/// </summary>
-	public string? RequestPath { get; set; }
+	public void RecordAccess() {
+		LastAccessedAt = DateTime.UtcNow;
+		RenderEventCount++;
+	}
 
 	/// <summary>
-	/// Gets or sets whether this is a prerendering request.
+	/// Gets a value from the session data storage.
 	/// </summary>
-	public bool IsPrerendering { get; set; }
+	/// <typeparam name="T">The type of the value to retrieve.</typeparam>
+	/// <param name="key">The key of the value to retrieve.</param>
+	/// <returns>The value if found; otherwise, the default value for the type.</returns>
+	public T? GetValue<T>(string key) {
+		if (string.IsNullOrEmpty(key))
+			return default;
+
+		if (Data.TryGetValue(key, out var value) && value is T typedValue)
+			return typedValue;
+
+		return default;
+	}
 
 	/// <summary>
-	/// Gets or sets the session start time.
+	/// Sets a value in the session data storage.
 	/// </summary>
-	public DateTime SessionStartTime { get; set; } = DateTime.UtcNow;
+	/// <param name="key">The key of the value to set.</param>
+	/// <param name="value">The value to set.</param>
+	public void SetValue(string key, object value) {
+		if (string.IsNullOrEmpty(key))
+			return;
+
+		Data.AddOrUpdate(key, value, (k, v) => value);
+		LastAccessedAt = DateTime.UtcNow;
+	}
 
 	/// <summary>
-	/// Gets or sets additional custom properties for the session.
+	/// Removes a value from the session data storage.
 	/// </summary>
-	public Dictionary<string, object?> CustomProperties { get; set; } = new();
-}
+	/// <param name="key">The key of the value to remove.</param>
+	/// <returns>True if the value was removed; otherwise, false.</returns>
+	public bool RemoveValue(string key) {
+		if (string.IsNullOrEmpty(key))
+			return false;
 
-/// <summary>
-/// Service for managing session context in SSR scenarios.
-/// </summary>
-public interface ISessionContextService {
-	/// <summary>
-	/// Gets the current session context.
-	/// </summary>
-	/// <returns>The current session context or null if not available.</returns>
-	SessionContext? GetCurrentContext();
+		var result = Data.TryRemove(key, out _);
+		if (result)
+			LastAccessedAt = DateTime.UtcNow;
 
-	/// <summary>
-	/// Creates a session context from the current HTTP context.
-	/// </summary>
-	/// <param name="httpContext">The HTTP context.</param>
-	/// <returns>A session context object.</returns>
-	SessionContext CreateFromHttpContext(HttpContext httpContext);
+		return result;
+	}
 
 	/// <summary>
-	/// Creates a session context from a SignalR hub context.
+	/// Gets the age of this session.
 	/// </summary>
-	/// <param name="hubContext">The SignalR hub context.</param>
-	/// <returns>A session context object.</returns>
-	SessionContext CreateFromHubContext(HubCallerContext hubContext);
+	/// <returns>The time elapsed since the session was created.</returns>
+	public TimeSpan GetAge() =>
+		DateTime.UtcNow - CreatedAt;
 
 	/// <summary>
-	/// Sanitizes session context for logging based on privacy settings.
+	/// Gets the time since this session was last accessed.
 	/// </summary>
-	/// <param name="context">The session context to sanitize.</param>
-	/// <returns>A sanitized version of the session context.</returns>
-	SessionContext SanitizeForLogging(SessionContext context);
-}
-
-/// <summary>
-/// Default implementation of session context service.
-/// </summary>
-public class SessionContextService : ISessionContextService {
-	private readonly IHttpContextAccessor _httpContextAccessor;
-	private readonly WhyDidYouRenderConfig _config;
+	/// <returns>The time elapsed since the session was last accessed.</returns>
+	public TimeSpan GetTimeSinceLastAccess() =>
+		DateTime.UtcNow - LastAccessedAt;
 
 	/// <summary>
-	/// Initializes a new instance of the <see cref="SessionContextService"/> class.
+	/// Returns a string representation of this session context.
 	/// </summary>
-	/// <param name="httpContextAccessor">The HTTP context accessor.</param>
-	/// <param name="config">The WhyDidYouRender configuration.</param>
-	public SessionContextService(IHttpContextAccessor httpContextAccessor, WhyDidYouRenderConfig config) {
-		_httpContextAccessor = httpContextAccessor;
-		_config = config;
-	}
-
-	/// <inheritdoc />
-	public SessionContext? GetCurrentContext() {
-		var httpContext = _httpContextAccessor.HttpContext;
-		if (httpContext == null) return null;
-
-		return CreateFromHttpContext(httpContext);
-	}
-
-	/// <inheritdoc />
-	public SessionContext CreateFromHttpContext(HttpContext httpContext) {
-		var context = new SessionContext {
-			SessionId = GetOrCreateSessionId(httpContext),
-			UserId = GetUserId(httpContext),
-			UserName = GetUserName(httpContext),
-			IsAuthenticated = httpContext.User?.Identity?.IsAuthenticated ?? false,
-			ClientIpAddress = GetClientIpAddress(httpContext),
-			UserAgent = httpContext.Request.Headers.UserAgent.FirstOrDefault(),
-			RequestPath = httpContext.Request.Path.Value,
-			IsPrerendering = IsPrerendering(httpContext)
-		};
-
-		return SanitizeForLogging(context);
-	}
-
-	/// <inheritdoc />
-	public SessionContext CreateFromHubContext(HubCallerContext hubContext) {
-		var context = new SessionContext {
-			SessionId = hubContext.ConnectionId,
-			ConnectionId = hubContext.ConnectionId,
-			UserId = GetUserId(hubContext),
-			UserName = GetUserName(hubContext),
-			IsAuthenticated = hubContext.User?.Identity?.IsAuthenticated ?? false,
-			IsPrerendering = false
-		};
-
-		return SanitizeForLogging(context);
-	}
-
-	/// <inheritdoc />
-	public SessionContext SanitizeForLogging(SessionContext context) {
-		var sanitized = new SessionContext {
-			SessionId = SanitizeSessionId(context.SessionId),
-			ConnectionId = SanitizeConnectionId(context.ConnectionId),
-			UserId = SanitizeUserId(context.UserId),
-			UserName = SanitizeUserName(context.UserName),
-			IsAuthenticated = context.IsAuthenticated,
-			ClientIpAddress = SanitizeIpAddress(context.ClientIpAddress),
-			UserAgent = SanitizeUserAgent(context.UserAgent),
-			RequestPath = context.RequestPath,
-			IsPrerendering = context.IsPrerendering,
-			SessionStartTime = context.SessionStartTime,
-			CustomProperties = new Dictionary<string, object?>(context.CustomProperties)
-		};
-
-		return sanitized;
-	}
-
-	private string GetOrCreateSessionId(HttpContext httpContext) {
-		try {
-			if (httpContext.Session.IsAvailable) {
-				var sessionId = httpContext.Session.Id;
-				if (!string.IsNullOrEmpty(sessionId)) {
-					return sessionId;
-				}
-			}
-		}
-		catch (InvalidOperationException) {
-			// Session not configured - fall back to alternative ID generation
-		}
-		catch (Exception) {
-			// Any other session-related error - fall back gracefully
-		}
-
-		var connectionId = httpContext.Connection.Id;
-		if (!string.IsNullOrEmpty(connectionId)) {
-			return $"conn-{connectionId}";
-		}
-
-		return $"session-{Guid.NewGuid():N}";
-	}
-
-	private string? GetUserId(HttpContext httpContext) {
-		return httpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-	}
-
-	private string? GetUserId(HubCallerContext hubContext) {
-		return hubContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-	}
-
-	private string? GetUserName(HttpContext httpContext) {
-		return httpContext.User?.Identity?.Name;
-	}
-
-	private string? GetUserName(HubCallerContext hubContext) {
-		return hubContext.User?.Identity?.Name;
-	}
-
-	private string? GetClientIpAddress(HttpContext httpContext) {
-		var forwardedFor = httpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault();
-		if (!string.IsNullOrEmpty(forwardedFor)) {
-			return forwardedFor.Split(',')[0].Trim();
-		}
-
-		var realIp = httpContext.Request.Headers["X-Real-IP"].FirstOrDefault();
-		if (!string.IsNullOrEmpty(realIp)) {
-			return realIp;
-		}
-
-		return httpContext.Connection.RemoteIpAddress?.ToString();
-	}
-
-	private bool IsPrerendering(HttpContext httpContext) {
-		return httpContext.Request.Headers.ContainsKey("X-Prerendering") ||
-			   httpContext.Request.Query.ContainsKey("prerender");
-	}
-
-	private string SanitizeSessionId(string sessionId) {
-		if (string.IsNullOrEmpty(sessionId)) return sessionId;
-
-		return sessionId.Length > 8 ? $"{sessionId[..8]}***" : sessionId;
-	}
-
-	private string? SanitizeConnectionId(string? connectionId) {
-		if (string.IsNullOrEmpty(connectionId)) return connectionId;
-
-		return connectionId.Length > 8 ? $"{connectionId[..8]}***" : connectionId;
-	}
-
-	private string? SanitizeUserId(string? userId) {
-		if (string.IsNullOrEmpty(userId) || !_config.IncludeUserInfo) return null;
-
-		return userId.Length > 6 ? $"{userId[..3]}***{userId[^3..]}" : "***";
-	}
-
-	private string? SanitizeUserName(string? userName) {
-		if (string.IsNullOrEmpty(userName) || !_config.IncludeUserInfo) return null;
-
-		return $"{userName[0]}*** ({userName.Length} chars)";
-	}
-
-	private string? SanitizeIpAddress(string? ipAddress) {
-		if (string.IsNullOrEmpty(ipAddress) || !_config.IncludeClientInfo) return null;
-
-		if (ipAddress.Contains('.')) {
-			var parts = ipAddress.Split('.');
-			if (parts.Length == 4) {
-				return $"{parts[0]}.{parts[1]}.{parts[2]}.***";
-			}
-		}
-
-		return "***";
-	}
-
-	private string? SanitizeUserAgent(string? userAgent) {
-		if (string.IsNullOrEmpty(userAgent) || !_config.IncludeClientInfo) return null;
-
-		if (userAgent.Contains("Chrome")) return "Chrome/***";
-		if (userAgent.Contains("Firefox")) return "Firefox/***";
-		if (userAgent.Contains("Safari")) return "Safari/***";
-		if (userAgent.Contains("Edge")) return "Edge/***";
-
-		return "Unknown/***";
-	}
+	/// <returns>A string containing session information.</returns>
+	public override string ToString()
+		=> $"Session {SessionId}: {RenderEventCount} events, Age: {GetAge():hh\\:mm\\:ss}, Last access: {GetTimeSinceLastAccess():hh\\:mm\\:ss} ago";
 }

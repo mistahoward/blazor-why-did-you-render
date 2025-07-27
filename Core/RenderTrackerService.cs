@@ -52,11 +52,6 @@ public class RenderTrackerService {
 	private IBrowserConsoleLogger? _browserLogger;
 
 	/// <summary>
-	/// Session context for tracking session-specific data.
-	/// </summary>
-	private readonly ConcurrentDictionary<string, SessionContext> _sessions = new();
-
-	/// <summary>
 	/// Timer for periodic cleanup of old session data.
 	/// </summary>
 	private Timer? _cleanupTimer;
@@ -105,33 +100,31 @@ public class RenderTrackerService {
 		_browserLogger = browserLogger;
 		_errorTracker = errorTracker;
 
-		if (hostEnvironment?.IsDevelopment() == true) {
+		if (hostEnvironment?.IsDevelopment() == true)
 			StartCleanupTimer();
-		}
 	}
 
 	/// <summary>
 	/// Sets the browser logger for client-side logging.
 	/// </summary>
 	/// <param name="browserLogger">The browser logger instance.</param>
-	public void SetBrowserLogger(IBrowserConsoleLogger browserLogger) {
+	public void SetBrowserLogger(IBrowserConsoleLogger browserLogger) =>
 		_browserLogger = browserLogger;
-	}
 
 	/// <summary>
 	/// Sets the error tracker for handling errors.
 	/// </summary>
 	/// <param name="errorTracker">The error tracker instance.</param>
-	public void SetErrorTracker(IErrorTracker errorTracker) {
+	public void SetErrorTracker(IErrorTracker errorTracker) =>
 		_errorTracker = errorTracker;
-	}
 
 	/// <summary>
 	/// Sets the session context service for session management.
 	/// </summary>
 	/// <param name="sessionContextService">The session context service instance.</param>
-	public void SetSessionContextService(ISessionContextService sessionContextService) {
-		// Store reference if needed for future use
+	public static void SetSessionContextService(Abstractions.ISessionContextService sessionContextService) {
+		// TODO: implement
+		// store reference if needed for future use
 	}
 
 	/// <summary>
@@ -139,18 +132,26 @@ public class RenderTrackerService {
 	/// </summary>
 	/// <param name="hostEnvironment">The host environment instance.</param>
 	public void SetHostEnvironment(IHostEnvironment hostEnvironment) {
-		if (hostEnvironment?.IsDevelopment() == true) {
+		if (hostEnvironment?.IsDevelopment() == true)
 			StartCleanupTimer();
-		}
+	}
+
+	/// <summary>
+	/// Sets the tracking logger for environment-specific logging.
+	/// </summary>
+	/// <param name="trackingLogger">The tracking logger instance.</param>
+	public static void SetTrackingLogger(Abstractions.ITrackingLogger trackingLogger) {
+		// TODO: implement
+		// store reference for future use if needed
+		// the tracking logger is primarily used by the new abstraction layer
 	}
 
 	/// <summary>
 	/// Starts timing a render operation for a component.
 	/// </summary>
 	/// <param name="component">The component being rendered.</param>
-	public void StartRenderTiming(ComponentBase component) {
+	public void StartRenderTiming(ComponentBase component) =>
 		_performanceTracker.StartRenderTiming(component);
-	}
 
 	/// <summary>
 	/// Tracks a render event for the specified component.
@@ -158,9 +159,8 @@ public class RenderTrackerService {
 	/// <param name="component">The component being rendered.</param>
 	/// <param name="method">The lifecycle method that triggered the render.</param>
 	/// <param name="firstRender">Whether this is the first render of the component.</param>
-	public void Track(ComponentBase component, string method, bool? firstRender = null) {
+	public void Track(ComponentBase component, string method, bool? firstRender = null) =>
 		TrackRender(component, method, firstRender);
-	}
 
 	/// <summary>
 	/// Tracks a render event for the specified component.
@@ -234,19 +234,15 @@ public class RenderTrackerService {
 	/// <param name="componentFullName">The full component type name including namespace.</param>
 	/// <returns>True if the component should be tracked; otherwise, false.</returns>
 	private bool ShouldTrackComponent(string componentName, string componentFullName) {
-		if (_config.ExcludeNamespaces?.Count > 0) {
-			foreach (var pattern in _config.ExcludeNamespaces) {
+		if (_config.ExcludeNamespaces?.Count > 0)
+			foreach (var pattern in _config.ExcludeNamespaces)
 				if (MatchesPattern(componentFullName, pattern)) return false;
-			}
-		}
 
-		if (_config.ExcludeComponents?.Count > 0) {
-			foreach (var pattern in _config.ExcludeComponents) {
+		if (_config.ExcludeComponents?.Count > 0)
+			foreach (var pattern in _config.ExcludeComponents)
 				if (MatchesPattern(componentName, pattern)) return false;
-			}
-		}
 
-		// Check namespace inclusions (if specified, must match at least one)
+		// check namespace inclusions (if specified, must match at least one)
 		if (_config.IncludeNamespaces?.Count > 0) {
 			var matchesInclude = false;
 			foreach (var pattern in _config.IncludeNamespaces) {
@@ -258,15 +254,14 @@ public class RenderTrackerService {
 			if (!matchesInclude) return false;
 		}
 
-		// Check component inclusions (if specified, must match at least one)
+		// check component inclusions (if specified, must match at least one)
 		if (_config.IncludeComponents?.Count > 0) {
 			var matchesInclude = false;
-			foreach (var pattern in _config.IncludeComponents) {
+			foreach (var pattern in _config.IncludeComponents)
 				if (MatchesPattern(componentName, pattern)) {
 					matchesInclude = true;
 					break;
 				}
-			}
 			if (!matchesInclude) return false;
 		}
 
@@ -295,13 +290,11 @@ public class RenderTrackerService {
 	/// <returns>A task representing the asynchronous logging operation.</returns>
 	private async Task LogRenderEventAsync(RenderEvent renderEvent) {
 		try {
-			if (_config.Output.HasFlag(TrackingOutput.Console)) {
+			if (_config.Output.HasFlag(TrackingOutput.Console))
 				LogToConsole(renderEvent);
-			}
 
-			if (_config.Output.HasFlag(TrackingOutput.BrowserConsole) && _browserLogger != null) {
+			if (_config.Output.HasFlag(TrackingOutput.BrowserConsole) && _browserLogger != null)
 				await _browserLogger.LogRenderEventAsync(renderEvent);
-			}
 		}
 		catch (Exception ex) {
 			_errorTracker?.TrackError(ex, new Dictionary<string, object?> { ["Method"] = "LogRenderEventAsync" }, ErrorSeverity.Warning);
@@ -316,9 +309,9 @@ public class RenderTrackerService {
 		var message = FormatConsoleMessage(renderEvent);
 		Console.WriteLine(message);
 
-		if (_config.Verbosity >= TrackingVerbosity.Verbose && renderEvent.ParameterChanges?.Count > 0) {
+		var shouldLogParameterChanges = _config.Verbosity >= TrackingVerbosity.Verbose && renderEvent.ParameterChanges?.Count > 0;
+		if (shouldLogParameterChanges)
 			LogParameterChangesToConsole(renderEvent);
-		}
 	}
 
 	/// <summary>
@@ -330,22 +323,18 @@ public class RenderTrackerService {
 		var parts = new List<string> { $"[WhyDidYouRender] {renderEvent.ComponentName}.{renderEvent.Method}()" };
 
 		if (_config.Verbosity >= TrackingVerbosity.Normal) {
-			if (renderEvent.DurationMs.HasValue) {
+			if (renderEvent.DurationMs.HasValue)
 				parts.Add($"({renderEvent.DurationMs:F2}ms)");
-			}
 
-			if (_config.IncludeSessionInfo && !string.IsNullOrEmpty(renderEvent.SessionId)) {
+			if (_config.IncludeSessionInfo && !string.IsNullOrEmpty(renderEvent.SessionId))
 				parts.Add($"[{renderEvent.SessionId}]");
-			}
 		}
 
-		if (renderEvent.IsUnnecessaryRerender) {
+		if (renderEvent.IsUnnecessaryRerender)
 			parts.Add($"⚠️ UNNECESSARY: {renderEvent.UnnecessaryRerenderReason}");
-		}
 
-		if (renderEvent.IsFrequentRerender) {
+		if (renderEvent.IsFrequentRerender)
 			parts.Add("🔥 FREQUENT");
-		}
 
 		return string.Join(" ", parts);
 	}
@@ -354,7 +343,7 @@ public class RenderTrackerService {
 	/// Logs parameter changes to the console.
 	/// </summary>
 	/// <param name="renderEvent">The render event containing parameter changes.</param>
-	private void LogParameterChangesToConsole(RenderEvent renderEvent) {
+	private static void LogParameterChangesToConsole(RenderEvent renderEvent) {
 		if (renderEvent.ParameterChanges?.Count > 0 != true) return;
 
 		Console.WriteLine("  Parameter changes:");
@@ -373,9 +362,7 @@ public class RenderTrackerService {
 	/// Gets the current session ID for tracking purposes.
 	/// </summary>
 	/// <returns>The session ID, or a default value if not available.</returns>
-	private string GetSessionId() {
-		return "default-session";
-	}
+	private static string GetSessionId() => "default-session";
 
 	/// <summary>
 	/// Starts the cleanup timer for periodic maintenance.
@@ -394,11 +381,9 @@ public class RenderTrackerService {
 	/// </summary>
 	/// <param name="sessionId">The session ID to clean up.</param>
 	private void CleanupSessionSpecificData(string sessionId) {
-		// Note: This is a simplified cleanup. In a real implementation,
-		// you might want to track which components belong to which sessions
-		// and clean them up more precisely.
-		// For now, sessionId is not used as we clean up globally.
-		_ = sessionId; // Acknowledge the parameter to avoid warnings
+		// TODO: implement more thorough cleanup
+		// assigned to avoid compiler warning
+		_ = sessionId;
 
 		var cleanupTimeSpan = TimeSpan.FromMinutes(_config.SessionCleanupIntervalMinutes);
 		_renderFrequencyTracker.CleanupOldHistory(cleanupTimeSpan);

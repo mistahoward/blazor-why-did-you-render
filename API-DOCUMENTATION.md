@@ -1,15 +1,125 @@
-# Blazor WhyDidYouRender - API Documentation
+# Blazor WhyDidYouRender - API Documentation v2.0
 
-This document provides comprehensive API documentation for all public classes, interfaces, and methods in the Blazor WhyDidYouRender library.
+This document provides comprehensive API documentation for all public classes, interfaces, and methods in the **cross-platform** Blazor WhyDidYouRender library.
+
+## 🌐 Cross-Platform Architecture
+
+WhyDidYouRender v2.0 introduces a service abstraction pattern that provides seamless support across all Blazor hosting models:
+
+- **🖥️ Blazor Server** - Full server-side tracking with HttpContext session management
+- **🌐 Blazor WebAssembly** - Browser-based tracking with localStorage session management
+- **📄 Server-Side Rendering (SSR)** - Pre-render tracking with server-side optimization
 
 ## 📦 Namespaces
 
+- `Blazor.WhyDidYouRender.Abstractions` - **NEW** Cross-platform service interfaces
 - `Blazor.WhyDidYouRender.Components` - Component base classes
 - `Blazor.WhyDidYouRender.Configuration` - Configuration classes and enums
 - `Blazor.WhyDidYouRender.Core` - Core tracking services
 - `Blazor.WhyDidYouRender.Extensions` - Service collection extensions
 - `Blazor.WhyDidYouRender.Records` - Data transfer objects
+- `Blazor.WhyDidYouRender.Services` - **NEW** Environment-specific service implementations
 - `Blazor.WhyDidYouRender.Helpers` - Utility classes
+
+## 🔧 Cross-Platform Interfaces
+
+### IHostingEnvironmentDetector
+
+**Namespace**: `Blazor.WhyDidYouRender.Abstractions`
+
+Detects the current Blazor hosting environment and provides environment-specific information.
+
+```csharp
+public interface IHostingEnvironmentDetector
+{
+    BlazorHostingModel DetectHostingModel();
+    bool IsServerSide { get; }
+    bool IsClientSide { get; }
+    bool HasHttpContext { get; }
+    bool HasJavaScriptInterop { get; }
+    string GetEnvironmentDescription();
+}
+```
+
+**Implementation**: `HostingEnvironmentDetector` (automatically registered)
+
+### ISessionContextService
+
+**Namespace**: `Blazor.WhyDidYouRender.Abstractions`
+
+Provides cross-platform session management with automatic environment adaptation.
+
+```csharp
+public interface ISessionContextService
+{
+    string GetSessionId();
+    Task SetSessionInfoAsync(string key, object value);
+    Task<T?> GetSessionInfoAsync<T>(string key);
+    Task RemoveSessionInfoAsync(string key);
+    Task<IEnumerable<string>> GetSessionKeysAsync();
+    Task ClearSessionAsync();
+
+    bool SupportsPersistentStorage { get; }
+    bool SupportsCrossRequestPersistence { get; }
+    string StorageDescription { get; }
+}
+```
+
+**Implementations**:
+- **Server**: `ServerSessionContextService` - Uses HttpContext.Session
+- **WASM**: `WasmSessionContextService` - Uses browser localStorage/sessionStorage
+
+### ITrackingLogger
+
+**Namespace**: `Blazor.WhyDidYouRender.Abstractions`
+
+Provides environment-aware logging with automatic output adaptation.
+
+```csharp
+public interface ITrackingLogger
+{
+    bool SupportsServerConsole { get; }
+    bool SupportsBrowserConsole { get; }
+    string LoggingDescription { get; }
+
+    Task InitializeAsync();
+    Task LogRenderEventAsync(RenderEvent renderEvent);
+    Task LogMessageAsync(TrackingVerbosity verbosity, string message, object? data = null);
+    Task LogParameterChangeAsync(string componentName, string parameterName, object? oldValue, object? newValue, string changeType);
+    Task LogPerformanceAsync(string componentName, string method, double durationMs, Dictionary<string, object?>? additionalMetrics = null);
+}
+```
+
+**Implementations**:
+- **Server**: `ServerTrackingLogger` - Console + Browser logging
+- **WASM**: `WasmTrackingLogger` - Browser console only
+
+### IErrorTracker
+
+**Namespace**: `Blazor.WhyDidYouRender.Abstractions`
+
+Provides cross-platform error tracking and reporting.
+
+```csharp
+public interface IErrorTracker
+{
+    bool SupportsPersistentStorage { get; }
+    bool SupportsErrorReporting { get; }
+    string ErrorTrackingDescription { get; }
+
+    Task TrackErrorAsync(Exception exception, Dictionary<string, object?> context, ErrorSeverity severity, string? componentName = null, string? operation = null);
+    Task TrackErrorAsync(string message, Dictionary<string, object?> context, ErrorSeverity severity, string? componentName = null, string? operation = null);
+    Task<IEnumerable<TrackingError>> GetRecentErrorsAsync(int count = 50, ErrorSeverity? severity = null, string? componentName = null);
+    Task<ErrorStatistics> GetErrorStatisticsAsync();
+    Task ClearErrorsAsync();
+    Task<int> GetErrorCountAsync();
+    Task<IEnumerable<TrackingError>> GetErrorsSinceAsync(DateTime since, DateTime? until = null);
+}
+```
+
+**Implementations**:
+- **Server**: `ServerErrorTracker` - In-memory with console logging
+- **WASM**: `WasmErrorTracker` - Browser storage with console logging
 
 ## 🧩 Core Components
 
@@ -54,7 +164,7 @@ Main configuration class for the tracking system.
 public class WhyDidYouRenderConfig
 ```
 
-#### Properties
+#### Core Properties
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
@@ -65,25 +175,88 @@ public class WhyDidYouRenderConfig
 | `TrackPerformance` | `bool` | `true` | Track render performance |
 | `IncludeSessionInfo` | `bool` | `true` | Include session information in logs |
 
-#### Usage Example
+#### Filtering Properties
 
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `IncludeComponents` | `List<string>?` | `null` | Component name patterns to include (supports wildcards) |
+| `ExcludeComponents` | `List<string>?` | `null` | Component name patterns to exclude (supports wildcards) |
+| `IncludeNamespaces` | `List<string>?` | `null` | Namespace patterns to include |
+| `ExcludeNamespaces` | `List<string>?` | `null` | Namespace patterns to exclude |
+
+#### Performance & Optimization Properties
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `MaxParameterChangesToLog` | `int` | `10` | Maximum parameter changes to log per component |
+| `LogOnlyWhenParametersChange` | `bool` | `false` | Log only when parameters actually change |
+| `DetectUnnecessaryRerenders` | `bool` | `true` | Detect and warn about unnecessary re-renders |
+| `HighlightUnnecessaryRerenders` | `bool` | `true` | Highlight unnecessary re-renders in browser console |
+| `FrequentRerenderThreshold` | `double` | `5.0` | Threshold for flagging frequent re-renders (renders/second) |
+
+#### Cross-Platform Properties
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `AutoDetectEnvironment` | `bool` | `true` | Automatically detect hosting environment |
+| `ForceHostingModel` | `BlazorHostingModel?` | `null` | Force specific hosting model (overrides detection) |
+
+#### Cross-Platform Usage Examples
+
+**Blazor Server:**
 ```csharp
+var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddRazorPages();
+builder.Services.AddServerSideBlazor();
+
+// Add WhyDidYouRender
 builder.Services.AddWhyDidYouRender(config =>
 {
     config.Enabled = true;
     config.Verbosity = TrackingVerbosity.Normal;
-    config.Output = TrackingOutput.Both;
+    config.Output = TrackingOutput.Both; // Server console AND browser console
     config.TrackParameterChanges = true;
     config.TrackPerformance = true;
 });
 
 var app = builder.Build();
 
-// Initialize WhyDidYouRender SSR services
-app.Services.InitializeSSRServices();
+// Auto-initialize for Server environment
+await app.Services.InitializeServerAsync();
+```
 
-// For browser console logging, initialize in a component:
-// await ServiceProvider.InitializeWhyDidYouRenderAsync(JSRuntime);
+**Blazor WebAssembly:**
+```csharp
+var builder = WebAssemblyHostBuilder.CreateDefault(args);
+builder.RootComponents.Add<App>("#app");
+
+// Add WhyDidYouRender
+builder.Services.AddWhyDidYouRender(config =>
+{
+    config.Enabled = true;
+    config.Verbosity = TrackingVerbosity.Normal;
+    config.Output = TrackingOutput.BrowserConsole; // Browser console only
+    config.TrackParameterChanges = true;
+    config.TrackPerformance = true;
+});
+
+var host = builder.Build();
+
+// Auto-initialize for WASM environment
+await host.Services.InitializeWasmAsync(host.Services.GetRequiredService<IJSRuntime>());
+```
+
+**Auto-Detection (Recommended):**
+```csharp
+// In any component after service registration:
+protected override async Task OnAfterRenderAsync(bool firstRender)
+{
+    if (firstRender)
+    {
+        // Automatically detects environment and initializes accordingly
+        await ServiceProvider.InitializeAsync(JSRuntime);
+    }
+}
 ```
 
 ### TrackingVerbosity Enum
@@ -133,6 +306,21 @@ public class RenderTrackerService
 
 #### Usage Example
 
+**Automatic Tracking (Recommended):**
+```csharp
+@using Blazor.WhyDidYouRender.Components
+@inherits TrackedComponentBase
+
+<h3>My Component</h3>
+<p>Count: @Count</p>
+
+@code {
+    [Parameter] public int Count { get; set; }
+    // Tracking happens automatically - no manual calls needed!
+}
+```
+
+**Manual Tracking (Advanced):**
 ```csharp
 @inject RenderTrackerService RenderTracker
 
@@ -157,8 +345,11 @@ public class ParameterChangeDetector
 
 | Method | Description | Parameters | Returns |
 |--------|-------------|------------|---------|
-| `DetectChanges(ComponentBase, ParameterView, ParameterView)` | Detect parameter changes | `component`: Component<br>`previousParameters`: Old parameters<br>`currentParameters`: New parameters | `IEnumerable<ParameterChange>` |
-| `HasSignificantChanges(IEnumerable<ParameterChange>)` | Check if changes are significant | `changes`: Parameter changes | `bool` |
+| `DetectParameterChanges(ComponentBase, string)` | Detect parameter changes for a component | `component`: Component instance<br>`method`: Lifecycle method being called | `Dictionary<string, object?>?` |
+| `HasMeaningfulParameterChange(object?)` | Check if a parameter change is meaningful | `change`: Parameter change data | `bool` |
+| `CleanupInactiveComponents(IEnumerable<ComponentBase>)` | Clean up parameter history for inactive components | `activeComponents`: Currently active components | `void` |
+| `GetTrackedComponentCount()` | Get the number of tracked components | None | `int` |
+| `ClearAll()` | Clear all parameter history | None | `void` |
 
 ### PerformanceTracker
 
@@ -180,54 +371,40 @@ public class PerformanceTracker
 
 ### RenderEvent
 
-Represents a single render event.
+Represents a single render event with detailed tracking information.
 
 ```csharp
 public record RenderEvent
 {
+    public DateTime Timestamp { get; init; }
     public string ComponentName { get; init; }
     public string ComponentType { get; init; }
-    public string Trigger { get; init; }
-    public DateTime Timestamp { get; init; }
-    public TimeSpan Duration { get; init; }
-    public bool FirstRender { get; init; }
-    public IEnumerable<ParameterChange> ParameterChanges { get; init; }
-    public string SessionId { get; init; }
+    public string Method { get; init; }
+    public bool? FirstRender { get; init; }
+    public double? DurationMs { get; init; }
+    public string? SessionId { get; init; }
+    public Dictionary<string, object?>? ParameterChanges { get; init; }
+    public bool IsUnnecessaryRerender { get; init; }
+    public string? UnnecessaryRerenderReason { get; init; }
+    public bool IsFrequentRerender { get; init; }
 }
 ```
 
-### ParameterChange
 
-Represents a change in component parameters.
-
-```csharp
-public record ParameterChange
-{
-    public string Name { get; init; }
-    public object? OldValue { get; init; }
-    public object? NewValue { get; init; }
-    public bool HasChanged { get; init; }
-    public string ChangeType { get; init; }
-}
-```
 
 ### RenderStatistics
 
-Aggregated statistics for a component.
+Statistics about component render frequency.
 
 ```csharp
 public record RenderStatistics
 {
     public string ComponentName { get; init; }
-    public string ComponentType { get; init; }
     public int TotalRenders { get; init; }
-    public TimeSpan TotalDuration { get; init; }
-    public TimeSpan AverageDuration { get; init; }
-    public TimeSpan MinDuration { get; init; }
-    public TimeSpan MaxDuration { get; init; }
-    public DateTime FirstRender { get; init; }
-    public DateTime LastRender { get; init; }
-    public int UnnecessaryRenders { get; init; }
+    public int RendersLastSecond { get; init; }
+    public int RendersLastMinute { get; init; }
+    public double AverageRenderRate { get; init; }
+    public bool IsFrequentRenderer { get; init; }
 }
 ```
 
@@ -236,14 +413,35 @@ public record RenderStatistics
 Performance metrics for a component.
 
 ```csharp
-public record PerformanceMetrics
+public class PerformanceMetrics
 {
-    public string ComponentName { get; init; }
-    public int RenderCount { get; init; }
-    public TimeSpan TotalRenderTime { get; init; }
-    public TimeSpan AverageRenderTime { get; init; }
-    public TimeSpan LastRenderTime { get; init; }
-    public double RendersPerSecond { get; init; }
+    public string ComponentName { get; set; }
+    public int TotalRenders { get; set; }
+    public double TotalDurationMs { get; set; }
+    public double AverageDurationMs { get; set; }
+    public double MaxDurationMs { get; set; }
+    public double MinDurationMs { get; set; }
+    public double LastRenderDurationMs { get; set; }
+    public string LastRenderMethod { get; set; }
+    public DateTime LastRenderTime { get; set; }
+    public string SlowestMethod { get; set; }
+    public string FastestMethod { get; set; }
+}
+```
+
+### OverallPerformanceStatistics
+
+Overall performance statistics across all components.
+
+```csharp
+public record OverallPerformanceStatistics
+{
+    public int TotalComponents { get; init; }
+    public int TotalRenders { get; init; }
+    public double AverageRenderTime { get; init; }
+    public double SlowestRenderTime { get; init; }
+    public double FastestRenderTime { get; init; }
+    public int ComponentsWithSlowRenders { get; init; }
 }
 ```
 
@@ -251,37 +449,42 @@ public record PerformanceMetrics
 
 ### ServiceCollectionExtensions
 
-Extension methods for service registration.
+Extension methods for service registration and cross-platform initialization.
 
 ```csharp
 public static class ServiceCollectionExtensions
 ```
 
-#### Methods
+#### Service Registration Methods
 
 | Method | Description | Parameters | Returns |
 |--------|-------------|------------|---------|
-| `AddWhyDidYouRender(this IServiceCollection)` | Add with default config | `services`: Service collection | `IServiceCollection` |
-| `AddWhyDidYouRender(this IServiceCollection, WhyDidYouRenderConfig)` | Add with config instance | `services`: Service collection<br>`config`: Configuration | `IServiceCollection` |
+| `AddWhyDidYouRender(this IServiceCollection, IConfiguration?)` | Add with configuration binding | `services`: Service collection<br>`configuration`: Optional config section | `IServiceCollection` |
 | `AddWhyDidYouRender(this IServiceCollection, Action<WhyDidYouRenderConfig>)` | Add with config action | `services`: Service collection<br>`configureOptions`: Config action | `IServiceCollection` |
 
-#### Usage Examples
+#### Cross-Platform Initialization Methods
+
+| Method | Description | Parameters | Returns |
+|--------|-------------|------------|---------|
+| `InitializeAsync(this IServiceProvider, IJSRuntime?)` | **Recommended** - Auto-detects environment and initializes | `serviceProvider`: Service provider<br>`jsRuntime`: Optional JS runtime | `Task` |
+| `InitializeServerAsync(this IServiceProvider)` | Initialize for Blazor Server environment | `serviceProvider`: Service provider | `Task` |
+| `InitializeWasmAsync(this IServiceProvider, IJSRuntime)` | Initialize for WebAssembly environment | `serviceProvider`: Service provider<br>`jsRuntime`: JS runtime | `Task` |
+| `InitializeSSRServices(this IServiceProvider)` | Initialize core services (environment-agnostic) | `serviceProvider`: Service provider | `void` |
+| `InitializeWhyDidYouRenderAsync(this IServiceProvider, IJSRuntime)` | Initialize browser console logging | `serviceProvider`: Service provider<br>`jsRuntime`: JS runtime | `Task` |
+
+#### Basic Usage Examples
 
 ```csharp
-// Default configuration
-services.AddWhyDidYouRender();
-
-// With configuration instance
-var config = new WhyDidYouRenderConfig { Enabled = true };
-services.AddWhyDidYouRender(config);
-
-// With configuration action
+// Service registration with configuration
 services.AddWhyDidYouRender(config =>
 {
     config.Enabled = true;
     config.Verbosity = TrackingVerbosity.Normal;
     config.Output = TrackingOutput.Both;
 });
+
+// Auto-initialization (recommended)
+await serviceProvider.InitializeAsync(jsRuntime);
 ```
 
 ## 🛠️ Utility Classes
@@ -326,25 +529,47 @@ Represents an error that occurred during tracking.
 ```csharp
 public record TrackingError
 {
-    public string ErrorType { get; init; }
-    public string Message { get; init; }
-    public string? StackTrace { get; init; }
+    public string ErrorId { get; init; }
     public DateTime Timestamp { get; init; }
-    public string ComponentName { get; init; }
-    public string Operation { get; init; }
+    public string Message { get; init; }
+    public string? ExceptionType { get; init; }
+    public string? StackTrace { get; init; }
+    public string? ComponentName { get; init; }
+    public string? TrackingMethod { get; init; }
+    public string? SessionId { get; init; }
+    public Dictionary<string, object?> Context { get; init; }
+    public ErrorSeverity Severity { get; init; }
+    public bool Recovered { get; init; }
 }
 ```
 
-### IErrorTracker
+### ErrorSeverity
 
-Interface for error tracking service.
+Severity levels for tracking errors.
 
 ```csharp
-public interface IErrorTracker
+public enum ErrorSeverity
 {
-    void TrackError(Exception exception, string operation, string? componentName = null);
-    IEnumerable<TrackingError> GetErrors();
-    void ClearErrors();
+    Info,       // Informational - minor issues that don't affect functionality
+    Warning,    // Issues that might affect tracking but don't break functionality
+    Error,      // Significant issues that affect tracking functionality
+    Critical    // Severe issues that might affect application stability
+}
+```
+
+### ErrorStatistics
+
+Error statistics summary.
+
+```csharp
+public record ErrorStatistics
+{
+    public int TotalErrors { get; init; }
+    public int ErrorsLastHour { get; init; }
+    public int ErrorsLast24Hours { get; init; }
+    public Dictionary<string, int> CommonErrorTypes { get; init; }
+    public Dictionary<string, int> ProblematicComponents { get; init; }
+    public double ErrorRate { get; init; }
 }
 ```
 

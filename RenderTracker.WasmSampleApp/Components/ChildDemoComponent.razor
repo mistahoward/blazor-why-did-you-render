@@ -1,0 +1,41 @@
+@using Blazor.WhyDidYouRender.Components
+@inherits TrackedComponentBase
+
+@if (IsVisible)
+{
+    <div class="border p-3 bg-light">
+        <h6>@Title</h6>
+        <p>Count from parent: <span class="badge bg-primary">@Count</span></p>
+        <p>Child render count: <span class="badge bg-secondary">@childRenderCount</span></p>
+        <p>Last rendered: @lastRenderTime.ToString("HH:mm:ss.fff")</p>
+        
+        <div class="mt-2">
+            <small class="text-muted">
+                This child component demonstrates parameter change tracking in WASM.
+                Watch the browser console for render events!
+            </small>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public string Title { get; set; } = "Child Component";
+    [Parameter] public int Count { get; set; }
+    [Parameter] public bool IsVisible { get; set; } = true;
+    
+    private int childRenderCount = 0;
+    private DateTime lastRenderTime = DateTime.Now;
+    
+    protected override void OnAfterRender(bool firstRender)
+    {
+        childRenderCount++;
+        lastRenderTime = DateTime.Now;
+        base.OnAfterRender(firstRender);
+    }
+    
+    protected override bool ShouldRender()
+    {
+        // This will be tracked by WhyDidYouRender
+        return base.ShouldRender();
+    }
+}

@@ -69,9 +69,9 @@ public class RenderTrackerService
     }
 }
 
-// ✅ Good: camelCase for private fields
-private readonly ILogger logger;
-private bool isEnabled;
+// ✅ Good: camelCase with underscore prefix for private fields
+private readonly ILogger _logger;
+private bool _isEnabled;
 
 // ✅ Good: Descriptive names
 public record ParameterChange

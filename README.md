@@ -344,17 +344,6 @@ For existing components that can't inherit from `TrackedComponentBase`, you can 
 - **Warning**: Potentially unnecessary re-renders
 - **Error**: Performance issues and problems
 
-## 🔧 Diagnostics Endpoint
-
-Enable the optional diagnostics endpoint for advanced monitoring:
-
-```csharp
-// In Program.cs
-app.UseWhyDidYouRenderDiagnostics("/diagnostics/renders");
-```
-
-Access diagnostics at: `https://yourapp.com/diagnostics/renders`
-
 ## 🎨 Best Practices
 
 ### 1. Use in Development Only

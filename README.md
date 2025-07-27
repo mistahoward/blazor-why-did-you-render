@@ -2,6 +2,8 @@
 
 A powerful **cross-platform** performance monitoring and debugging tool for Blazor applications that helps identify unnecessary re-renders and optimize component performance across **Server**, **WebAssembly**, and **SSR** environments.
 
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/S6S3XYOL5)
+
 ## 🌐 Cross-Platform Support
 
 **WhyDidYouRender v2.0** now supports all Blazor hosting models:

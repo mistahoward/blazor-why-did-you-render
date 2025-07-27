@@ -115,6 +115,8 @@ Open your browser's developer tools and watch the console for render tracking in
 └─ Reason: Manual state change
 ```
 
+<img width="763" height="380" alt="image" src="https://github.com/user-attachments/assets/497fdcbe-75eb-4707-8ccb-4cb4ac07b1c6" />
+
 ## 📖 Configuration
 
 ### Basic Configuration

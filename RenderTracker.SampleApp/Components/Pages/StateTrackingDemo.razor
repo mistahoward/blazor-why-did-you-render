@@ -1,0 +1,402 @@
+@page "/state-tracking"
+@rendermode InteractiveServer
+@inherits TrackedComponentBase
+@using Blazor.WhyDidYouRender.Attributes
+@attribute [StateTrackingOptions(EnableStateTracking = true, LogStateChanges = true)]
+
+<PageTitle>State Tracking Demo</PageTitle>
+
+<h1>State Tracking Demo</h1>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5>Simple State Fields</h5>
+            </div>
+            <div class="card-body">
+                <p><strong>Counter:</strong> @counter</p>
+                <p><strong>Message:</strong> @message</p>
+                <p><strong>Is Active:</strong> @isActive</p>
+                <p><strong>Last Updated:</strong> @lastUpdated.ToString("HH:mm:ss")</p>
+                
+                <button class="btn btn-primary me-2" @onclick="IncrementCounter">Increment</button>
+                <button class="btn btn-secondary me-2" @onclick="ChangeMessage">Change Message</button>
+                <button class="btn btn-info me-2" @onclick="ToggleActive">Toggle Active</button>
+                <button class="btn btn-warning" @onclick="UpdateTime">Update Time</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5>Complex Object State</h5>
+            </div>
+            <div class="card-body">
+                <p><strong>User Name:</strong> @user?.Name</p>
+                <p><strong>User Email:</strong> @user?.Email</p>
+                <p><strong>User Age:</strong> @user?.Age</p>
+                <p><strong>Settings Count:</strong> @user?.Settings?.Count</p>
+                
+                <button class="btn btn-primary me-2" @onclick="UpdateUserName">Update Name</button>
+                <button class="btn btn-secondary me-2" @onclick="UpdateUserAge">Update Age</button>
+                <button class="btn btn-info me-2" @onclick="AddSetting">Add Setting</button>
+                <button class="btn btn-danger" @onclick="ReplaceUser">Replace User</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-3">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5>Collection State</h5>
+            </div>
+            <div class="card-body">
+                <p><strong>Items Count:</strong> @items.Count</p>
+                <ul>
+                    @foreach (var item in items.Take(5))
+                    {
+                        <li>@item</li>
+                    }
+                    @if (items.Count > 5)
+                    {
+                        <li><em>... and @(items.Count - 5) more items</em></li>
+                    }
+                </ul>
+                
+                <button class="btn btn-success me-2" @onclick="AddItem">Add Item</button>
+                <button class="btn btn-warning me-2" @onclick="ModifyFirstItem">Modify First</button>
+                <button class="btn btn-danger" @onclick="ClearItems">Clear All</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5>Ignored Fields</h5>
+            </div>
+            <div class="card-body">
+                <p><strong>Performance Counter:</strong> @performanceCounter</p>
+                <p><strong>Debug Info:</strong> @debugInfo</p>
+                <p><strong>Render Count:</strong> @renderCount</p>
+                
+                <button class="btn btn-outline-secondary me-2" @onclick="UpdatePerformanceCounter">Update Performance</button>
+                <button class="btn btn-outline-info me-2" @onclick="UpdateDebugInfo">Update Debug</button>
+                <button class="btn btn-outline-warning" @onclick="ForceRender">Force Render</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-3">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>State Tracking Information</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">
+                    This component demonstrates various state tracking scenarios:
+                </p>
+                <ul class="text-muted">
+                    <li><strong>Tracked Fields:</strong> counter, message, isActive, lastUpdated, user, items</li>
+                    <li><strong>Ignored Fields:</strong> performanceCounter, debugInfo, renderCount</li>
+                    <li><strong>Custom Comparison:</strong> user object uses custom comparison logic</li>
+                    <li><strong>Collection Tracking:</strong> items list tracks content changes</li>
+                </ul>
+                <p class="text-info">
+                    Check the browser console and server logs to see state tracking in action!
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-3">
+    <div class="col-12">
+        <div class="card border-warning">
+            <div class="card-header bg-warning text-dark">
+                <h5>🚨 Unnecessary Re-render Testing</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">
+                    These buttons demonstrate scenarios that should trigger <strong>unnecessary re-render warnings</strong>:
+                </p>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Force Re-renders (No State Changes)</h6>
+                        <button class="btn btn-warning me-2" @onclick="ForceRender">Force Render</button>
+                        <button class="btn btn-warning me-2" @onclick="MultipleForceRenders">Multiple Force Renders</button>
+                        <button class="btn btn-warning" @onclick="RapidForceRenders">Rapid Force Renders</button>
+
+                        <h6 class="mt-3">Ignored Field Updates</h6>
+                        <button class="btn btn-outline-warning me-2" @onclick="UpdatePerformanceCounter">Update Performance</button>
+                        <button class="btn btn-outline-warning me-2" @onclick="UpdateDebugInfo">Update Debug</button>
+                        <button class="btn btn-outline-warning" @onclick="UpdateBothIgnored">Update Both Ignored</button>
+                    </div>
+
+                    <div class="col-md-6">
+                        <h6>Duplicate State Changes</h6>
+                        <button class="btn btn-secondary me-2" @onclick="SetSameCounter">Set Same Counter</button>
+                        <button class="btn btn-secondary me-2" @onclick="SetSameMessage">Set Same Message</button>
+                        <button class="btn btn-secondary" @onclick="ToggleSameState">Toggle Same State</button>
+
+                        <h6 class="mt-3">Mixed Operations</h6>
+                        <button class="btn btn-info me-2" @onclick="MixedUnnecessaryUpdate">Mixed Update</button>
+                        <button class="btn btn-info me-2" @onclick="FakeStateChange">Fake State Change</button>
+                        <button class="btn btn-info" @onclick="RedundantOperations">Redundant Operations</button>
+                    </div>
+                </div>
+
+                <div class="alert alert-warning mt-3">
+                    <strong>Expected Behavior:</strong> These operations should trigger unnecessary re-render warnings
+                    because they either don't change tracked state or set the same values repeatedly.
+                    Watch the console for WhyDidYouRender warnings!
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    // Simple tracked fields
+    [TrackState]
+    private int counter = 0;
+
+    [TrackState]
+    private string message = "Initial message";
+
+    [TrackState]
+    private bool isActive = false;
+
+    [TrackState]
+    private DateTime lastUpdated = DateTime.Now;
+
+    // Complex object with custom comparison
+    [TrackState(UseCustomComparer = true, MaxComparisonDepth = 3)]
+    private UserData? user = new UserData 
+    { 
+        Name = "John Doe", 
+        Email = "john@example.com", 
+        Age = 30,
+        Settings = new Dictionary<string, object> { { "theme", "dark" }, { "language", "en" } }
+    };
+
+    // Collection with content tracking
+    [TrackState(TrackCollectionContents = true, MaxComparisonDepth = 2)]
+    private List<string> items = new List<string> { "Item 1", "Item 2", "Item 3" };
+
+    // Ignored fields (won't trigger state change detection)
+    [IgnoreState("Performance counter - changes frequently")]
+    private long performanceCounter = 0;
+
+    [IgnoreState("Debug information - not relevant for rendering")]
+    private string debugInfo = "Debug: Component initialized";
+
+    [IgnoreState("Internal render tracking")]
+    private int renderCount = 0;
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        base.OnAfterRender(firstRender);
+        renderCount++;
+    }
+
+    // Simple field operations
+    private void IncrementCounter()
+    {
+        counter++;
+        lastUpdated = DateTime.Now;
+    }
+
+    private void ChangeMessage()
+    {
+        var messages = new[] { "Hello World!", "State tracking works!", "Blazor is awesome!", "Testing state changes" };
+        message = messages[Random.Shared.Next(messages.Length)];
+        lastUpdated = DateTime.Now;
+    }
+
+    private void ToggleActive()
+    {
+        isActive = !isActive;
+        lastUpdated = DateTime.Now;
+    }
+
+    private void UpdateTime()
+    {
+        lastUpdated = DateTime.Now;
+    }
+
+    // Complex object operations
+    private void UpdateUserName()
+    {
+        if (user != null)
+        {
+            var names = new[] { "John Doe", "Jane Smith", "Bob Johnson", "Alice Brown" };
+            user.Name = names[Random.Shared.Next(names.Length)];
+        }
+    }
+
+    private void UpdateUserAge()
+    {
+        if (user != null)
+        {
+            user.Age = Random.Shared.Next(18, 80);
+        }
+    }
+
+    private void AddSetting()
+    {
+        if (user?.Settings != null)
+        {
+            var key = $"setting_{Random.Shared.Next(1000)}";
+            var value = $"value_{Random.Shared.Next(1000)}";
+            user.Settings[key] = value;
+        }
+    }
+
+    private void ReplaceUser()
+    {
+        user = new UserData
+        {
+            Name = "New User",
+            Email = "new@example.com",
+            Age = 25,
+            Settings = new Dictionary<string, object> { { "theme", "light" } }
+        };
+    }
+
+    // Collection operations
+    private void AddItem()
+    {
+        var beforeCount = items.Count;
+        var newItem = $"Item {items.Count + 1} - {DateTime.Now:HH:mm:ss}";
+        Console.WriteLine($"[DEBUG] AddItem called - Before: {beforeCount} items");
+        items.Add(newItem);
+        Console.WriteLine($"[DEBUG] AddItem completed - After: {items.Count} items, Added: '{newItem}'");
+        Console.WriteLine($"[DEBUG] Current items: [{string.Join(", ", items.Select(i => $"'{i}'"))}]");
+    }
+
+    private void ModifyFirstItem()
+    {
+        if (items.Count > 0)
+        {
+            items[0] = $"Modified Item - {DateTime.Now:HH:mm:ss}";
+        }
+    }
+
+    private void ClearItems()
+    {
+        items.Clear();
+    }
+
+    // Ignored field operations (should not trigger state change detection)
+    private void UpdatePerformanceCounter()
+    {
+        performanceCounter = Environment.TickCount64;
+    }
+
+    private void UpdateDebugInfo()
+    {
+        debugInfo = $"Debug: Updated at {DateTime.Now:HH:mm:ss.fff}";
+    }
+
+    private void ForceRender()
+    {
+        StateHasChanged();
+    }
+
+    // Unnecessary re-render test methods
+    private void MultipleForceRenders()
+    {
+        StateHasChanged();
+        StateHasChanged();
+        StateHasChanged();
+    }
+
+    private async void RapidForceRenders()
+    {
+        for (int i = 0; i < 5; i++)
+        {
+            StateHasChanged();
+            await Task.Delay(50); // Small delay between renders
+        }
+    }
+
+    private void UpdateBothIgnored()
+    {
+        performanceCounter = Environment.TickCount64;
+        debugInfo = $"Both updated: {DateTime.Now:HH:mm:ss.fff}";
+    }
+
+    private void SetSameCounter()
+    {
+        // Set counter to its current value (should be unnecessary)
+        var currentValue = counter;
+        counter = currentValue;
+        lastUpdated = DateTime.Now; // This will change, making it a mixed scenario
+    }
+
+    private void SetSameMessage()
+    {
+        // Set message to its current value (should be unnecessary)
+        var currentMessage = message;
+        message = currentMessage;
+    }
+
+    private void ToggleSameState()
+    {
+        // Toggle boolean twice to end up with same value
+        isActive = !isActive;
+        isActive = !isActive;
+    }
+
+    private void MixedUnnecessaryUpdate()
+    {
+        // Mix of ignored field changes and same-value assignments
+        performanceCounter = Environment.TickCount64;
+        var currentCounter = counter;
+        counter = currentCounter; // Same value
+        debugInfo = $"Mixed update: {DateTime.Now:HH:mm:ss.fff}";
+    }
+
+    private void FakeStateChange()
+    {
+        // Pretend to change state but don't actually change anything meaningful
+        var temp = counter;
+        counter = temp + 1;
+        counter = temp; // Back to original value
+
+        var tempMessage = message;
+        message = "Temporary change";
+        message = tempMessage; // Back to original value
+    }
+
+    private void RedundantOperations()
+    {
+        // Perform multiple redundant operations
+        counter = counter; // Same value assignment
+        message = message; // Same value assignment
+        isActive = isActive; // Same value assignment
+
+        // Update ignored fields (should not trigger meaningful re-render)
+        performanceCounter++;
+        debugInfo = "Redundant operations performed";
+
+        // Force a render even though nothing meaningful changed
+        StateHasChanged();
+    }
+
+    public class UserData
+    {
+        public string Name { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public int Age { get; set; }
+        public Dictionary<string, object> Settings { get; set; } = new();
+    }
+}

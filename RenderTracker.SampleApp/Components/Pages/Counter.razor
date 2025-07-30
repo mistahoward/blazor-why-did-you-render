@@ -1,6 +1,7 @@
 ﻿@page "/counter"
 @rendermode InteractiveServer
 @inherits TrackedComponentBase
+@using Blazor.WhyDidYouRender.Attributes
 
 <PageTitle>Counter</PageTitle>
 
@@ -13,16 +14,26 @@
 <button class="btn btn-secondary" @onclick="ForceRender">Force Re-render</button>
 
 @code {
+    [TrackState]
     private int currentCount = 0;
+
+    [TrackState]
+    private string lastAction = "None";
+
+    [IgnoreState("Performance counter - changes frequently")]
+    private DateTime lastClickTime = DateTime.Now;
 
     private void IncrementCount()
     {
         currentCount++;
+        lastAction = "Increment";
+        lastClickTime = DateTime.Now;
     }
 
     private void ForceRender()
     {
-        // This will call our tracked StateHasChanged method
+        lastAction = "Force Render";
+        lastClickTime = DateTime.Now;
         StateHasChanged();
     }
 }

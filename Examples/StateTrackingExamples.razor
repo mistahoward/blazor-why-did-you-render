@@ -1,0 +1,186 @@
+@using Blazor.WhyDidYouRender.Attributes
+@using Blazor.WhyDidYouRender.Components
+@inherits TrackedComponentBase
+
+<h3>State Tracking Examples</h3>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5>Auto-Tracked Simple Types</h5>
+            </div>
+            <div class="card-body">
+                <p>Counter: <strong>@_counter</strong></p>
+                <p>Message: <strong>@_message</strong></p>
+                <p>Last Updated: <strong>@_lastUpdated.ToString("HH:mm:ss")</strong></p>
+                
+                <button class="btn btn-primary" @onclick="IncrementCounter">
+                    Increment Counter
+                </button>
+                
+                <button class="btn btn-secondary ms-2" @onclick="UpdateMessage">
+                    Update Message
+                </button>
+                
+                <button class="btn btn-info ms-2" @onclick="UpdateTime">
+                    Update Time Only
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5>Explicitly Tracked Complex Types</h5>
+            </div>
+            <div class="card-body">
+                <p>User: <strong>@_userInfo?.Name</strong></p>
+                <p>Items Count: <strong>@_items?.Count</strong></p>
+                
+                <button class="btn btn-primary" @onclick="UpdateUser">
+                    Update User
+                </button>
+                
+                <button class="btn btn-secondary ms-2" @onclick="AddItem">
+                    Add Item
+                </button>
+                
+                <button class="btn btn-warning ms-2" @onclick="ClearItems">
+                    Clear Items
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>Ignored Fields</h5>
+            </div>
+            <div class="card-body">
+                <p>Debug ID: <code>@_debugId</code></p>
+                <p>Internal Counter: <strong>@_internalCounter</strong></p>
+                
+                <button class="btn btn-outline-secondary" @onclick="UpdateIgnoredFields">
+                    Update Ignored Fields (No State Change Detection)
+                </button>
+                
+                <div class="alert alert-info mt-3">
+                    <strong>Note:</strong> The debug ID and internal counter are marked with [IgnoreState], 
+                    so changes to these fields won't trigger unnecessary render warnings.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    // Auto-tracked simple types (no attribute needed)
+    private int _counter = 0;
+    private string _message = "Initial message";
+    private DateTime _lastUpdated = DateTime.Now;
+    
+    // Explicitly tracked complex types
+    [TrackState("User information for display")]
+    private UserInfo? _userInfo = new() { Name = "John Doe", Email = "john@example.com" };
+    
+    [TrackState(UseCustomComparer = true, TrackCollectionContents = true)]
+    private List<string>? _items = new() { "Item 1", "Item 2" };
+    
+    // Ignored fields (won't trigger state change detection)
+    [IgnoreState("Internal debugging identifier")]
+    private string _debugId = Guid.NewGuid().ToString("N")[..8];
+    
+    [IgnoreState("Performance-sensitive internal counter")]
+    private int _internalCounter = 0;
+    
+    private void IncrementCounter()
+    {
+        _counter++;
+        _lastUpdated = DateTime.Now;
+    }
+    
+    private void UpdateMessage()
+    {
+        _message = $"Updated at {DateTime.Now:HH:mm:ss}";
+        _lastUpdated = DateTime.Now;
+    }
+    
+    private void UpdateTime()
+    {
+        _lastUpdated = DateTime.Now;
+    }
+    
+    private void UpdateUser()
+    {
+        if (_userInfo != null)
+        {
+            _userInfo.Name = $"User {Random.Shared.Next(1, 100)}";
+            _userInfo.Email = $"user{Random.Shared.Next(1, 100)}@example.com";
+        }
+        _lastUpdated = DateTime.Now;
+    }
+    
+    private void AddItem()
+    {
+        _items?.Add($"Item {_items.Count + 1}");
+        _lastUpdated = DateTime.Now;
+    }
+    
+    private void ClearItems()
+    {
+        _items?.Clear();
+        _lastUpdated = DateTime.Now;
+    }
+    
+    private void UpdateIgnoredFields()
+    {
+        _debugId = Guid.NewGuid().ToString("N")[..8];
+        _internalCounter++;
+        // Note: _lastUpdated is NOT updated here to demonstrate that
+        // changes to ignored fields don't trigger state change detection
+    }
+    
+    // Example of a complex type for state tracking
+    public class UserInfo
+    {
+        public string Name { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        
+        public override bool Equals(object? obj)
+        {
+            return obj is UserInfo other && 
+                   Name == other.Name && 
+                   Email == other.Email;
+        }
+        
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(Name, Email);
+        }
+    }
+}
+
+@* 
+State Tracking Configuration Examples:
+
+1. Component with disabled state tracking:
+   [IgnoreStateTracking("Performance-critical component")]
+   public class HighPerformanceComponent : ComponentBase { }
+
+2. Component with custom state tracking options:
+   [StateTrackingOptions(MaxFields = 10, AutoTrackSimpleTypes = false)]
+   public class CustomTrackingComponent : ComponentBase { }
+
+3. Field with custom comparison:
+   [TrackState(UseCustomComparer = true, MaxComparisonDepth = 2)]
+   private ComplexObject _complexData;
+
+4. Collection with content tracking:
+   [TrackState(TrackCollectionContents = true)]
+   private List<MyItem> _itemList;
+*@

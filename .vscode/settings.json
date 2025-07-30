@@ -3,6 +3,7 @@
 		"Antiforgery",
 		"appsettings",
 		"Blazor",
+		"Finalizers",
 		"hookable",
 		"Hsts",
 		"timespan"

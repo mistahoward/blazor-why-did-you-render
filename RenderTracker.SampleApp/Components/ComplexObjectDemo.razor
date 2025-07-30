@@ -1,4 +1,5 @@
 @inherits TrackedComponentBase
+@using Blazor.WhyDidYouRender.Attributes
 
 <div class="card">
     <div class="card-header">
@@ -34,9 +35,17 @@
 </div>
 
 @code {
-    [Parameter] public UserInfo? UserData { get; set; }
-    [Parameter] public AppSettings? Settings { get; set; }
-    [Parameter] public List<ProductItem>? Items { get; set; }
+    [Parameter]
+    [TrackState(UseCustomComparer = true)]
+    public UserInfo? UserData { get; set; }
+
+    [Parameter]
+    [TrackState]
+    public AppSettings? Settings { get; set; }
+
+    [Parameter]
+    [TrackState(MaxComparisonDepth = 2)]
+    public List<ProductItem>? Items { get; set; }
 
     public class UserInfo
     {

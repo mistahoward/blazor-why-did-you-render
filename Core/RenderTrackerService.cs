@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
@@ -29,7 +28,7 @@ public class RenderTrackerService {
 	/// <summary>
 	/// Service for detecting unnecessary re-renders.
 	/// </summary>
-	private readonly UnnecessaryRerenderDetector _unnecessaryRerenderDetector;
+	private UnnecessaryRerenderDetector? _unnecessaryRerenderDetector;
 
 	/// <summary>
 	/// Service for tracking render performance.
@@ -47,6 +46,11 @@ public class RenderTrackerService {
 	private readonly WhyDidYouRenderConfig _config = new();
 
 	/// <summary>
+	/// Flag to track if services have been initialized.
+	/// </summary>
+	private bool _servicesInitialized = false;
+
+	/// <summary>
 	/// Browser console logger for client-side logging.
 	/// </summary>
 	private IBrowserConsoleLogger? _browserLogger;
@@ -60,6 +64,16 @@ public class RenderTrackerService {
 	/// Error tracker for handling and logging errors.
 	/// </summary>
 	private IErrorTracker? _errorTracker;
+
+	/// <summary>
+	/// Session context service for session management.
+	/// </summary>
+	private static Abstractions.ISessionContextService? _sessionContextService;
+
+	/// <summary>
+	/// Tracking logger for environment-specific logging.
+	/// </summary>
+	private static Abstractions.ITrackingLogger? _trackingLogger;
 
 	/// <summary>
 	/// Cached JSON serializer options for performance.
@@ -76,7 +90,6 @@ public class RenderTrackerService {
 	/// Private to enforce singleton pattern.
 	/// </summary>
 	private RenderTrackerService() {
-		_unnecessaryRerenderDetector = new UnnecessaryRerenderDetector(_config);
 		_performanceTracker = new PerformanceTracker(_config);
 		_renderFrequencyTracker = new RenderFrequencyTracker(_config);
 	}
@@ -88,6 +101,25 @@ public class RenderTrackerService {
 	public void Configure(Action<WhyDidYouRenderConfig> configureAction) {
 		ArgumentNullException.ThrowIfNull(configureAction);
 		configureAction(_config);
+		InitializeServices();
+	}
+
+	/// <summary>
+	/// Initializes services that depend on configuration.
+	/// </summary>
+	private void InitializeServices() {
+		if (_servicesInitialized) return;
+
+		_unnecessaryRerenderDetector = new UnnecessaryRerenderDetector(_config);
+		_servicesInitialized = true;
+	}
+
+	/// <summary>
+	/// Ensures services are initialized before use.
+	/// </summary>
+	private void EnsureServicesInitialized() {
+		if (!_servicesInitialized)
+			InitializeServices();
 	}
 
 	/// <summary>
@@ -123,8 +155,7 @@ public class RenderTrackerService {
 	/// </summary>
 	/// <param name="sessionContextService">The session context service instance.</param>
 	public static void SetSessionContextService(Abstractions.ISessionContextService sessionContextService) {
-		// TODO: implement
-		// store reference if needed for future use
+		_sessionContextService = sessionContextService ?? throw new ArgumentNullException(nameof(sessionContextService));
 	}
 
 	/// <summary>
@@ -141,9 +172,7 @@ public class RenderTrackerService {
 	/// </summary>
 	/// <param name="trackingLogger">The tracking logger instance.</param>
 	public static void SetTrackingLogger(Abstractions.ITrackingLogger trackingLogger) {
-		// TODO: implement
-		// store reference for future use if needed
-		// the tracking logger is primarily used by the new abstraction layer
+		_trackingLogger = trackingLogger ?? throw new ArgumentNullException(nameof(trackingLogger));
 	}
 
 	/// <summary>
@@ -186,6 +215,8 @@ public class RenderTrackerService {
 	/// <param name="method">The lifecycle method that triggered the render.</param>
 	/// <param name="firstRender">Whether this is the first render of the component.</param>
 	private void TrackRenderInternal(ComponentBase component, string method, bool? firstRender) {
+		EnsureServicesInitialized();
+
 		var componentType = component.GetType();
 		var componentName = componentType.Name;
 		var componentFullName = componentType.FullName ?? componentName;
@@ -201,7 +232,17 @@ public class RenderTrackerService {
 				_errorTracker)
 			: null;
 
-		var unnecessaryRerenderInfo = _config.DetectUnnecessaryRerenders
+		var stateChanges = _config.EnableStateTracking && _config.LogStateChanges &&
+						  ShouldTrackComponentState(componentName, componentFullName)
+			? SafeExecutor.ExecuteTracking(
+				component,
+				"DetectStateChanges",
+				() => GetStateChanges(component),
+				null,
+				_errorTracker)
+			: null;
+
+		var unnecessaryRerenderInfo = _config.DetectUnnecessaryRerenders && _unnecessaryRerenderDetector != null
 			? _unnecessaryRerenderDetector.DetectUnnecessaryRerender(component, method, parameterChanges, firstRender)
 			: (false, null);
 
@@ -221,10 +262,44 @@ public class RenderTrackerService {
 			DurationMs = _config.TrackPerformance ? _performanceTracker.GetAndResetRenderDuration(component, method) : null,
 			IsUnnecessaryRerender = unnecessaryRerenderInfo.Item1,
 			UnnecessaryRerenderReason = unnecessaryRerenderInfo.Item2,
-			IsFrequentRerender = isFrequentRerender
+			IsFrequentRerender = isFrequentRerender,
+			StateChanges = stateChanges
 		};
 
 		_ = LogRenderEventAsync(renderEvent);
+	}
+
+	/// <summary>
+	/// Gets state changes for a component using the enhanced state tracking system.
+	/// </summary>
+	/// <param name="component">The component to get state changes for.</param>
+	/// <returns>A list of state changes, or null if state tracking is disabled.</returns>
+	private List<StateChange>? GetStateChanges(ComponentBase component) {
+		try {
+			if (_unnecessaryRerenderDetector == null)
+				return null;
+
+			var stateTrackingInfo = _unnecessaryRerenderDetector.GetStateTrackingInfo(component);
+			if (stateTrackingInfo?.IsStateTrackingEnabled != true)
+				return null;
+
+			var stateSnapshotManager = _unnecessaryRerenderDetector.GetStateSnapshotManager();
+			if (stateSnapshotManager == null)
+				return null;
+
+			var (hasChanges, changes) = stateSnapshotManager.DetectStateChanges(component);
+			if (!hasChanges)
+				return null;
+
+			return [.. changes];
+		}
+		catch (Exception ex) {
+			_errorTracker?.TrackError(ex, new Dictionary<string, object?> {
+				["ComponentName"] = component.GetType().Name,
+				["TrackingMethod"] = "GetStateChanges"
+			});
+			return null;
+		}
 	}
 
 	/// <summary>
@@ -245,12 +320,12 @@ public class RenderTrackerService {
 		// check namespace inclusions (if specified, must match at least one)
 		if (_config.IncludeNamespaces?.Count > 0) {
 			var matchesInclude = false;
-			foreach (var pattern in _config.IncludeNamespaces) {
+			foreach (var pattern in _config.IncludeNamespaces)
 				if (MatchesPattern(componentFullName, pattern)) {
 					matchesInclude = true;
 					break;
 				}
-			}
+
 			if (!matchesInclude) return false;
 		}
 
@@ -259,6 +334,35 @@ public class RenderTrackerService {
 			var matchesInclude = false;
 			foreach (var pattern in _config.IncludeComponents)
 				if (MatchesPattern(componentName, pattern)) {
+					matchesInclude = true;
+					break;
+				}
+			if (!matchesInclude) return false;
+		}
+
+		return true;
+	}
+
+	/// <summary>
+	/// Determines whether a component should have state tracking enabled based on configuration filters.
+	/// </summary>
+	/// <param name="componentName">The simple component name.</param>
+	/// <param name="componentFullName">The full component type name including namespace.</param>
+	/// <returns>True if state tracking should be enabled for the component; otherwise, false.</returns>
+	private bool ShouldTrackComponentState(string componentName, string componentFullName) {
+		if (!_config.EnableStateTracking) return false;
+
+		// check state tracking exclusions
+		if (_config.ExcludeFromStateTracking?.Count > 0)
+			foreach (var pattern in _config.ExcludeFromStateTracking)
+				if (MatchesPattern(componentName, pattern) || MatchesPattern(componentFullName, pattern))
+					return false;
+
+		// check state tracking inclusions (if specified, must match at least one)
+		if (_config.IncludeInStateTracking?.Count > 0) {
+			var matchesInclude = false;
+			foreach (var pattern in _config.IncludeInStateTracking)
+				if (MatchesPattern(componentName, pattern) || MatchesPattern(componentFullName, pattern)) {
 					matchesInclude = true;
 					break;
 				}
@@ -362,7 +466,7 @@ public class RenderTrackerService {
 	/// Gets the current session ID for tracking purposes.
 	/// </summary>
 	/// <returns>The session ID, or a default value if not available.</returns>
-	private static string GetSessionId() => "default-session";
+	private static string GetSessionId() => _sessionContextService?.GetSessionId() ?? "default-session";
 
 	/// <summary>
 	/// Starts the cleanup timer for periodic maintenance.
@@ -389,6 +493,84 @@ public class RenderTrackerService {
 		_renderFrequencyTracker.CleanupOldHistory(cleanupTimeSpan);
 		_performanceTracker.CleanupInactiveComponents([]);
 		_parameterChangeDetector.CleanupInactiveComponents([]);
-		_unnecessaryRerenderDetector.CleanupInactiveComponents([]);
+		_unnecessaryRerenderDetector?.CleanupInactiveComponents([]);
+	}
+
+	/// <summary>
+	/// Gets the total number of components being tracked across all tracking systems.
+	/// </summary>
+	/// <returns>A dictionary with tracking counts for each system.</returns>
+	public Dictionary<string, int> GetTrackedComponentCounts() {
+		EnsureServicesInitialized();
+
+		return new Dictionary<string, int> {
+			["ParameterChanges"] = _parameterChangeDetector.GetTrackedComponentCount(),
+			["Performance"] = _performanceTracker.GetTrackedComponentCount(),
+			["RenderFrequency"] = _renderFrequencyTracker.GetTrackedComponentCount(),
+			["UnnecessaryRerenders"] = _unnecessaryRerenderDetector?.GetTrackedComponentCount() ?? 0
+		};
+	}
+
+	/// <summary>
+	/// Clears all tracking data from all tracking systems.
+	/// </summary>
+	/// <remarks>
+	/// This method is useful for testing scenarios or when you need to reset all tracking state.
+	/// Use with caution in production as it will lose all historical tracking data.
+	/// </remarks>
+	public void ClearAllTrackingData() {
+		EnsureServicesInitialized();
+
+		_parameterChangeDetector.ClearAll();
+		_performanceTracker.ClearAll();
+		_renderFrequencyTracker.ClearAll();
+		_unnecessaryRerenderDetector?.ClearAll();
+		_unnecessaryRerenderDetector?.ResetStateTracking();
+	}
+
+	/// <summary>
+	/// Initializes state tracking components asynchronously for improved startup performance.
+	/// </summary>
+	/// <returns>A task representing the initialization operation.</returns>
+	public async Task InitializeStateTrackingAsync() {
+		EnsureServicesInitialized();
+		if (_unnecessaryRerenderDetector != null)
+			await _unnecessaryRerenderDetector.InitializeStateTrackingAsync();
+	}
+
+	/// <summary>
+	/// Pre-warms the state tracking cache with common component types.
+	/// </summary>
+	/// <param name="componentTypes">Component types to pre-analyze.</param>
+	/// <returns>A task representing the pre-warming operation.</returns>
+	public async Task PreWarmStateTrackingCacheAsync(IEnumerable<Type> componentTypes) {
+		EnsureServicesInitialized();
+		if (_unnecessaryRerenderDetector != null) {
+			await _unnecessaryRerenderDetector.PreWarmStateTrackingCacheAsync(componentTypes);
+		}
+	}
+
+	/// <summary>
+	/// Gets comprehensive diagnostics about the state tracking system.
+	/// </summary>
+	/// <returns>Diagnostic information about state tracking, or null if not available.</returns>
+	public StateTrackingDiagnostics? GetStateTrackingDiagnostics() {
+		EnsureServicesInitialized();
+		return _unnecessaryRerenderDetector?.GetStateTrackingDiagnostics();
+	}
+
+	/// <summary>
+	/// Performs maintenance on all tracking systems including state tracking.
+	/// </summary>
+	public void PerformMaintenance() {
+		EnsureServicesInitialized();
+
+		_unnecessaryRerenderDetector?.PerformStateTrackingMaintenance();
+
+		var cleanupTimeSpan = TimeSpan.FromMinutes(_config.SessionCleanupIntervalMinutes);
+		_renderFrequencyTracker.CleanupOldHistory(cleanupTimeSpan);
+		_performanceTracker.CleanupInactiveComponents([]);
+		_parameterChangeDetector.CleanupInactiveComponents([]);
+		_unnecessaryRerenderDetector?.CleanupInactiveComponents([]);
 	}
 }

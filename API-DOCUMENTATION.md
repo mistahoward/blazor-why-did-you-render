@@ -174,6 +174,16 @@ public class WhyDidYouRenderConfig
 | `TrackParameterChanges` | `bool` | `true` | Track parameter changes |
 | `TrackPerformance` | `bool` | `true` | Track render performance |
 | `IncludeSessionInfo` | `bool` | `true` | Include session information in logs |
+| `EnableStateTracking` | `bool` | `true` | Enable field-level state change tracking |
+| `AutoTrackSimpleTypes` | `bool` | `true` | Auto-track simple value types (string, int, bool, etc.) |
+| `MaxTrackedFieldsPerComponent` | `int` | `50` | Maximum fields to track per component |
+| `LogDetailedStateChanges` | `bool` | `false` | Log detailed before/after values for state changes |
+| `TrackInheritedFields` | `bool` | `true` | Track fields inherited from base classes |
+| `MaxStateComparisonDepth` | `int` | `3` | Maximum depth for object comparison |
+| `EnableCollectionContentTracking` | `bool` | `false` | Track changes within collection contents |
+| `StateSnapshotCleanupIntervalMinutes` | `int` | `10` | Interval for cleaning up old state snapshots |
+| `MaxStateSnapshotAgeMinutes` | `int` | `30` | Maximum age for state snapshots before cleanup |
+| `MaxTrackedComponents` | `int` | `1000` | Maximum number of components to track simultaneously |
 
 #### Filtering Properties
 
@@ -367,6 +377,115 @@ public class PerformanceTracker
 | `StopTracking(ComponentBase)` | Stop performance tracking | `component`: Component instance | `TimeSpan` |
 | `GetMetrics(ComponentBase)` | Get performance metrics | `component`: Component instance | `PerformanceMetrics?` |
 
+## 🧠 State Tracking APIs
+
+### TrackStateAttribute
+
+Marks fields or properties for explicit state tracking.
+
+```csharp
+[AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
+public class TrackStateAttribute : Attribute
+```
+
+#### Properties
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `Description` | `string?` | `null` | Optional description for the tracked field |
+| `UseCustomComparer` | `bool` | `false` | Use custom comparison logic for complex objects |
+| `TrackCollectionContents` | `bool` | `false` | Track changes within collection contents |
+| `MaxComparisonDepth` | `int` | `3` | Maximum depth for object comparison |
+
+#### Usage Examples
+
+```csharp
+// Basic tracking
+[TrackState]
+private UserInfo user;
+
+// With description
+[TrackState("User profile data")]
+private UserProfile profile;
+
+// Collection content tracking
+[TrackState(TrackCollectionContents = true)]
+private List<string> items;
+
+// Custom comparison settings
+[TrackState(UseCustomComparer = true, MaxComparisonDepth = 2)]
+private ComplexObject data;
+```
+
+### IgnoreStateAttribute
+
+Excludes fields or properties from state tracking.
+
+```csharp
+[AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
+public class IgnoreStateAttribute : Attribute
+```
+
+#### Properties
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `Reason` | `string?` | `null` | Optional reason for ignoring the field |
+| `ApplyToInheritedClasses` | `bool` | `true` | Apply exclusion to inherited classes |
+
+#### Usage Examples
+
+```csharp
+// Basic exclusion
+[IgnoreState]
+private long performanceCounter;
+
+// With reason
+[IgnoreState("Changes frequently - not relevant for rendering")]
+private string debugInfo;
+
+// Don't apply to inherited classes
+[IgnoreState("Internal field", ApplyToInheritedClasses = false)]
+private int internalCounter;
+```
+
+### StateTrackingOptionsAttribute
+
+Provides component-level state tracking configuration.
+
+```csharp
+[AttributeUsage(AttributeTargets.Class)]
+public class StateTrackingOptionsAttribute : Attribute
+```
+
+#### Properties
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `EnableStateTracking` | `bool` | `true` | Enable/disable state tracking for this component |
+| `AutoTrackSimpleTypes` | `bool` | `true` | Auto-track simple value types |
+| `MaxFields` | `int` | `50` | Maximum fields to track |
+| `LogStateChanges` | `bool` | `true` | Log state changes for this component |
+| `MaxComparisonDepth` | `int` | `3` | Maximum comparison depth |
+| `TrackInheritedFields` | `bool` | `true` | Track inherited fields |
+| `Description` | `string?` | `null` | Description for this configuration |
+
+#### Usage Examples
+
+```csharp
+// Disable state tracking
+[StateTrackingOptions(EnableStateTracking = false)]
+public class NoTrackingComponent : ComponentBase { }
+
+// Custom configuration
+[StateTrackingOptions(
+    MaxFields = 10,
+    AutoTrackSimpleTypes = false,
+    LogStateChanges = true,
+    Description = "Performance-critical component")]
+public class OptimizedComponent : ComponentBase { }
+```
+
 ## 📊 Data Models
 
 ### RenderEvent
@@ -384,13 +503,48 @@ public record RenderEvent
     public double? DurationMs { get; init; }
     public string? SessionId { get; init; }
     public Dictionary<string, object?>? ParameterChanges { get; init; }
+    public IEnumerable<StateChange>? StateChanges { get; init; }
     public bool IsUnnecessaryRerender { get; init; }
     public string? UnnecessaryRerenderReason { get; init; }
     public bool IsFrequentRerender { get; init; }
 }
 ```
 
+### StateChange
 
+Represents a change in component state.
+
+```csharp
+public record StateChange
+{
+    public string FieldName { get; init; }
+    public object? OldValue { get; init; }
+    public object? NewValue { get; init; }
+    public string ChangeType { get; init; }
+    public string? Description { get; init; }
+}
+```
+
+### StateSnapshot
+
+Captures the state of a component at a specific point in time.
+
+```csharp
+public class StateSnapshot
+{
+    public Type ComponentType { get; }
+    public DateTime Timestamp { get; }
+    public Dictionary<string, object?> FieldValues { get; }
+    public bool HasValues { get; }
+}
+```
+
+#### Methods
+
+| Method | Description | Parameters | Returns |
+|--------|-------------|------------|---------|
+| `Create(ComponentBase, ComponentMetadata)` | Create snapshot from component | `component`: Component instance, `metadata`: Component metadata | `StateSnapshot` |
+| `GetChangesFrom(StateSnapshot?)` | Get changes from previous snapshot | `previous`: Previous snapshot | `IEnumerable<StateChange>` |
 
 ### RenderStatistics
 

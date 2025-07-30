@@ -18,12 +18,16 @@ A powerful **cross-platform** performance monitoring and debugging tool for Blaz
 - **📊 Performance Metrics**: Track render duration and frequency across all environments
 - **🎯 Parameter Change Detection**: Identify which parameter changes trigger re-renders
 - **⚡ Unnecessary Render Detection**: Find components that re-render without actual changes
+- **🧠 State Tracking**: Advanced field-level change detection with automatic and manual tracking
+- **🏷️ Smart Attributes**: Use `[TrackState]`, `[IgnoreState]`, and `[StateTrackingOptions]` for fine control
+- **🔄 Deep Comparison**: Track complex objects, collections, and nested properties
 - **🌐 Cross-Platform**: Works seamlessly in Server, WASM, and SSR environments
 - **🛠️ Developer-Friendly**: Easy integration with existing Blazor applications
 - **📱 Smart Console Logging**: Adapts to environment (server console + browser console)
 - **💾 Flexible Session Management**: HttpContext (server) or Browser Storage (WASM)
 - **⚙️ Auto-Detection**: Automatically detects hosting environment and adapts
 - **🔧 Environment-Specific**: Optimized services for each hosting model
+- **⚡ Thread-Safe**: Optimized for concurrent access in Blazor Server scenarios
 
 ## 📦 Installation
 
@@ -67,6 +71,8 @@ builder.Services.AddWhyDidYouRender(config =>
     config.Output = TrackingOutput.Both; // Server console AND browser console
     config.TrackParameterChanges = true;
     config.TrackPerformance = true;
+    config.EnableStateTracking = true; // NEW: Track field-level changes
+    config.AutoTrackSimpleTypes = true; // NEW: Auto-track strings, ints, etc.
 });
 
 var app = builder.Build();
@@ -94,6 +100,8 @@ builder.Services.AddWhyDidYouRender(config =>
     config.Output = TrackingOutput.BrowserConsole; // Browser console only in WASM
     config.TrackParameterChanges = true;
     config.TrackPerformance = true;
+    config.EnableStateTracking = true; // NEW: Track field-level changes
+    config.AutoTrackSimpleTypes = true; // NEW: Auto-track strings, ints, etc.
     // WASM storage is enabled by default
 });
 
@@ -104,27 +112,46 @@ await host.Services.InitializeWasmAsync(host.Services.GetRequiredService<IJSRunt
 await host.RunAsync();
 ```
 
-### 2. Use TrackedComponentBase (Cross-Platform)
+### 2. Use TrackedComponentBase with State Tracking (Cross-Platform)
 
 Update your components to inherit from `TrackedComponentBase` - **works in all environments**:
 
 ```csharp
 @using Blazor.WhyDidYouRender.Components
+@using Blazor.WhyDidYouRender.Attributes
 @inherits TrackedComponentBase
 
 <h3>My Tracked Component</h3>
 <p>Current count: @currentCount</p>
 <p>Title: @Title</p>
+<p>User: @user?.Name</p>
 <button @onclick="IncrementCount">Click me</button>
+<button @onclick="UpdateUser">Update User</button>
 
 @code {
+    // Simple types are auto-tracked (no attribute needed)
     private int currentCount = 0;
+    private string message = "Hello World";
+
+    // Complex types need [TrackState] attribute
+    [TrackState]
+    private UserInfo? user = new() { Name = "John Doe", Email = "john@example.com" };
+
+    // Performance-sensitive fields can be ignored
+    [IgnoreState("Internal counter - changes frequently")]
+    private long performanceCounter = 0;
 
     [Parameter] public string? Title { get; set; }
 
     private void IncrementCount()
     {
         currentCount++;
+        performanceCounter++; // This won't trigger unnecessary render detection
+    }
+
+    private void UpdateUser()
+    {
+        user = new UserInfo { Name = "Jane Doe", Email = "jane@example.com" };
     }
 }
 ```
@@ -149,8 +176,12 @@ WhyDidYouRender automatically adapts its output based on your environment:
 ├─ Trigger: StateHasChanged
 ├─ Duration: 1.8ms
 ├─ Parameters: Title (unchanged)
+├─ State Changes:
+│  ├─ currentCount: 5 → 6 (changed)
+│  ├─ message: "Hello World" (unchanged)
+│  └─ user.Name: "John Doe" → "Jane Doe" (changed)
 ├─ Session: wasm-abc123def
-└─ Reason: Manual state change
+└─ Reason: State field changes detected
 ```
 
 <img width="763" height="380" alt="image" src="https://github.com/user-attachments/assets/497fdcbe-75eb-4707-8ccb-4cb4ac07b1c6" />
@@ -195,6 +226,12 @@ builder.Services.AddWhyDidYouRender(config =>
     config.TrackParameterChanges = true;
     config.TrackPerformance = true;
     config.IncludeSessionInfo = true;
+
+    // State tracking (NEW in v2.1)
+    config.EnableStateTracking = true;
+    config.AutoTrackSimpleTypes = true; // Auto-track string, int, bool, etc.
+    config.MaxTrackedFieldsPerComponent = 50;
+    config.LogDetailedStateChanges = true;
 
     // Output adapts automatically:
     config.Output = TrackingOutput.Both;
@@ -288,6 +325,84 @@ builder.Services.AddWhyDidYouRender(config =>
 });
 ```
 
+## 🧠 State Tracking Features
+
+### Automatic State Detection
+
+WhyDidYouRender automatically tracks changes to simple value types:
+
+```csharp
+@inherits TrackedComponentBase
+
+@code {
+    // These are automatically tracked (no attributes needed)
+    private int count = 0;
+    private string message = "Hello";
+    private bool isVisible = true;
+    private DateTime lastUpdate = DateTime.Now;
+}
+```
+
+### Explicit State Tracking
+
+Use `[TrackState]` for complex objects and collections:
+
+```csharp
+@using Blazor.WhyDidYouRender.Attributes
+@inherits TrackedComponentBase
+
+@code {
+    // Complex objects need explicit tracking
+    [TrackState]
+    private UserProfile user = new() { Name = "John", Age = 30 };
+
+    // Collections with content tracking
+    [TrackState(TrackCollectionContents = true)]
+    private List<string> items = new() { "Item 1", "Item 2" };
+
+    // Custom comparison depth for performance
+    [TrackState(MaxComparisonDepth = 2)]
+    private ComplexObject data = new();
+}
+```
+
+### State Exclusion
+
+Use `[IgnoreState]` to exclude performance-sensitive fields:
+
+```csharp
+@code {
+    // Normal tracked field
+    private int importantCounter = 0;
+
+    // Ignored fields won't trigger unnecessary render detection
+    [IgnoreState("Performance counter - changes frequently")]
+    private long performanceMetric = 0;
+
+    [IgnoreState("Debug info - not relevant for rendering")]
+    private string debugInfo = "";
+}
+```
+
+### Component-Level Configuration
+
+Use `[StateTrackingOptions]` for fine-grained control:
+
+```csharp
+@using Blazor.WhyDidYouRender.Attributes
+@attribute [StateTrackingOptions(
+    MaxFields = 10,
+    AutoTrackSimpleTypes = false,
+    LogStateChanges = true)]
+@inherits TrackedComponentBase
+
+@code {
+    // Only explicitly marked fields will be tracked
+    [TrackState] private int explicitlyTracked = 0;
+    private int notTracked = 0; // Won't be tracked due to AutoTrackSimpleTypes = false
+}
+```
+
 ## 🎯 Usage Patterns
 
 ### Component Inheritance
@@ -326,13 +441,17 @@ For existing components that can't inherit from `TrackedComponentBase`, you can 
 [WhyDidYouRender] ComponentName re-rendered
 ├─ Trigger: OnParametersSet
 ├─ Duration: 1.2ms
-├─ Parameters: 
+├─ Parameters:
 │  ├─ Title: "Old Value" → "New Value" (changed)
 │  └─ Count: 5 (unchanged)
-├─ Performance: 
+├─ State Changes:
+│  ├─ message: "Hello" → "Hi there" (changed)
+│  ├─ user.Name: "John" → "Jane" (changed)
+│  └─ items: [2 items] → [3 items] (collection changed)
+├─ Performance:
 │  ├─ Render Count: 3
 │  └─ Average Duration: 1.8ms
-└─ Reason: Parameter change detected
+└─ Reason: Parameter and state changes detected
 ```
 
 ### Log Levels
@@ -383,6 +502,23 @@ Use the insights to optimize parameter passing:
 <ChildComponent Data="@stableDataObject" />
 ```
 
+### 5. State Tracking Optimization
+Use state tracking attributes strategically:
+```csharp
+@code {
+    // Track important business state
+    [TrackState] private UserData userData;
+
+    // Ignore performance counters and debug info
+    [IgnoreState] private long renderTime;
+    [IgnoreState] private string debugLog;
+
+    // Limit tracking depth for complex objects
+    [TrackState(MaxComparisonDepth = 1)]
+    private ComplexNestedObject complexData;
+}
+```
+
 ## 🔄 Migration from v1.x
 
 ### Breaking Changes in v2.0
@@ -398,6 +534,7 @@ Use the insights to optimize parameter passing:
 3. **Configuration Changes**
    - Added `WasmStorageEnabled` and `WasmStorageOptions`
    - Added `AutoDetectEnvironment` and `ForceHostingModel`
+   - Added comprehensive state tracking configuration options
 
 ### Migration Steps
 
@@ -418,12 +555,16 @@ app.Services.InitializeSSRServices(); // NEW
 @inherits TrackedComponentBase // Still works!
 ```
 
-### New Features in v2.0
+### New Features in v2.0+
 - ✅ **Full WASM Support** - Works in all Blazor hosting models
 - ✅ **Automatic Environment Detection** - No manual configuration needed
 - ✅ **Cross-Platform Session Management** - Adapts to environment
 - ✅ **Smart Console Logging** - Server console + browser console
 - ✅ **Browser Storage Support** - localStorage/sessionStorage in WASM
+- ✅ **Advanced State Tracking** - Field-level change detection with attributes
+- ✅ **Automatic Type Detection** - Auto-tracks simple types, opt-in for complex types
+- ✅ **Performance Optimizations** - Thread-safe tracking with configurable limits
+- ✅ **Component-Level Control** - Fine-grained configuration per component
 
 ## 🚧 Roadmap
 
@@ -438,7 +579,9 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 
 ## 📄 License
 
-This project is licensed under the GNU General Public License v3.0 or later - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the GNU Lesser General Public License v3.0 or later - see the [LICENSE](LICENSE) file for details.
+
+**LGPL v3 allows closed source projects to use this library** while keeping the library itself open source.
 
 ## 🙏 Acknowledgments
 

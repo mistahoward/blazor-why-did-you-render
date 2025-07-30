@@ -11,7 +11,8 @@ builder.RootComponents.Add<HeadOutlet>("head::after");
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
 
 // Add WhyDidYouRender with WASM-optimized configuration
-builder.Services.AddWhyDidYouRender(config => {
+builder.Services.AddWhyDidYouRender(config =>
+{
 	config.Enabled = true;
 	config.Verbosity = TrackingVerbosity.Verbose;
 	config.Output = TrackingOutput.BrowserConsole; // WASM-specific: use browser console
@@ -19,6 +20,19 @@ builder.Services.AddWhyDidYouRender(config => {
 	config.TrackPerformance = true;
 	config.IncludeSessionInfo = true;
 	config.AutoDetectEnvironment = true; // Let it auto-detect WASM
+
+	// enable state tracking for advanced analysis (WASM-optimized)
+	config.EnableStateTracking = true;
+	config.AutoTrackSimpleTypes = true;
+	config.MaxTrackedFieldsPerComponent = 20; // slightly lower for WASM
+	config.LogStateChanges = true;
+	config.LogDetailedStateChanges = false; // disabled for WASM performance
+	config.TrackInheritedFields = true;
+	config.MaxStateComparisonDepth = 2; // lower for WASM performance
+	config.EnableCollectionContentTracking = false; // disabled for WASM performance
+	config.MaxTrackedComponents = 100; // lower for WASM memory constraints
+	config.StateSnapshotCleanupIntervalMinutes = 10;
+	config.MaxStateSnapshotAgeMinutes = 30;
 
 	// Configure WASM-specific storage options
 	config.WasmStorage.UseLocalStorage = true;

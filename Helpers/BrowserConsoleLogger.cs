@@ -1,10 +1,4 @@
-using System;
-using System.Reflection;
-using System.Text.Json;
-using System.Threading.Tasks;
-
 using Microsoft.JSInterop;
-using Microsoft.Extensions.Logging;
 
 using Blazor.WhyDidYouRender.Diagnostics;
 using Blazor.WhyDidYouRender.Records;
@@ -14,27 +8,23 @@ namespace Blazor.WhyDidYouRender.Helpers;
 /// <summary>
 /// Service for logging render tracking information to the browser console via JavaScript interop.
 /// </summary>
-public class BrowserConsoleLogger : IBrowserConsoleLogger {
-	private readonly IJSRuntime _jsRuntime;
+/// <remarks>
+/// Initializes a new instance of the <see cref="BrowserConsoleLogger"/> class.
+/// </remarks>
+/// <param name="jsRuntime">The JavaScript runtime for interop.</param>
+public class BrowserConsoleLogger(IJSRuntime jsRuntime) : IBrowserConsoleLogger {
+	private readonly IJSRuntime _jsRuntime = jsRuntime;
 	private IJSObjectReference? _module = null;
 	private bool _isInitialized = false;
 	private IErrorTracker? _errorTracker;
 
-	/// <summary>
-	/// Initializes a new instance of the <see cref="BrowserConsoleLogger"/> class.
-	/// </summary>
-	/// <param name="jsRuntime">The JavaScript runtime for interop.</param>
-	public BrowserConsoleLogger(IJSRuntime jsRuntime) {
-		_jsRuntime = jsRuntime;
-	}
 
 	/// <summary>
 	/// Sets the error tracker for handling JavaScript interop errors.
 	/// </summary>
 	/// <param name="errorTracker">The error tracker instance.</param>
-	public void SetErrorTracker(IErrorTracker errorTracker) {
+	public void SetErrorTracker(IErrorTracker errorTracker) =>
 		_errorTracker = errorTracker;
-	}
 
 	/// <summary>
 	/// Initializes the browser console logger by loading the JavaScript module.
@@ -57,8 +47,11 @@ public class BrowserConsoleLogger : IBrowserConsoleLogger {
 	/// </summary>
 	/// <param name="renderEvent">The render event to log.</param>
 	public async Task LogRenderEventAsync(RenderEvent renderEvent) {
+		// use a timeout to prevent hanging JS interop calls
+		using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+
 		await SafeExecutor.ExecuteAsync(async () => {
-			await LogRenderEventInternalAsync(renderEvent);
+			await LogRenderEventInternalAsync(renderEvent, cts.Token);
 		}, _errorTracker, new Dictionary<string, object?> {
 			["ComponentName"] = renderEvent.ComponentName,
 			["Method"] = renderEvent.Method
@@ -69,7 +62,8 @@ public class BrowserConsoleLogger : IBrowserConsoleLogger {
 	/// Internal implementation of browser console logging.
 	/// </summary>
 	/// <param name="renderEvent">The render event to log.</param>
-	private async Task LogRenderEventInternalAsync(RenderEvent renderEvent) {
+	/// <param name="cancellationToken">Cancellation token to prevent hanging calls.</param>
+	private async Task LogRenderEventInternalAsync(RenderEvent renderEvent, CancellationToken cancellationToken = default) {
 		if (!_isInitialized) {
 			await InitializeAsync();
 		}
@@ -77,6 +71,8 @@ public class BrowserConsoleLogger : IBrowserConsoleLogger {
 		if (!_isInitialized) return;
 
 		try {
+			cancellationToken.ThrowIfCancellationRequested();
+
 			var logData = new {
 				timestamp = renderEvent.Timestamp.ToString("O"),
 				component = renderEvent.ComponentName,
@@ -85,7 +81,8 @@ public class BrowserConsoleLogger : IBrowserConsoleLogger {
 				firstRender = renderEvent.FirstRender,
 				duration = renderEvent.DurationMs,
 				session = renderEvent.SessionId,
-				parameterChanges = renderEvent.ParameterChanges
+				parameterChanges = renderEvent.ParameterChanges,
+				stateChanges = renderEvent.StateChanges
 			};
 
 			var message = $"🔄 WhyDidYouRender | {renderEvent.ComponentName} | {renderEvent.Method}";
@@ -114,33 +111,51 @@ public class BrowserConsoleLogger : IBrowserConsoleLogger {
 				message = $"{icon} FREQUENT RE-RENDER | {renderEvent.ComponentName} | {renderEvent.Method}";
 			}
 
-			await _jsRuntime.InvokeVoidAsync(consoleMethod,
+			await _jsRuntime.InvokeVoidAsync(consoleMethod, cancellationToken,
 				$"%c{message}",
 				messageStyle);
 
-			await _jsRuntime.InvokeVoidAsync("console.table", logData);
+			cancellationToken.ThrowIfCancellationRequested();
+			await _jsRuntime.InvokeVoidAsync("console.table", cancellationToken, logData);
 
 			if (renderEvent.IsUnnecessaryRerender && !string.IsNullOrEmpty(renderEvent.UnnecessaryRerenderReason)) {
-				await _jsRuntime.InvokeVoidAsync("console.warn",
+				cancellationToken.ThrowIfCancellationRequested();
+				await _jsRuntime.InvokeVoidAsync("console.warn", cancellationToken,
 					$"💡 Optimization Tip: {renderEvent.UnnecessaryRerenderReason}");
 			}
 
 			if (renderEvent.IsFrequentRerender) {
-				await _jsRuntime.InvokeVoidAsync("console.warn",
+				cancellationToken.ThrowIfCancellationRequested();
+				await _jsRuntime.InvokeVoidAsync("console.warn", cancellationToken,
 					"🔥 Performance Warning: This component is re-rendering frequently. Consider using ShouldRender(), reducing StateHasChanged() calls, or implementing IDisposable to unsubscribe from events.");
 			}
 
 			if (renderEvent.ParameterChanges?.Count > 0) {
-				await _jsRuntime.InvokeVoidAsync("console.log",
+				cancellationToken.ThrowIfCancellationRequested();
+				await _jsRuntime.InvokeVoidAsync("console.log", cancellationToken,
 					"%cParameter Changes:",
 					"color: #FF9800; font-weight: bold;");
 
 				foreach (var (paramName, change) in renderEvent.ParameterChanges) {
-					await LogParameterChangeAsync(paramName, change);
+					cancellationToken.ThrowIfCancellationRequested();
+					await LogParameterChangeAsync(paramName, change, cancellationToken);
 				}
 			}
 
-			await _jsRuntime.InvokeVoidAsync("console.groupEnd");
+			if (renderEvent.StateChanges?.Count > 0) {
+				cancellationToken.ThrowIfCancellationRequested();
+				await _jsRuntime.InvokeVoidAsync("console.log", cancellationToken,
+					"%cState Changes:",
+					"color: #4CAF50; font-weight: bold;");
+
+				await LogStateChangesAsync(renderEvent.StateChanges, cancellationToken);
+			}
+
+			cancellationToken.ThrowIfCancellationRequested();
+			await _jsRuntime.InvokeVoidAsync("console.groupEnd", cancellationToken);
+		}
+		catch (OperationCanceledException) {
+			// Expected when renders happen quickly - no action needed
 		}
 		catch (Exception ex) {
 			Console.WriteLine($"[WhyDidYouRender] Browser logging failed: {ex.Message}");
@@ -152,7 +167,8 @@ public class BrowserConsoleLogger : IBrowserConsoleLogger {
 	/// </summary>
 	/// <param name="parameterName">The name of the parameter that changed.</param>
 	/// <param name="changeData">The change data containing Previous and Current values.</param>
-	private async Task LogParameterChangeAsync(string parameterName, object? changeData) {
+	/// <param name="cancellationToken">Cancellation token to prevent hanging calls.</param>
+	private async Task LogParameterChangeAsync(string parameterName, object? changeData, CancellationToken cancellationToken = default) {
 		try {
 			if (changeData != null) {
 				var changeType = changeData.GetType();
@@ -177,7 +193,7 @@ public class BrowserConsoleLogger : IBrowserConsoleLogger {
 						"color: #2196F3; font-weight: bold;",
 						currentValue);
 
-					if (IsComplexObject(previousValue) && IsComplexObject(currentValue)) {
+					if (TypeHelper.IsComplexObject(previousValue) && TypeHelper.IsComplexObject(currentValue)) {
 						await _jsRuntime.InvokeVoidAsync("console.log",
 							"%cComparison:",
 							"color: #9C27B0; font-weight: bold;");
@@ -205,23 +221,59 @@ public class BrowserConsoleLogger : IBrowserConsoleLogger {
 	}
 
 	/// <summary>
-	/// Determines if a value is a complex object worth detailed inspection.
+	/// Logs state changes to the browser console.
 	/// </summary>
-	/// <param name="value">The value to check.</param>
-	/// <returns>True if the value is a complex object; otherwise, false.</returns>
-	private static bool IsComplexObject(object? value) {
-		if (value == null) return false;
+	/// <param name="stateChanges">The state changes to log.</param>
+	/// <param name="cancellationToken">Cancellation token to prevent hanging calls.</param>
+	private async Task LogStateChangesAsync(List<StateChange> stateChanges, CancellationToken cancellationToken = default) {
+		try {
+			cancellationToken.ThrowIfCancellationRequested();
 
-		var type = value.GetType();
+			var stateChangeTable = stateChanges.ToDictionary(
+				sc => sc.FieldName,
+				sc => new {
+					Previous = sc.PreviousValue,
+					Current = sc.CurrentValue,
+					Type = sc.ChangeType.ToString()
+				}
+			);
 
-		return !type.IsPrimitive &&
-			   type != typeof(string) &&
-			   type != typeof(DateTime) &&
-			   type != typeof(DateTimeOffset) &&
-			   type != typeof(TimeSpan) &&
-			   type != typeof(Guid) &&
-			   !type.IsEnum;
+			await _jsRuntime.InvokeVoidAsync("console.table", cancellationToken, stateChangeTable);
+
+			foreach (var stateChange in stateChanges) {
+				cancellationToken.ThrowIfCancellationRequested();
+
+				var changeInfo = new {
+					field = stateChange.FieldName,
+					previous = stateChange.PreviousValue,
+					current = stateChange.CurrentValue,
+					changeType = stateChange.ChangeType.ToString(),
+					description = stateChange.GetFormattedDescription()
+				};
+
+				await _jsRuntime.InvokeVoidAsync("console.log", cancellationToken,
+					$"%c{stateChange.FieldName}:",
+					"color: #4CAF50; font-weight: bold;",
+					changeInfo);
+			}
+		}
+		catch (OperationCanceledException) {
+			// Expected when renders happen quickly - no action needed
+		}
+		catch (Exception ex) {
+			Console.WriteLine($"[WhyDidYouRender] State change logging failed: {ex.Message}");
+			try {
+				await _jsRuntime.InvokeVoidAsync("console.log", cancellationToken,
+					"State changes: [Unable to log details]");
+			}
+			catch (Exception fallbackEx) {
+				// Fallback logging failed - avoid infinite recursion
+				Console.WriteLine($"[WhyDidYouRender] Fallback logging also failed: {fallbackEx.Message}");
+			}
+		}
 	}
+
+
 
 	/// <summary>
 	/// Logs a simple message to the browser console.
@@ -229,9 +281,8 @@ public class BrowserConsoleLogger : IBrowserConsoleLogger {
 	/// <param name="message">The message to log.</param>
 	/// <param name="level">The console level (log, warn, error, etc.).</param>
 	public async Task LogMessageAsync(string message, string level = "log") {
-		if (!_isInitialized) {
+		if (!_isInitialized)
 			await InitializeAsync();
-		}
 
 		if (!_isInitialized) return;
 
@@ -250,5 +301,6 @@ public class BrowserConsoleLogger : IBrowserConsoleLogger {
 		if (_module != null) {
 			await _module.DisposeAsync();
 		}
+		GC.SuppressFinalize(this);
 	}
 }

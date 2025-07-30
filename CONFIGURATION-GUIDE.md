@@ -27,6 +27,8 @@ builder.Services.AddWhyDidYouRender(config =>
     config.Enabled = true;
     config.Verbosity = TrackingVerbosity.Normal;
     config.Output = TrackingOutput.Both; // Server console AND browser console
+    config.EnableStateTracking = true; // Enable field-level change detection
+    config.AutoTrackSimpleTypes = true; // Auto-track strings, ints, etc.
 });
 ```
 
@@ -244,18 +246,99 @@ config.IncludeSessionInfo = false; // Privacy
 config.Enabled = false; // Always disable in production
 ```
 
+## 🧠 State Tracking Configuration
+
+### Basic State Tracking Setup
+
+```csharp
+builder.Services.AddWhyDidYouRender(config =>
+{
+    // Enable state tracking
+    config.EnableStateTracking = true;
+
+    // Auto-track simple types (string, int, bool, DateTime, etc.)
+    config.AutoTrackSimpleTypes = true;
+
+    // Limit fields per component for performance
+    config.MaxTrackedFieldsPerComponent = 50;
+
+    // Enable detailed state change logging
+    config.LogDetailedStateChanges = true;
+});
+```
+
+### Advanced State Tracking Configuration
+
+```csharp
+builder.Services.AddWhyDidYouRender(config =>
+{
+    // Core state tracking settings
+    config.EnableStateTracking = true;
+    config.AutoTrackSimpleTypes = true;
+    config.TrackInheritedFields = true;
+
+    // Performance and memory management
+    config.MaxTrackedFieldsPerComponent = 25;
+    config.MaxTrackedComponents = 1000;
+    config.MaxStateComparisonDepth = 3;
+
+    // Collection tracking (can be expensive)
+    config.EnableCollectionContentTracking = false;
+
+    // Snapshot cleanup settings
+    config.StateSnapshotCleanupIntervalMinutes = 10;
+    config.MaxStateSnapshotAgeMinutes = 30;
+
+    // Logging preferences
+    config.LogStateChanges = true;
+    config.LogDetailedStateChanges = false; // Set to true for debugging
+});
+```
+
+### State Tracking Exclusions
+
+```csharp
+builder.Services.AddWhyDidYouRender(config =>
+{
+    config.EnableStateTracking = true;
+
+    // Exclude specific component types from state tracking
+    config.ExcludeFromStateTracking = new[]
+    {
+        "Microsoft.*",           // Exclude Microsoft components
+        "System.*",              // Exclude System components
+        "*Layout*",              // Exclude layout components
+        "MyApp.PerformanceCritical*" // Exclude performance-critical components
+    };
+});
+```
+
 ## 🔍 Component Tracking
 
 ### Automatic Tracking (Recommended)
 
 ```csharp
 @using Blazor.WhyDidYouRender.Components
+@using Blazor.WhyDidYouRender.Attributes
 @inherits TrackedComponentBase
 
 <h3>My Component</h3>
 <p>Count: @Count</p>
+<p>User: @user?.Name</p>
 
 @code {
+    // Simple types are auto-tracked
+    private int internalCounter = 0;
+    private string message = "Hello";
+
+    // Complex types need explicit tracking
+    [TrackState]
+    private UserInfo? user = new() { Name = "John", Email = "john@example.com" };
+
+    // Performance-sensitive fields can be ignored
+    [IgnoreState("Changes frequently")]
+    private long performanceMetric = 0;
+
     [Parameter] public int Count { get; set; }
     // Tracking happens automatically!
 }
@@ -343,7 +426,18 @@ else
     "TrackParameterChanges": true,
     "TrackPerformance": true,
     "IncludeSessionInfo": false,
-    "ExcludeComponents": ["Microsoft.*", "System.*"]
+    "ExcludeComponents": ["Microsoft.*", "System.*"],
+    "EnableStateTracking": true,
+    "AutoTrackSimpleTypes": true,
+    "MaxTrackedFieldsPerComponent": 50,
+    "LogDetailedStateChanges": false,
+    "TrackInheritedFields": true,
+    "MaxStateComparisonDepth": 3,
+    "EnableCollectionContentTracking": false,
+    "StateSnapshotCleanupIntervalMinutes": 10,
+    "MaxStateSnapshotAgeMinutes": 30,
+    "MaxTrackedComponents": 1000,
+    "ExcludeFromStateTracking": ["Microsoft.*", "System.*", "*Layout*"]
   }
 }
 ```
@@ -351,6 +445,31 @@ else
 ```csharp
 // Bind from configuration
 builder.Services.AddWhyDidYouRender(builder.Configuration.GetSection("WhyDidYouRender"));
+```
+
+### Component-Level State Tracking Configuration
+
+Use attributes to override global settings for specific components:
+
+```csharp
+@using Blazor.WhyDidYouRender.Attributes
+
+// Disable state tracking for this component
+@attribute [StateTrackingOptions(EnableStateTracking = false)]
+@inherits TrackedComponentBase
+
+// OR: Custom state tracking settings
+@attribute [StateTrackingOptions(
+    MaxFields = 10,
+    AutoTrackSimpleTypes = false,
+    LogStateChanges = true,
+    MaxComparisonDepth = 1,
+    Description = "Performance-critical component with limited tracking")]
+@inherits TrackedComponentBase
+
+@code {
+    // Component implementation
+}
 ```
 
 ## 🚨 Troubleshooting
@@ -364,6 +483,29 @@ builder.Services.AddWhyDidYouRender(builder.Configuration.GetSection("WhyDidYouR
 2. **No tracking in WASM**
    - Ensure `InitializeWasmAsync()` is called
    - Check browser console for initialization messages
+
+3. **State tracking not working**
+   - Verify `EnableStateTracking = true` in configuration
+   - Check that component inherits from `TrackedComponentBase`
+   - Ensure complex objects have `[TrackState]` attribute
+   - Check console for state tracking initialization messages
+
+4. **Performance issues with state tracking**
+   - Reduce `MaxTrackedFieldsPerComponent` (default: 50)
+   - Set `EnableCollectionContentTracking = false`
+   - Decrease `MaxStateComparisonDepth` (default: 3)
+   - Use `[IgnoreState]` on frequently changing fields
+   - Add components to `ExcludeFromStateTracking` list
+
+5. **Too many state change logs**
+   - Set `LogDetailedStateChanges = false`
+   - Use `[IgnoreState]` on debug/performance fields
+   - Adjust `Verbosity` to `TrackingVerbosity.Minimal`
+
+6. **Memory usage concerns**
+   - Reduce `MaxTrackedComponents` (default: 1000)
+   - Decrease `MaxStateSnapshotAgeMinutes` (default: 30)
+   - Increase `StateSnapshotCleanupIntervalMinutes` frequency
 
 3. **Performance issues**
    - Reduce `MaxParameterChangesToLog`

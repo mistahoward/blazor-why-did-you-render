@@ -105,14 +105,27 @@ public void TrackRender(ComponentBase component, string trigger, bool firstRende
 
 ```
 Blazor.WhyDidYouRender/
-├── Components/          # Component base classes
-├── Configuration/       # Configuration classes
-├── Core/               # Core tracking services
-├── Diagnostics/        # Error tracking and diagnostics
-├── Extensions/         # Service collection extensions
-├── Helpers/            # Utility classes
-└── Records/            # Data transfer objects
+├── Attributes/         # State tracking and configuration attributes
+├── Components/         # Component base classes
+├── Configuration/      # Configuration classes
+├── Core/              # Core tracking services
+│   ├── StateTracking/ # State tracking subsystem
+│   └── ...           # Other core services
+├── Diagnostics/       # Error tracking and diagnostics
+├── Extensions/        # Service collection extensions
+├── Helpers/           # Utility classes
+├── Records/           # Data transfer objects
+└── Examples/          # Usage examples and configurations
 ```
+
+### State Tracking Architecture
+
+The state tracking system is built around several key components:
+
+- **Attributes**: `TrackStateAttribute`, `IgnoreStateAttribute`, `StateTrackingOptionsAttribute`
+- **Core Services**: `StateSnapshotManager`, `StateComparer`, `ThreadSafeStateTracker`
+- **Data Models**: `StateSnapshot`, `StateChange`, `ComponentMetadata`
+- **Field Analysis**: `ComponentFieldAnalyzer`, `StateFieldMetadata`
 
 ## 🧪 Testing Guidelines
 
@@ -125,6 +138,14 @@ When testing becomes available:
 - Test edge cases and error conditions
 - Use descriptive test names
 - Follow Arrange-Act-Assert pattern
+
+### State Tracking Testing
+When testing becomes available, focus on:
+- **Attribute Validation**: Test `TrackStateAttribute`, `IgnoreStateAttribute`, `StateTrackingOptionsAttribute`
+- **State Comparison**: Test deep object comparison, collection tracking, custom comparers
+- **Performance**: Test with large numbers of tracked fields and components
+- **Thread Safety**: Test concurrent access in Blazor Server scenarios
+- **Memory Management**: Test state snapshot cleanup and memory usage
 
 ### Integration Tests
 - Test service registration
@@ -144,6 +165,29 @@ public void TrackRender_WhenComponentIsNull_ShouldThrowArgumentNullException()
         service.TrackRender(null!, "test", false));
 }
 ```
+
+## 🔧 Development Guidelines
+
+### Code Style
+- Follow C# coding conventions
+- Use meaningful variable and method names
+- Add XML documentation for public APIs
+- Keep methods focused and single-purpose
+
+### State Tracking Development
+- **Performance First**: State tracking should have minimal impact on application performance
+- **Thread Safety**: All state tracking components must be thread-safe for Blazor Server
+- **Memory Efficiency**: Implement proper cleanup mechanisms for state snapshots
+- **Attribute Design**: Keep attributes simple and focused on specific use cases
+- **Validation**: Validate attribute configurations and provide clear error messages
+
+### Adding New State Tracking Features
+1. **Design Phase**: Consider performance implications and memory usage
+2. **Implementation**: Follow existing patterns in `Core/StateTracking/`
+3. **Attributes**: Add validation logic and clear documentation
+4. **Configuration**: Add new options to `WhyDidYouRenderConfig` with sensible defaults
+5. **Examples**: Create usage examples in `Examples/` directory
+6. **Documentation**: Update all relevant documentation files
 
 ## 🔄 Development Workflow
 

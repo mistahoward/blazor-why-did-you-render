@@ -1,0 +1,445 @@
+@page "/diagnostics"
+@page "/_whydidyourender/diagnostics"
+@rendermode InteractiveServer
+@inject IServiceProvider ServiceProvider
+@using Blazor.WhyDidYouRender.Core
+@using Blazor.WhyDidYouRender.Diagnostics
+@using Blazor.WhyDidYouRender.Records
+@using System.Text.Json
+
+<PageTitle>WhyDidYouRender Diagnostics</PageTitle>
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <h1>🔍 WhyDidYouRender Diagnostics Dashboard</h1>
+            <p class="text-muted">Real-time monitoring and diagnostics for the render tracking system</p>
+            
+            <div class="d-flex gap-2 mb-3">
+                <button class="btn btn-primary" @onclick="RefreshData">
+                    <i class="fas fa-sync-alt"></i> Refresh Data
+                </button>
+                <button class="btn btn-warning" @onclick="ClearAllData">
+                    <i class="fas fa-trash"></i> Clear All Tracking Data
+                </button>
+                <button class="btn btn-info" @onclick="PerformMaintenance">
+                    <i class="fas fa-tools"></i> Perform Maintenance
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Component Tracking Counts -->
+        <div class="col-md-6 col-lg-3 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">📊 Tracking Counts</h5>
+                </div>
+                <div class="card-body">
+                    @if (trackingCounts != null)
+                    {
+                        @foreach (var kvp in trackingCounts)
+                        {
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="fw-bold">@kvp.Key:</span>
+                                <span class="badge bg-secondary">@kvp.Value</span>
+                            </div>
+                        }
+                        <small class="text-muted">Total: @trackingCounts.Values.Sum()</small>
+                    }
+                    else
+                    {
+                        <div class="text-center text-muted">
+                            <i class="fas fa-spinner fa-spin"></i> Loading...
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- State Tracking Diagnostics -->
+        <div class="col-md-6 col-lg-3 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-success text-white">
+                    <h5 class="card-title mb-0">🔄 State Tracking</h5>
+                </div>
+                <div class="card-body">
+                    @if (stateTrackingDiagnostics != null)
+                    {
+                        <div class="mb-2">
+                            <span class="fw-bold">Status:</span>
+                            <span class="badge @(stateTrackingDiagnostics.IsEnabled ? "bg-success" : "bg-secondary")">
+                                @(stateTrackingDiagnostics.IsEnabled ? "Enabled" : "Disabled")
+                            </span>
+                        </div>
+                        <div class="mb-2">
+                            <span class="fw-bold">Initialized:</span>
+                            <span class="badge @(stateTrackingDiagnostics.IsInitialized ? "bg-success" : "bg-warning")">
+                                @(stateTrackingDiagnostics.IsInitialized ? "Yes" : "No")
+                            </span>
+                        </div>
+                        @if (stateTrackingDiagnostics.CacheInfo != null)
+                        {
+                            <div class="mb-2">
+                                <span class="fw-bold">Cache Size:</span>
+                                <span class="badge bg-info">@stateTrackingDiagnostics.CacheInfo.TotalEntries</span>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="text-center text-muted">
+                            <i class="fas fa-spinner fa-spin"></i> Loading...
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Error Statistics -->
+        <div class="col-md-6 col-lg-3 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="card-title mb-0">⚠️ Error Statistics</h5>
+                </div>
+                <div class="card-body">
+                    @if (errorStatistics != null)
+                    {
+                        <div class="mb-2">
+                            <span class="fw-bold">Total Errors:</span>
+                            <span class="badge bg-danger">@errorStatistics.TotalErrors</span>
+                        </div>
+                        <div class="mb-2">
+                            <span class="fw-bold">Last Hour:</span>
+                            <span class="badge bg-warning">@errorStatistics.ErrorsLastHour</span>
+                        </div>
+                        <div class="mb-2">
+                            <span class="fw-bold">Last 24h:</span>
+                            <span class="badge bg-info">@errorStatistics.ErrorsLast24Hours</span>
+                        </div>
+                        <div class="mb-2">
+                            <span class="fw-bold">Error Rate:</span>
+                            <span class="badge bg-secondary">@errorStatistics.ErrorRate.ToString("F2")/min</span>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="text-center text-muted">
+                            <i class="fas fa-spinner fa-spin"></i> Loading...
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- System Status -->
+        <div class="col-md-6 col-lg-3 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-info text-white">
+                    <h5 class="card-title mb-0">🖥️ System Status</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-2">
+                        <span class="fw-bold">Last Refresh:</span>
+                        <br><small class="text-muted">@lastRefresh.ToString("HH:mm:ss")</small>
+                    </div>
+                    <div class="mb-2">
+                        <span class="fw-bold">Auto Refresh:</span>
+                        <span class="badge @(autoRefresh ? "bg-success" : "bg-secondary")">
+                            @(autoRefresh ? "On" : "Off")
+                        </span>
+                    </div>
+                    <div class="mb-2">
+                        <button class="btn btn-sm @(autoRefresh ? "btn-outline-danger" : "btn-outline-success")" 
+                                @onclick="ToggleAutoRefresh">
+                            @(autoRefresh ? "Stop" : "Start") Auto Refresh
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detailed State Tracking Information -->
+    @if (stateTrackingDiagnostics != null && stateTrackingDiagnostics.IsEnabled)
+    {
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">🔍 Detailed State Tracking Information</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6>Component Initialization Status</h6>
+                                <ul class="list-unstyled">
+                                    <li>
+                                        <i class="fas @(stateTrackingDiagnostics.FieldAnalyzerInitialized ? "fa-check text-success" : "fa-times text-danger")"></i>
+                                        Field Analyzer
+                                    </li>
+                                    <li>
+                                        <i class="fas @(stateTrackingDiagnostics.StateComparerInitialized ? "fa-check text-success" : "fa-times text-danger")"></i>
+                                        State Comparer
+                                    </li>
+                                    <li>
+                                        <i class="fas @(stateTrackingDiagnostics.SnapshotManagerInitialized ? "fa-check text-success" : "fa-times text-danger")"></i>
+                                        Snapshot Manager
+                                    </li>
+                                    <li>
+                                        <i class="fas @(stateTrackingDiagnostics.PerformanceMonitorInitialized ? "fa-check text-success" : "fa-times text-danger")"></i>
+                                        Performance Monitor
+                                    </li>
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                @if (stateTrackingDiagnostics.CacheInfo != null)
+                                {
+                                    <h6>Cache Information</h6>
+                                    <ul class="list-unstyled">
+                                        <li><strong>Cached Types:</strong> @stateTrackingDiagnostics.CacheInfo.TotalEntries</li>
+                                        <li><strong>Cache Hits:</strong> @stateTrackingDiagnostics.CacheInfo.Statistics.Hits</li>
+                                        <li><strong>Cache Misses:</strong> @stateTrackingDiagnostics.CacheInfo.Statistics.Misses</li>
+                                        <li><strong>Hit Ratio:</strong> @(stateTrackingDiagnostics.CacheInfo.Statistics.HitRate.ToString("P2"))</li>
+                                    </ul>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Recent Errors -->
+    @if (recentErrors?.Any() == true)
+    {
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">🚨 Recent Errors</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Time</th>
+                                        <th>Severity</th>
+                                        <th>Component</th>
+                                        <th>Message</th>
+                                        <th>Method</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var error in recentErrors.Take(10))
+                                    {
+                                        <tr>
+                                            <td><small>@error.Timestamp.ToString("HH:mm:ss")</small></td>
+                                            <td>
+                                                <span class="badge @GetSeverityBadgeClass(error.Severity)">
+                                                    @error.Severity
+                                                </span>
+                                            </td>
+                                            <td><small>@(error.ComponentName ?? "N/A")</small></td>
+                                            <td><small>@error.Message</small></td>
+                                            <td><small>@(error.TrackingMethod ?? "N/A")</small></td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Actions Log -->
+    @if (actionLog.Any())
+    {
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">📝 Action Log</h5>
+                    </div>
+                    <div class="card-body">
+                        <div style="max-height: 200px; overflow-y: auto;">
+                            @foreach (var action in actionLog.TakeLast(20).Reverse())
+                            {
+                                <div class="small text-muted mb-1">
+                                    <span class="fw-bold">@action.Timestamp.ToString("HH:mm:ss")</span> - @action.Message
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private Dictionary<string, int>? trackingCounts;
+    private StateTrackingDiagnostics? stateTrackingDiagnostics;
+    private ErrorStatistics? errorStatistics;
+    private IEnumerable<TrackingError>? recentErrors;
+    private DateTime lastRefresh = DateTime.Now;
+    private bool autoRefresh = false;
+    private Timer? refreshTimer;
+    private List<ActionLogEntry> actionLog = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshData();
+    }
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender && autoRefresh)
+        {
+            StartAutoRefresh();
+        }
+    }
+
+    private async Task RefreshData()
+    {
+        try
+        {
+            var renderTracker = RenderTrackerService.Instance;
+
+            // Get tracking counts using the unused method!
+            trackingCounts = renderTracker.GetTrackedComponentCounts();
+
+            // Get state tracking diagnostics using the unused method!
+            stateTrackingDiagnostics = renderTracker.GetStateTrackingDiagnostics();
+
+            // Get error statistics from error tracker
+            var errorTracker = ServiceProvider.GetService<IErrorTracker>();
+            if (errorTracker != null)
+            {
+                errorStatistics = errorTracker.GetErrorStatistics();
+                recentErrors = errorTracker.GetRecentErrors(20);
+            }
+
+            lastRefresh = DateTime.Now;
+            LogAction("Data refreshed successfully");
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            LogAction($"Error refreshing data: {ex.Message}");
+        }
+    }
+
+    private async Task ClearAllData()
+    {
+        try
+        {
+            var renderTracker = RenderTrackerService.Instance;
+
+            // Use the unused ClearAllTrackingData method!
+            renderTracker.ClearAllTrackingData();
+
+            LogAction("All tracking data cleared");
+            await RefreshData();
+        }
+        catch (Exception ex)
+        {
+            LogAction($"Error clearing data: {ex.Message}");
+        }
+    }
+
+    private async Task PerformMaintenance()
+    {
+        try
+        {
+            var renderTracker = RenderTrackerService.Instance;
+
+            // Use the unused PerformMaintenance method!
+            renderTracker.PerformMaintenance();
+
+            LogAction("Maintenance performed successfully");
+            await RefreshData();
+        }
+        catch (Exception ex)
+        {
+            LogAction($"Error performing maintenance: {ex.Message}");
+        }
+    }
+
+    private void ToggleAutoRefresh()
+    {
+        autoRefresh = !autoRefresh;
+
+        if (autoRefresh)
+        {
+            StartAutoRefresh();
+            LogAction("Auto-refresh enabled");
+        }
+        else
+        {
+            StopAutoRefresh();
+            LogAction("Auto-refresh disabled");
+        }
+    }
+
+    private void StartAutoRefresh()
+    {
+        refreshTimer = new Timer(async _ =>
+        {
+            await InvokeAsync(async () =>
+            {
+                await RefreshData();
+            });
+        }, null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
+    }
+
+    private void StopAutoRefresh()
+    {
+        refreshTimer?.Dispose();
+        refreshTimer = null;
+    }
+
+    private void LogAction(string message)
+    {
+        actionLog.Add(new ActionLogEntry
+        {
+            Timestamp = DateTime.Now,
+            Message = message
+        });
+
+        // Keep only last 50 entries
+        if (actionLog.Count > 50)
+        {
+            actionLog.RemoveAt(0);
+        }
+    }
+
+    private string GetSeverityBadgeClass(ErrorSeverity severity)
+    {
+        return severity switch
+        {
+            ErrorSeverity.Critical => "bg-danger",
+            ErrorSeverity.Error => "bg-danger",
+            ErrorSeverity.Warning => "bg-warning",
+            ErrorSeverity.Info => "bg-info",
+            _ => "bg-secondary"
+        };
+    }
+
+    public void Dispose()
+    {
+        refreshTimer?.Dispose();
+    }
+
+    private class ActionLogEntry
+    {
+        public DateTime Timestamp { get; set; }
+        public string Message { get; set; } = string.Empty;
+    }
+}

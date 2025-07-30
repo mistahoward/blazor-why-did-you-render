@@ -206,8 +206,13 @@ public class ServerTrackingLogger : ITrackingLogger {
 		var message = FormatConsoleMessage(renderEvent);
 		Console.WriteLine(message);
 
-		if (_config.Verbosity >= TrackingVerbosity.Verbose && renderEvent.ParameterChanges?.Count > 0)
-			LogParameterChangesToConsole(renderEvent);
+		if (_config.Verbosity >= TrackingVerbosity.Verbose) {
+			if (renderEvent.ParameterChanges?.Count > 0)
+				LogParameterChangesToConsole(renderEvent);
+
+			if (renderEvent.StateChanges?.Count > 0)
+				LogStateChangesToConsole(renderEvent);
+		}
 	}
 
 	/// <summary>
@@ -246,10 +251,36 @@ public class ServerTrackingLogger : ITrackingLogger {
 		foreach (var (paramName, change) in renderEvent.ParameterChanges) {
 			try {
 				var changeJson = JsonSerializer.Serialize(change, _jsonOptions);
-				Console.WriteLine($"  {paramName}: {changeJson}");
+				Console.WriteLine($"    {paramName}: {changeJson}");
 			}
 			catch {
-				Console.WriteLine($"  {paramName}: [Unable to serialize]");
+				Console.WriteLine($"    {paramName}: [Unable to serialize]");
+			}
+		}
+	}
+
+	/// <summary>
+	/// Logs state changes to the console.
+	/// </summary>
+	/// <param name="renderEvent">The render event containing state changes.</param>
+	private void LogStateChangesToConsole(RenderEvent renderEvent) {
+		if (renderEvent.StateChanges?.Count > 0 != true) return;
+
+		Console.WriteLine("  State changes:");
+		foreach (var stateChange in renderEvent.StateChanges) {
+			try {
+				var changeInfo = new {
+					Field = stateChange.FieldName,
+					Previous = stateChange.PreviousValue,
+					Current = stateChange.CurrentValue,
+					Type = stateChange.ChangeType.ToString(),
+					Description = stateChange.GetFormattedDescription()
+				};
+				var changeJson = JsonSerializer.Serialize(changeInfo, _jsonOptions);
+				Console.WriteLine($"    {stateChange.FieldName}: {changeJson}");
+			}
+			catch {
+				Console.WriteLine($"    {stateChange.FieldName}: [Unable to serialize]");
 			}
 		}
 	}

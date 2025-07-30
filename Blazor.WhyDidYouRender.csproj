@@ -58,7 +58,7 @@
     <None Include="README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
-  <!-- Exclude Sample Apps from Package -->
+  <!-- Exclude Sample Apps and Tests from Package -->
   <ItemGroup>
     <Compile Remove="RenderTracker.SampleApp\**" />
     <EmbeddedResource Remove="RenderTracker.SampleApp\**" />
@@ -66,6 +66,9 @@
     <Compile Remove="RenderTracker.WasmSampleApp\**" />
     <EmbeddedResource Remove="RenderTracker.WasmSampleApp\**" />
     <None Remove="RenderTracker.WasmSampleApp\**" />
+    <Compile Remove="Blazor.WhyDidYouRender.Tests\**" />
+    <EmbeddedResource Remove="Blazor.WhyDidYouRender.Tests\**" />
+    <None Remove="Blazor.WhyDidYouRender.Tests\**" />
   </ItemGroup>
 
 </Project>

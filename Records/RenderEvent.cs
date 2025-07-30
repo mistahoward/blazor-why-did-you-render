@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 
+using Blazor.WhyDidYouRender.Core.StateTracking;
+
 namespace Blazor.WhyDidYouRender.Records;
 
 /// <summary>
@@ -61,4 +63,19 @@ public record RenderEvent {
 	/// Indicates if this component is rendering frequently (potential performance issue).
 	/// </summary>
 	public bool IsFrequentRerender { get; init; }
+
+	/// <summary>
+	/// State changes detected during this render (if state tracking is enabled).
+	/// </summary>
+	public List<StateChange>? StateChanges { get; init; }
+
+	/// <summary>
+	/// Indicates if state changes were detected during this render.
+	/// </summary>
+	public bool HasStateChanges => StateChanges?.Count > 0;
+
+	/// <summary>
+	/// Number of state changes detected during this render.
+	/// </summary>
+	public int StateChangeCount => StateChanges?.Count ?? 0;
 }

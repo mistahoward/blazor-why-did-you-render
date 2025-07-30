@@ -1,0 +1,332 @@
+@page "/state-tracking"
+@inherits TrackedComponentBase
+@using Blazor.WhyDidYouRender.Attributes
+@using Blazor.WhyDidYouRender.Components
+
+<PageTitle>State Tracking Demo - WASM</PageTitle>
+
+<h1>State Tracking Demo (WASM)</h1>
+
+<div class="alert alert-info">
+    <h4>🎯 WASM State Tracking</h4>
+    <p>This demo shows state tracking working in Blazor WebAssembly mode.</p>
+    <p><strong>Check your browser console</strong> to see state tracking in action!</p>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5>Simple State Fields</h5>
+            </div>
+            <div class="card-body">
+                <p><strong>Counter:</strong> @counter</p>
+                <p><strong>Message:</strong> @message</p>
+                <p><strong>Is Active:</strong> @isActive</p>
+                
+                <button class="btn btn-primary me-2" @onclick="IncrementCounter">Increment</button>
+                <button class="btn btn-secondary me-2" @onclick="ChangeMessage">Change Message</button>
+                <button class="btn btn-info" @onclick="ToggleActive">Toggle Active</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5>User Object State</h5>
+            </div>
+            <div class="card-body">
+                <p><strong>Name:</strong> @user?.Name</p>
+                <p><strong>Email:</strong> @user?.Email</p>
+                <p><strong>Age:</strong> @user?.Age</p>
+                
+                <button class="btn btn-primary me-2" @onclick="UpdateUserName">Update Name</button>
+                <button class="btn btn-secondary me-2" @onclick="UpdateUserAge">Update Age</button>
+                <button class="btn btn-danger" @onclick="ReplaceUser">Replace User</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-3">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5>Simple Collection</h5>
+            </div>
+            <div class="card-body">
+                <p><strong>Items Count:</strong> @items.Count</p>
+                <ul>
+                    @foreach (var item in items.Take(3))
+                    {
+                        <li>@item</li>
+                    }
+                    @if (items.Count > 3)
+                    {
+                        <li><em>... and @(items.Count - 3) more items</em></li>
+                    }
+                </ul>
+                
+                <button class="btn btn-success me-2" @onclick="AddItem">Add Item</button>
+                <button class="btn btn-warning me-2" @onclick="ModifyFirstItem">Modify First</button>
+                <button class="btn btn-danger" @onclick="ClearItems">Clear All</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5>Performance Fields (Ignored)</h5>
+            </div>
+            <div class="card-body">
+                <p><strong>Performance Counter:</strong> @performanceCounter</p>
+                <p><strong>Render Count:</strong> @renderCount</p>
+                
+                <button class="btn btn-outline-secondary me-2" @onclick="UpdatePerformanceCounter">Update Performance</button>
+                <button class="btn btn-outline-warning" @onclick="ForceRender">Force Render</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-3">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>WASM State Tracking Information</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">
+                    This WASM component demonstrates optimized state tracking:
+                </p>
+                <ul class="text-muted">
+                    <li><strong>Tracked Fields:</strong> counter, message, isActive, user, items</li>
+                    <li><strong>Ignored Fields:</strong> performanceCounter, renderCount</li>
+                    <li><strong>WASM Optimizations:</strong> Reduced comparison depth, simplified collection tracking</li>
+                    <li><strong>Memory Efficient:</strong> Lower limits for WASM memory constraints</li>
+                </ul>
+                <p class="text-info">
+                    Check the browser console to see state tracking in action!
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-3">
+    <div class="col-12">
+        <div class="card border-warning">
+            <div class="card-header bg-warning text-dark">
+                <h5>🚨 Unnecessary Re-render Testing (WASM)</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">
+                    Test unnecessary re-render detection in WASM mode:
+                </p>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Force Re-renders</h6>
+                        <button class="btn btn-warning me-2" @onclick="ForceRender">Force Render</button>
+                        <button class="btn btn-warning" @onclick="MultipleForceRenders">Multiple Force</button>
+
+                        <h6 class="mt-3">Ignored Fields</h6>
+                        <button class="btn btn-outline-warning me-2" @onclick="UpdatePerformanceCounter">Update Performance</button>
+                        <button class="btn btn-outline-warning" @onclick="UpdateBothIgnored">Update Both</button>
+                    </div>
+
+                    <div class="col-md-6">
+                        <h6>Same Value Updates</h6>
+                        <button class="btn btn-secondary me-2" @onclick="SetSameCounter">Same Counter</button>
+                        <button class="btn btn-secondary" @onclick="SetSameMessage">Same Message</button>
+
+                        <h6 class="mt-3">Mixed Operations</h6>
+                        <button class="btn btn-info me-2" @onclick="FakeStateChange">Fake Change</button>
+                        <button class="btn btn-info" @onclick="RedundantOperations">Redundant Ops</button>
+                    </div>
+                </div>
+
+                <div class="alert alert-info mt-3">
+                    <strong>WASM Note:</strong> Check browser console for unnecessary re-render warnings.
+                    WASM has optimized settings for better performance.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    // Simple tracked fields
+    [TrackState]
+    private int counter = 0;
+
+    [TrackState]
+    private string message = "Initial WASM message";
+
+    [TrackState]
+    private bool isActive = false;
+
+    [TrackState]
+    private DateTime lastUpdated = DateTime.Now;
+
+    // Simple object with reduced comparison depth for WASM performance
+    [TrackState(MaxComparisonDepth = 1)]
+    private UserData? user = new UserData 
+    { 
+        Name = "WASM User", 
+        Email = "wasm@example.com", 
+        Age = 25
+    };
+
+    // Collection tracking with content tracking enabled
+    [TrackState(TrackCollectionContents = true, MaxComparisonDepth = 2)]
+    private List<string> items = new List<string> { "WASM Item 1", "WASM Item 2" };
+
+    // Ignored fields (won't trigger state change detection)
+    [IgnoreState("Performance counter - changes frequently")]
+    private long performanceCounter = 0;
+
+    [IgnoreState("Internal render tracking")]
+    private int renderCount = 0;
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        base.OnAfterRender(firstRender);
+        renderCount++;
+    }
+
+    // Simple field operations
+    private void IncrementCounter()
+    {
+        counter++;
+        lastUpdated = DateTime.Now;
+    }
+
+    private void ChangeMessage()
+    {
+        var messages = new[] { "WASM Hello!", "State tracking in WASM!", "Blazor WASM rocks!", "Testing WASM state" };
+        message = messages[Random.Shared.Next(messages.Length)];
+        lastUpdated = DateTime.Now;
+    }
+
+    private void ToggleActive()
+    {
+        isActive = !isActive;
+        lastUpdated = DateTime.Now;
+    }
+
+    // User object operations
+    private void UpdateUserName()
+    {
+        if (user != null)
+        {
+            var names = new[] { "WASM User", "Jane WASM", "Bob WASM", "Alice WASM" };
+            user.Name = names[Random.Shared.Next(names.Length)];
+        }
+    }
+
+    private void UpdateUserAge()
+    {
+        if (user != null)
+        {
+            user.Age = Random.Shared.Next(18, 60);
+        }
+    }
+
+    private void ReplaceUser()
+    {
+        user = new UserData
+        {
+            Name = "New WASM User",
+            Email = "new-wasm@example.com",
+            Age = 30
+        };
+    }
+
+    // Collection operations
+    private void AddItem()
+    {
+        items.Add($"WASM Item {items.Count + 1}");
+    }
+
+    private void ModifyFirstItem()
+    {
+        if (items.Count > 0)
+        {
+            items[0] = $"Modified WASM Item - {DateTime.Now:HH:mm:ss}";
+        }
+    }
+
+    private void ClearItems()
+    {
+        items.Clear();
+    }
+
+    // Ignored field operations (should not trigger state change detection)
+    private void UpdatePerformanceCounter()
+    {
+        performanceCounter = Environment.TickCount64;
+    }
+
+    private void ForceRender()
+    {
+        StateHasChanged();
+    }
+
+    // Unnecessary re-render test methods for WASM
+    private void MultipleForceRenders()
+    {
+        StateHasChanged();
+        StateHasChanged();
+        StateHasChanged();
+    }
+
+    private void UpdateBothIgnored()
+    {
+        performanceCounter = Environment.TickCount64;
+        renderCount++; // This is also ignored
+    }
+
+    private void SetSameCounter()
+    {
+        var currentValue = counter;
+        counter = currentValue; // Same value - should be unnecessary
+    }
+
+    private void SetSameMessage()
+    {
+        var currentMessage = message;
+        message = currentMessage; // Same value - should be unnecessary
+    }
+
+    private void FakeStateChange()
+    {
+        // Pretend to change state but revert immediately
+        var temp = counter;
+        counter = temp + 1;
+        counter = temp; // Back to original
+    }
+
+    private void RedundantOperations()
+    {
+        // Multiple redundant operations
+        counter = counter; // Same value
+        message = message; // Same value
+        isActive = isActive; // Same value
+
+        // Update ignored fields only
+        performanceCounter++;
+
+        // Force render despite no meaningful changes
+        StateHasChanged();
+    }
+
+    public class UserData
+    {
+        public string Name { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public int Age { get; set; }
+    }
+}

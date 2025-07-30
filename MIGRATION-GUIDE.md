@@ -1,6 +1,6 @@
-# Migration Guide: v1.x to v2.0
+# Migration Guide: v1.x to v2.0+
 
-This guide helps you migrate from WhyDidYouRender v1.x to v2.0, which introduces cross-platform support for Blazor Server, WebAssembly, and SSR.
+This guide helps you migrate from WhyDidYouRender v1.x to v2.0+, which introduces cross-platform support for Blazor Server, WebAssembly, and SSR, plus advanced state tracking capabilities.
 
 ## 🚨 Breaking Changes Overview
 
@@ -9,8 +9,9 @@ This guide helps you migrate from WhyDidYouRender v1.x to v2.0, which introduces
 1. **Cross-Platform Architecture**: New service abstraction layer
 2. **Initialization Changes**: New initialization methods required
 3. **Configuration Updates**: New cross-platform configuration options
-4. **Removed Features**: Error diagnostics endpoint removed for WASM compatibility
-5. **Package Dependencies**: Updated for cross-platform support
+4. **State Tracking System**: New field-level change detection capabilities
+5. **Removed Features**: Error diagnostics endpoint removed for WASM compatibility
+6. **Package Dependencies**: Updated for cross-platform support
 
 ## 📦 Package Update
 
@@ -117,10 +118,22 @@ config.DiagnosticsPath = "/diagnostics";  // ❌ Removed for WASM compatibility
 ### New Configuration Options
 
 ```csharp
-// NEW in v2.0 - Cross-platform options
+// NEW in v2.0+ - Cross-platform options
 config.AutoDetectEnvironment = true;                    // Auto-detect hosting model
 config.ForceHostingModel = BlazorHostingModel.Server;   // Force specific model
 config.Output = TrackingOutput.Both;                    // Both server and browser console
+
+// NEW in v2.1+ - State tracking options
+config.EnableStateTracking = true;                      // Enable field-level tracking
+config.AutoTrackSimpleTypes = true;                     // Auto-track simple value types
+config.MaxTrackedFieldsPerComponent = 50;               // Limit fields per component
+config.LogDetailedStateChanges = false;                 // Log before/after values
+config.TrackInheritedFields = true;                     // Track inherited fields
+config.MaxStateComparisonDepth = 3;                     // Object comparison depth
+config.EnableCollectionContentTracking = false;         // Track collection contents
+config.StateSnapshotCleanupIntervalMinutes = 10;        // Cleanup interval
+config.MaxStateSnapshotAgeMinutes = 30;                 // Max snapshot age
+config.MaxTrackedComponents = 1000;                     // Max tracked components
 ```
 
 ### Updated Configuration Properties
@@ -137,10 +150,10 @@ config.Output = TrackingOutput.Both;           // Both consoles (NEW)
 
 ## 🧩 Component Changes
 
-### Component Tracking (No Changes)
+### Component Tracking (Enhanced in v2.1+)
 
 ```csharp
-// Same in both v1.x and v2.0
+// v1.x - Basic tracking
 @using Blazor.WhyDidYouRender.Components
 @inherits TrackedComponentBase
 
@@ -150,6 +163,72 @@ config.Output = TrackingOutput.Both;           // Both consoles (NEW)
 @code {
     [Parameter] public int Count { get; set; }
 }
+```
+
+```csharp
+// v2.1+ - Enhanced with state tracking
+@using Blazor.WhyDidYouRender.Components
+@using Blazor.WhyDidYouRender.Attributes
+@inherits TrackedComponentBase
+
+<h3>My Component</h3>
+<p>Count: @Count</p>
+<p>User: @user?.Name</p>
+
+@code {
+    // Simple types are auto-tracked (no attribute needed)
+    private int internalCounter = 0;
+    private string message = "Hello World";
+
+    // Complex types need [TrackState] attribute
+    [TrackState]
+    private UserInfo? user = new() { Name = "John", Email = "john@example.com" };
+
+    // Performance-sensitive fields can be ignored
+    [IgnoreState("Changes frequently")]
+    private long performanceMetric = 0;
+
+    [Parameter] public int Count { get; set; }
+}
+```
+
+### New State Tracking Attributes (v2.1+)
+
+#### TrackState Attribute
+```csharp
+// Basic usage
+[TrackState]
+private ComplexObject data;
+
+// With options
+[TrackState("User profile data", UseCustomComparer = true, MaxComparisonDepth = 2)]
+private UserProfile profile;
+
+// Collection tracking
+[TrackState(TrackCollectionContents = true)]
+private List<string> items;
+```
+
+#### IgnoreState Attribute
+```csharp
+// Basic exclusion
+[IgnoreState]
+private long performanceCounter;
+
+// With reason
+[IgnoreState("Debug information - not relevant for rendering")]
+private string debugInfo;
+```
+
+#### StateTrackingOptions Attribute
+```csharp
+// Component-level configuration
+@attribute [StateTrackingOptions(
+    EnableStateTracking = true,
+    MaxFields = 20,
+    AutoTrackSimpleTypes = false,
+    LogStateChanges = true)]
+@inherits TrackedComponentBase
 ```
 
 ## 🔍 API Changes
@@ -255,12 +334,51 @@ await app.Services.InitializeAsync(jsRuntime);  // Auto-detection
 // app.UseWhyDidYouRenderDiagnostics(); // ❌ No longer available
 ```
 
-### Step 5: Test and Verify
+### Step 5: Enable State Tracking (Optional - v2.1+)
+
+```csharp
+// Add state tracking configuration
+builder.Services.AddWhyDidYouRender(config =>
+{
+    // Existing configuration...
+
+    // NEW: Enable state tracking
+    config.EnableStateTracking = true;
+    config.AutoTrackSimpleTypes = true;
+    config.MaxTrackedFieldsPerComponent = 50;
+    config.LogDetailedStateChanges = false; // Set to true for debugging
+});
+```
+
+### Step 6: Update Components for State Tracking (Optional)
+
+```csharp
+// Add state tracking attributes to existing components
+@using Blazor.WhyDidYouRender.Attributes
+@inherits TrackedComponentBase
+
+@code {
+    // Simple types are auto-tracked (no changes needed)
+    private int counter = 0;
+    private string message = "Hello";
+
+    // Add [TrackState] to complex objects
+    [TrackState]
+    private UserData userData = new();
+
+    // Add [IgnoreState] to performance-sensitive fields
+    [IgnoreState("Performance counter")]
+    private long renderTime = 0;
+}
+```
+
+### Step 7: Test and Verify
 
 1. Build and run your application
 2. Check console output for initialization messages
 3. Verify tracking still works as expected
 4. Test browser console output (if enabled)
+5. Verify state tracking output (if enabled)
 
 ## 🚨 Common Migration Issues
 
@@ -316,6 +434,54 @@ app.UseSession();
 // app.UseWhyDidYouRenderDiagnostics();
 // config.EnableDiagnosticsEndpoint = true;
 // config.DiagnosticsPath = "/diagnostics";
+```
+
+### Issue 5: State Tracking Not Working (v2.1+)
+
+**Problem**: State changes not being detected or logged
+
+**Solution**: Verify state tracking configuration
+```csharp
+// 1. Enable state tracking in configuration
+config.EnableStateTracking = true;
+config.AutoTrackSimpleTypes = true;
+
+// 2. Add [TrackState] to complex objects
+[TrackState]
+private UserData userData;
+
+// 3. Ensure component inherits from TrackedComponentBase
+@inherits TrackedComponentBase
+```
+
+### Issue 6: Performance Issues with State Tracking
+
+**Problem**: Application performance degraded after enabling state tracking
+
+**Solution**: Optimize state tracking settings
+```csharp
+config.EnableStateTracking = true;
+config.MaxTrackedFieldsPerComponent = 25; // Reduce from default 50
+config.EnableCollectionContentTracking = false; // Disable expensive collection tracking
+config.MaxStateComparisonDepth = 1; // Reduce comparison depth
+config.LogDetailedStateChanges = false; // Disable detailed logging
+
+// Use [IgnoreState] on frequently changing fields
+[IgnoreState("Performance counter")]
+private long performanceMetric;
+```
+
+### Issue 7: Too Many State Change Logs
+
+**Problem**: Console flooded with state change messages
+
+**Solution**: Reduce logging verbosity
+```csharp
+config.LogDetailedStateChanges = false;
+config.Verbosity = TrackingVerbosity.Minimal;
+
+// Or use component-level configuration
+@attribute [StateTrackingOptions(LogStateChanges = false)]
 ```
 
 ## 📈 Benefits of v2.0

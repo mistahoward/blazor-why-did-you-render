@@ -12,7 +12,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Blazor.WhyDidYouRender.csproj" />
+    <ProjectReference Include="..\..\src\Blazor.WhyDidYouRender\Blazor.WhyDidYouRender.csproj" />
   </ItemGroup>
 
   <!-- Add the specific packages we need for WASM -->

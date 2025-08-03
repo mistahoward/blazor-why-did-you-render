@@ -9,8 +9,8 @@
 
     <!-- NuGet Package Metadata -->
     <PackageId>Blazor.WhyDidYouRender</PackageId>
-    <Version>2.1.0</Version>
-    <PackageReleaseNotes>Major feature release: Added advanced state tracking system with field-level change detection. New: [TrackState], [IgnoreState], [StateTrackingOptions] attributes; startup optimization with cache pre-warming; 13+ new configuration options; thread-safe state tracking. Enhanced: Real-time component monitoring, automated cleanup, performance tuning controls. License: Changed to LGPL v3 for commercial compatibility. See CHANGELOG.md for full details.</PackageReleaseNotes>
+    <Version>2.1.1</Version>
+    <PackageReleaseNotes>Minor Release: fixing a bug in state tracking causing incorrect calls to "unnecessary state change"</PackageReleaseNotes>
     <Authors>Your Name</Authors>
     <Company>Your Company</Company>
     <Product>Blazor WhyDidYouRender</Product>

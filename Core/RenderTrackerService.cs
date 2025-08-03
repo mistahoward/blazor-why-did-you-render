@@ -243,7 +243,7 @@ public class RenderTrackerService {
 			: null;
 
 		var unnecessaryRerenderInfo = _config.DetectUnnecessaryRerenders && _unnecessaryRerenderDetector != null
-			? _unnecessaryRerenderDetector.DetectUnnecessaryRerender(component, method, parameterChanges, firstRender)
+			? _unnecessaryRerenderDetector.DetectUnnecessaryRerender(component, method, parameterChanges, stateChanges, firstRender ?? false)
 			: (false, null);
 
 		if (_config.LogOnlyWhenParametersChange && method == "OnParametersSet" && parameterChanges == null) {

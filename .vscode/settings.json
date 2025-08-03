@@ -6,6 +6,7 @@
 		"Finalizers",
 		"hookable",
 		"Hsts",
+		"onclick",
 		"timespan"
 	],
 	"[csharp]": {

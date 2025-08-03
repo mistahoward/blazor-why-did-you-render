@@ -48,19 +48,21 @@ public class UnnecessaryRerenderDetector {
 	/// <param name="component">The component being rendered.</param>
 	/// <param name="method">The lifecycle method being called.</param>
 	/// <param name="parameterChanges">Any parameter changes detected.</param>
+	/// <param name="stateChanges">Any state changes detected.</param>
 	/// <param name="firstRender">Whether this is the first render.</param>
 	/// <returns>A tuple indicating if the render is unnecessary and the reason.</returns>
 	public (bool IsUnnecessary, string? Reason) DetectUnnecessaryRerender(
 		ComponentBase component,
 		string method,
 		Dictionary<string, object?>? parameterChanges,
+		List<StateChange>? stateChanges,
 		bool? firstRender) {
 
 		if (firstRender == true)
 			return (false, null);
 
 		if (_config.EnableStateTracking && _lazyStateTrackingProvider != null)
-			return DetectUnnecessaryRerenderWithStateTracking(component, method, parameterChanges);
+			return DetectUnnecessaryRerenderWithStateTracking(component, method, parameterChanges, stateChanges);
 
 		return DetectUnnecessaryRerenderLegacy(component, method, parameterChanges);
 	}
@@ -71,11 +73,13 @@ public class UnnecessaryRerenderDetector {
 	/// <param name="component">The component being rendered.</param>
 	/// <param name="method">The lifecycle method being called.</param>
 	/// <param name="parameterChanges">Any parameter changes detected.</param>
+	/// <param name="stateChanges">Any state changes detected.</param>
 	/// <returns>A tuple indicating if the render is unnecessary and the reason.</returns>
 	private (bool IsUnnecessary, string? Reason) DetectUnnecessaryRerenderWithStateTracking(
 		ComponentBase component,
 		string method,
-		Dictionary<string, object?>? parameterChanges) {
+		Dictionary<string, object?>? parameterChanges,
+		List<StateChange>? stateChanges) {
 
 		if (method == "OnParametersSet") {
 			if (parameterChanges == null || parameterChanges.Count == 0)
@@ -91,12 +95,13 @@ public class UnnecessaryRerenderDetector {
 		}
 
 		if (method == "StateHasChanged") {
-			var (hasStateChanges, stateChanges) = _lazyStateTrackingProvider!.SnapshotManager.DetectStateChanges(component);
+			// TODO: clean up lazy state tracking provider usage
+			// var (hasStateChanges, stateChanges) = _lazyStateTrackingProvider!.SnapshotManager.DetectStateChanges(component);
 
-			if (!hasStateChanges)
+			if (stateChanges is not null && stateChanges.Count.Equals(0))
 				return (true, "StateHasChanged called but no state changes detected");
 
-			if (_config.LogDetailedStateChanges && stateChanges.Any()) {
+			if (_config.LogDetailedStateChanges && stateChanges is not null && stateChanges.Count > 0) {
 				var changeDescriptions = stateChanges.Select(c => c.GetFormattedDescription());
 				var reason = $"State changes detected: {string.Join(", ", changeDescriptions)}";
 				return (false, reason);

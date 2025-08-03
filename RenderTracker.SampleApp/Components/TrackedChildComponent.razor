@@ -9,6 +9,7 @@
         <p>Internal counter: @internalCounter</p>
         <button class="btn btn-sm btn-info" @onclick="IncrementInternal">Increment Internal Counter</button>
         <button class="btn btn-sm btn-warning" @onclick="ForceChildRender">Force Child Re-render</button>
+		<p>De-Synced Counter: @_desyncedCounter</p>
     </div>
 </div>
 
@@ -16,6 +17,7 @@
     [Parameter] public string Message { get; set; } = string.Empty;
     
     private int internalCounter = 0;
+	private int _desyncedCounter = 0;
 
     private void IncrementInternal()
     {
@@ -35,4 +37,8 @@
         // You could add custom logic here if needed
         Console.WriteLine($"[Custom Logic] Child component received new parameters. Message: {Message}");
     }
+	protected override void OnAfterRender(bool firstRender) {
+		if (firstRender)
+			_desyncedCounter++;
+	}
 }

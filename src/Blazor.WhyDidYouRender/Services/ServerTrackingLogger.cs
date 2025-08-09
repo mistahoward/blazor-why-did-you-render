@@ -4,6 +4,7 @@ using Blazor.WhyDidYouRender.Abstractions;
 using Blazor.WhyDidYouRender.Configuration;
 using Blazor.WhyDidYouRender.Helpers;
 using Blazor.WhyDidYouRender.Records;
+using Blazor.WhyDidYouRender.Logging;
 
 namespace Blazor.WhyDidYouRender.Services;
 
@@ -14,6 +15,7 @@ public class ServerTrackingLogger : ITrackingLogger {
 	private readonly WhyDidYouRenderConfig _config;
 	private readonly IBrowserConsoleLogger? _browserLogger;
 	private readonly JsonSerializerOptions _jsonOptions;
+	private readonly IWhyDidYouRenderLogger? _unifiedLogger;
 	private bool _isInitialized = false;
 
 	/// <summary>
@@ -21,9 +23,11 @@ public class ServerTrackingLogger : ITrackingLogger {
 	/// </summary>
 	/// <param name="config">The WhyDidYouRender configuration.</param>
 	/// <param name="browserLogger">Optional browser console logger for client-side output.</param>
-	public ServerTrackingLogger(WhyDidYouRenderConfig config, IBrowserConsoleLogger? browserLogger = null) {
+	/// <param name="unifiedLogger">Optional unified logger to route server logs.</param>
+	public ServerTrackingLogger(WhyDidYouRenderConfig config, IBrowserConsoleLogger? browserLogger = null, IWhyDidYouRenderLogger? unifiedLogger = null) {
 		_config = config ?? throw new ArgumentNullException(nameof(config));
 		_browserLogger = browserLogger;
+		_unifiedLogger = unifiedLogger;
 
 		_jsonOptions = new JsonSerializerOptions {
 			WriteIndented = false,
@@ -45,7 +49,10 @@ public class ServerTrackingLogger : ITrackingLogger {
 	public Task InitializeAsync() {
 		if (_isInitialized) return Task.CompletedTask;
 
-		Console.WriteLine("[WhyDidYouRender] Server tracking logger initialized");
+		if (_unifiedLogger != null)
+			_unifiedLogger.LogInfo("Server tracking logger initialized");
+		else
+			Console.WriteLine("[WhyDidYouRender] Server tracking logger initialized");
 		_isInitialized = true;
 
 		return Task.CompletedTask;
@@ -56,14 +63,19 @@ public class ServerTrackingLogger : ITrackingLogger {
 		if (!_config.Enabled) return;
 
 		try {
-			if (_config.Output.HasFlag(TrackingOutput.Console))
-				LogToServerConsole(renderEvent);
+			if (_config.Output.HasFlag(TrackingOutput.Console)) {
+				if (_unifiedLogger != null)
+					_unifiedLogger.LogRenderEvent(renderEvent);
+				else
+					LogToServerConsole(renderEvent);
+			}
 
 			if (_config.Output.HasFlag(TrackingOutput.BrowserConsole) && _browserLogger != null)
 				await _browserLogger.LogRenderEventAsync(renderEvent);
 		}
 		catch (Exception ex) {
-			Console.WriteLine($"[WhyDidYouRender] Logging failed: {ex.Message}");
+			if (_unifiedLogger != null) _unifiedLogger.LogError("Logging failed", ex);
+			else Console.WriteLine($"[WhyDidYouRender] Logging failed: {ex.Message}");
 		}
 	}
 
@@ -75,10 +87,18 @@ public class ServerTrackingLogger : ITrackingLogger {
 			var formattedMessage = $"[WhyDidYouRender] {message}";
 
 			if (_config.Output.HasFlag(TrackingOutput.Console)) {
-				Console.WriteLine(formattedMessage);
-				if (data != null) {
-					var dataJson = JsonSerializer.Serialize(data, _jsonOptions);
-					Console.WriteLine($"  Data: {dataJson}");
+				if (_unifiedLogger != null) {
+					var dict = data != null ? new Dictionary<string, object?> { ["data"] = data } : null;
+					var level = verbosity >= TrackingVerbosity.Verbose ? LogLevel.Debug : LogLevel.Info;
+					if (level == LogLevel.Debug) _unifiedLogger.LogDebug(formattedMessage, dict);
+					else _unifiedLogger.LogInfo(formattedMessage, dict);
+				}
+				else {
+					Console.WriteLine(formattedMessage);
+					if (data != null) {
+						var dataJson = JsonSerializer.Serialize(data, _jsonOptions);
+						Console.WriteLine($"  Data: {dataJson}");
+					}
 				}
 			}
 
@@ -94,7 +114,8 @@ public class ServerTrackingLogger : ITrackingLogger {
 			}
 		}
 		catch (Exception ex) {
-			Console.WriteLine($"[WhyDidYouRender] Message logging failed: {ex.Message}");
+			if (_unifiedLogger != null) _unifiedLogger.LogError("Message logging failed", ex);
+			else Console.WriteLine($"[WhyDidYouRender] Message logging failed: {ex.Message}");
 		}
 	}
 
@@ -104,17 +125,20 @@ public class ServerTrackingLogger : ITrackingLogger {
 			var errorMessage = $"[WhyDidYouRender] ERROR: {message}";
 
 			if (_config.Output.HasFlag(TrackingOutput.Console)) {
-				Console.WriteLine(errorMessage);
-
-				if (exception != null) {
-					Console.WriteLine($"  Exception: {exception.Message}");
-					if (_config.Verbosity >= TrackingVerbosity.Verbose)
-						Console.WriteLine($"  Stack Trace: {exception.StackTrace}");
+				if (_unifiedLogger != null) {
+					_unifiedLogger.LogError(errorMessage, exception, context);
 				}
-
-				if (context?.Count > 0) {
-					var contextJson = JsonSerializer.Serialize(context, _jsonOptions);
-					Console.WriteLine($"  Context: {contextJson}");
+				else {
+					Console.WriteLine(errorMessage);
+					if (exception != null) {
+						Console.WriteLine($"  Exception: {exception.Message}");
+						if (_config.Verbosity >= TrackingVerbosity.Verbose)
+							Console.WriteLine($"  Stack Trace: {exception.StackTrace}");
+					}
+					if (context?.Count > 0) {
+						var contextJson = JsonSerializer.Serialize(context, _jsonOptions);
+						Console.WriteLine($"  Context: {contextJson}");
+					}
 				}
 			}
 
@@ -122,7 +146,8 @@ public class ServerTrackingLogger : ITrackingLogger {
 				await _browserLogger.LogMessageAsync(errorMessage, "error");
 		}
 		catch (Exception ex) {
-			Console.WriteLine($"[WhyDidYouRender] Error logging failed: {ex.Message}");
+			if (_unifiedLogger != null) _unifiedLogger.LogError("Error logging failed", ex);
+			else Console.WriteLine($"[WhyDidYouRender] Error logging failed: {ex.Message}");
 		}
 	}
 
@@ -132,11 +157,15 @@ public class ServerTrackingLogger : ITrackingLogger {
 			var warningMessage = $"[WhyDidYouRender] WARNING: {message}";
 
 			if (_config.Output.HasFlag(TrackingOutput.Console)) {
-				Console.WriteLine(warningMessage);
-
-				if (context?.Count > 0) {
-					var contextJson = JsonSerializer.Serialize(context, _jsonOptions);
-					Console.WriteLine($"  Context: {contextJson}");
+				if (_unifiedLogger != null) {
+					_unifiedLogger.LogWarning(warningMessage, context);
+				}
+				else {
+					Console.WriteLine(warningMessage);
+					if (context?.Count > 0) {
+						var contextJson = JsonSerializer.Serialize(context, _jsonOptions);
+						Console.WriteLine($"  Context: {contextJson}");
+					}
 				}
 			}
 
@@ -144,7 +173,8 @@ public class ServerTrackingLogger : ITrackingLogger {
 				await _browserLogger.LogMessageAsync(warningMessage, "warn");
 		}
 		catch (Exception ex) {
-			Console.WriteLine($"[WhyDidYouRender] Warning logging failed: {ex.Message}");
+			if (_unifiedLogger != null) _unifiedLogger.LogError("Warning logging failed", ex);
+			else Console.WriteLine($"[WhyDidYouRender] Warning logging failed: {ex.Message}");
 		}
 	}
 
@@ -154,14 +184,19 @@ public class ServerTrackingLogger : ITrackingLogger {
 
 		try {
 			if (_config.Output.HasFlag(TrackingOutput.Console)) {
-				Console.WriteLine($"[WhyDidYouRender] Parameter changes for {componentName}:");
-				foreach (var (paramName, change) in parameterChanges) {
-					try {
-						var changeJson = JsonSerializer.Serialize(change, _jsonOptions);
-						Console.WriteLine($"  {paramName}: {changeJson}");
-					}
-					catch {
-						Console.WriteLine($"  {paramName}: [Unable to serialize]");
+				if (_unifiedLogger != null) {
+					_unifiedLogger.LogParameterChanges(componentName, parameterChanges);
+				}
+				else {
+					Console.WriteLine($"[WhyDidYouRender] Parameter changes for {componentName}:");
+					foreach (var (paramName, change) in parameterChanges) {
+						try {
+							var changeJson = JsonSerializer.Serialize(change, _jsonOptions);
+							Console.WriteLine($"  {paramName}: {changeJson}");
+						}
+						catch {
+							Console.WriteLine($"  {paramName}: [Unable to serialize]");
+						}
 					}
 				}
 			}
@@ -170,7 +205,8 @@ public class ServerTrackingLogger : ITrackingLogger {
 				await _browserLogger.LogMessageAsync($"Parameter changes for {componentName}", "log");
 		}
 		catch (Exception ex) {
-			Console.WriteLine($"[WhyDidYouRender] Parameter change logging failed: {ex.Message}");
+			if (_unifiedLogger != null) _unifiedLogger.LogError("Parameter change logging failed", ex);
+			else Console.WriteLine($"[WhyDidYouRender] Parameter change logging failed: {ex.Message}");
 		}
 	}
 
@@ -182,11 +218,15 @@ public class ServerTrackingLogger : ITrackingLogger {
 			var performanceMessage = $"[WhyDidYouRender] Performance: {componentName}.{method}() took {durationMs:F2}ms";
 
 			if (_config.Output.HasFlag(TrackingOutput.Console)) {
-				Console.WriteLine(performanceMessage);
-
-				if (additionalMetrics?.Count > 0) {
-					var metricsJson = JsonSerializer.Serialize(additionalMetrics, _jsonOptions);
-					Console.WriteLine($"  Additional metrics: {metricsJson}");
+				if (_unifiedLogger != null) {
+					_unifiedLogger.LogPerformance(componentName, method, durationMs, additionalMetrics);
+				}
+				else {
+					Console.WriteLine(performanceMessage);
+					if (additionalMetrics?.Count > 0) {
+						var metricsJson = JsonSerializer.Serialize(additionalMetrics, _jsonOptions);
+						Console.WriteLine($"  Additional metrics: {metricsJson}");
+					}
 				}
 			}
 
@@ -194,7 +234,8 @@ public class ServerTrackingLogger : ITrackingLogger {
 				await _browserLogger.LogMessageAsync(performanceMessage, "log");
 		}
 		catch (Exception ex) {
-			Console.WriteLine($"[WhyDidYouRender] Performance logging failed: {ex.Message}");
+			if (_unifiedLogger != null) _unifiedLogger.LogError("Performance logging failed", ex);
+			else Console.WriteLine($"[WhyDidYouRender] Performance logging failed: {ex.Message}");
 		}
 	}
 

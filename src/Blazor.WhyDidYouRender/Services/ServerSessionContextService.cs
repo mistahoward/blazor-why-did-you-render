@@ -2,26 +2,26 @@ using Microsoft.AspNetCore.Http;
 
 using Blazor.WhyDidYouRender.Abstractions;
 using Blazor.WhyDidYouRender.Configuration;
+using Blazor.WhyDidYouRender.Logging;
 
 namespace Blazor.WhyDidYouRender.Services;
 
 /// <summary>
 /// Server-side implementation of session context service using HttpContext.
 /// </summary>
-/// <remarks>
-/// Initializes a new instance of the <see cref="ServerSessionContextService"/> class.
-/// </remarks>
 /// <param name="httpContextAccessor">The HTTP context accessor.</param>
 /// <param name="config">The WhyDidYouRender configuration.</param>
-public class ServerSessionContextService(IHttpContextAccessor httpContextAccessor, WhyDidYouRenderConfig config) : ISessionContextService {
+/// <param name="logger">Optional unified logger for diagnostics.</param>
+public class ServerSessionContextService(IHttpContextAccessor httpContextAccessor, WhyDidYouRenderConfig config, IWhyDidYouRenderLogger? logger = null) : ISessionContextService {
 	private readonly IHttpContextAccessor _httpContextAccessor = httpContextAccessor ?? throw new ArgumentNullException(nameof(httpContextAccessor));
+	private readonly WhyDidYouRenderConfig _config = config;
+	private readonly IWhyDidYouRenderLogger? _logger = logger;
 	private const string _sessionKeyPrefix = "WhyDidYouRender_";
 
 	/// <inheritdoc />
 	public string GetSessionId() {
 		var httpContext = _httpContextAccessor.HttpContext;
 		if (httpContext?.Session == null)
-			// fallback to a request-scoped identifier if session is not available
 			return $"server-{httpContext?.TraceIdentifier ?? Guid.NewGuid().ToString("N")}";
 
 		var sessionId = httpContext.Session.GetString($"{_sessionKeyPrefix}SessionId");
@@ -34,13 +34,13 @@ public class ServerSessionContextService(IHttpContextAccessor httpContextAccesso
 	}
 
 	/// <inheritdoc />
-	public async Task SetSessionInfoAsync(string key, object value) {
+	public Task SetSessionInfoAsync(string key, object value) {
 		if (string.IsNullOrEmpty(key))
 			throw new ArgumentException("Key cannot be null or empty", nameof(key));
 
 		var httpContext = _httpContextAccessor.HttpContext;
 		if (httpContext?.Session == null)
-			return;
+			return Task.CompletedTask;
 
 		try {
 			var sessionKey = GetSessionKey(key);
@@ -48,92 +48,96 @@ public class ServerSessionContextService(IHttpContextAccessor httpContextAccesso
 			httpContext.Session.SetString(sessionKey, jsonValue);
 		}
 		catch (Exception ex) {
-			Console.WriteLine($"[WhyDidYouRender] Failed to set session info '{key}': {ex.Message}");
+			if (_logger != null) _logger.LogError($"Failed to set session info '{key}'", ex, new() { ["key"] = key });
+			else Console.WriteLine($"[WhyDidYouRender] Failed to set session info '{key}': {ex.Message}");
 		}
 
-		await Task.CompletedTask;
+		return Task.CompletedTask;
 	}
 
 	/// <inheritdoc />
-	public async Task<T?> GetSessionInfoAsync<T>(string key) {
+	public Task<T?> GetSessionInfoAsync<T>(string key) {
 		if (string.IsNullOrEmpty(key))
-			return default;
+			return Task.FromResult(default(T?));
 
 		var httpContext = _httpContextAccessor.HttpContext;
 		if (httpContext?.Session == null)
-			return default;
+			return Task.FromResult(default(T?));
 
 		try {
 			var sessionKey = GetSessionKey(key);
 			var jsonValue = httpContext.Session.GetString(sessionKey);
 
 			if (string.IsNullOrEmpty(jsonValue))
-				return default;
+				return Task.FromResult(default(T?));
 
-			return System.Text.Json.JsonSerializer.Deserialize<T>(jsonValue);
+			var result = System.Text.Json.JsonSerializer.Deserialize<T>(jsonValue);
+			return Task.FromResult(result);
 		}
 		catch (Exception ex) {
-			Console.WriteLine($"[WhyDidYouRender] Failed to get session info '{key}': {ex.Message}");
-			return default;
+			if (_logger != null) _logger.LogError($"Failed to get session info '{key}'", ex, new() { ["key"] = key });
+			else Console.WriteLine($"[WhyDidYouRender] Failed to get session info '{key}': {ex.Message}");
+			return Task.FromResult(default(T?));
 		}
 	}
 
 	/// <inheritdoc />
-	public async Task RemoveSessionInfoAsync(string key) {
+	public Task RemoveSessionInfoAsync(string key) {
 		if (string.IsNullOrEmpty(key))
-			return;
+			return Task.CompletedTask;
 
 		var httpContext = _httpContextAccessor.HttpContext;
 		if (httpContext?.Session == null)
-			return;
+			return Task.CompletedTask;
 
 		try {
 			var sessionKey = GetSessionKey(key);
 			httpContext.Session.Remove(sessionKey);
 		}
 		catch (Exception ex) {
-			Console.WriteLine($"[WhyDidYouRender] Failed to remove session info '{key}': {ex.Message}");
+			if (_logger != null) _logger.LogError($"Failed to remove session info '{key}'", ex, new() { ["key"] = key });
+			else Console.WriteLine($"[WhyDidYouRender] Failed to remove session info '{key}': {ex.Message}");
 		}
 
-		await Task.CompletedTask;
+		return Task.CompletedTask;
 	}
 
 	/// <inheritdoc />
-	public async Task<IEnumerable<string>> GetSessionKeysAsync() {
+	public Task<IEnumerable<string>> GetSessionKeysAsync() {
 		var httpContext = _httpContextAccessor.HttpContext;
 		if (httpContext?.Session == null)
-			return [];
+			return Task.FromResult<IEnumerable<string>>(Array.Empty<string>());
 
 		try {
 			var keys = new List<string>();
 			var prefix = GetSessionKey("");
 
-			// note: HttpContext.Session doesn't provide a way to enumerate keys
-			// this is a limitation of the server-side session implementation
-			// we would need to maintain our own key registry for full functionality
+			// HttpContext.Session does not provide a key enumeration API. A registry would be required to fully implement this.
 
-			return keys;
+			return Task.FromResult<IEnumerable<string>>(keys);
 		}
 		catch (Exception ex) {
-			Console.WriteLine($"[WhyDidYouRender] Failed to get session keys: {ex.Message}");
-			return [];
+			if (_logger != null) _logger.LogError("Failed to get session keys", ex);
+			else Console.WriteLine($"[WhyDidYouRender] Failed to get session keys: {ex.Message}");
+			return Task.FromResult<IEnumerable<string>>(Array.Empty<string>());
 		}
 	}
 
 	/// <inheritdoc />
-	public async Task ClearSessionAsync() {
+	public Task ClearSessionAsync() {
 		var httpContext = _httpContextAccessor.HttpContext;
 		if (httpContext?.Session == null)
-			return;
+			return Task.CompletedTask;
 
 		try {
 			httpContext.Session.Clear();
 		}
 		catch (Exception ex) {
-			Console.WriteLine($"[WhyDidYouRender] Failed to clear session: {ex.Message}");
+			if (_logger != null) _logger.LogError("Failed to clear session", ex);
+			else Console.WriteLine($"[WhyDidYouRender] Failed to clear session: {ex.Message}");
 		}
 
-		await Task.CompletedTask;
+		return Task.CompletedTask;
 	}
 
 	/// <inheritdoc />

@@ -8,6 +8,7 @@ using Blazor.WhyDidYouRender.Configuration;
 using Blazor.WhyDidYouRender.Records;
 using Blazor.WhyDidYouRender.Diagnostics;
 using Blazor.WhyDidYouRender.Helpers;
+using Blazor.WhyDidYouRender.Logging;
 
 namespace Blazor.WhyDidYouRender.Core;
 
@@ -74,6 +75,7 @@ public class RenderTrackerService {
 	/// Tracking logger for environment-specific logging.
 	/// </summary>
 	private static Abstractions.ITrackingLogger? _trackingLogger;
+	private static IWhyDidYouRenderLogger? _unifiedLogger;
 
 	/// <summary>
 	/// Cached JSON serializer options for performance.
@@ -173,6 +175,14 @@ public class RenderTrackerService {
 	/// <param name="trackingLogger">The tracking logger instance.</param>
 	public static void SetTrackingLogger(Abstractions.ITrackingLogger trackingLogger) {
 		_trackingLogger = trackingLogger ?? throw new ArgumentNullException(nameof(trackingLogger));
+	}
+
+	/// <summary>
+	/// Sets the unified logger for structured logging when available.
+	/// </summary>
+	/// <param name="logger">The unified logger instance.</param>
+	public static void SetUnifiedLogger(IWhyDidYouRenderLogger logger) {
+		_unifiedLogger = logger ?? throw new ArgumentNullException(nameof(logger));
 	}
 
 	/// <summary>
@@ -394,6 +404,13 @@ public class RenderTrackerService {
 	/// <returns>A task representing the asynchronous logging operation.</returns>
 	private async Task LogRenderEventAsync(RenderEvent renderEvent) {
 		try {
+			// Prefer unified environment-specific logger when available
+			if (_trackingLogger != null) {
+				await _trackingLogger.LogRenderEventAsync(renderEvent);
+				return;
+			}
+
+			// Fallback to prior behavior
 			if (_config.Output.HasFlag(TrackingOutput.Console))
 				LogToConsole(renderEvent);
 
@@ -411,7 +428,12 @@ public class RenderTrackerService {
 	/// <param name="renderEvent">The render event to log.</param>
 	private void LogToConsole(RenderEvent renderEvent) {
 		var message = FormatConsoleMessage(renderEvent);
-		Console.WriteLine(message);
+		if (_unifiedLogger != null) {
+			_unifiedLogger.LogInfo(message);
+		}
+		else {
+			Console.WriteLine(message);
+		}
 
 		var shouldLogParameterChanges = _config.Verbosity >= TrackingVerbosity.Verbose && renderEvent.ParameterChanges?.Count > 0;
 		if (shouldLogParameterChanges)
@@ -449,6 +471,11 @@ public class RenderTrackerService {
 	/// <param name="renderEvent">The render event containing parameter changes.</param>
 	private static void LogParameterChangesToConsole(RenderEvent renderEvent) {
 		if (renderEvent.ParameterChanges?.Count > 0 != true) return;
+
+		if (_unifiedLogger != null) {
+			_unifiedLogger.LogParameterChanges(renderEvent.ComponentName, renderEvent.ParameterChanges);
+			return;
+		}
 
 		Console.WriteLine("  Parameter changes:");
 		foreach (var (paramName, change) in renderEvent.ParameterChanges) {

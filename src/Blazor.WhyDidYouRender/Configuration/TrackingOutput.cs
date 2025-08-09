@@ -25,5 +25,10 @@ public enum TrackingOutput {
 	/// <summary>
 	/// Output to both console and browser.
 	/// </summary>
-	Both = Console | BrowserConsole
+	Both = Console | BrowserConsole,
+
+	/// <summary>
+	/// Output to a custom logger - typically used for .net aspire
+	/// </summary>
+	Logger = 4
 }

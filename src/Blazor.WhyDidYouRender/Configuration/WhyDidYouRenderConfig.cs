@@ -174,6 +174,26 @@ public class WhyDidYouRenderConfig {
 	public List<string>? IncludeInStateTracking { get; set; }
 
 	/// <summary>
+	/// Minimum log level for unified logging implementations.
+	/// </summary>
+	public Logging.LogLevel MinimumLogLevel { get; set; } = Logging.LogLevel.Info;
+
+	/// <summary>
+	/// Enables structured logging payloads where supported.
+	/// </summary>
+	public bool EnableStructuredLogging { get; set; } = true;
+
+	/// <summary>
+	/// Enables correlation identifiers to link related entries.
+	/// </summary>
+	public bool EnableCorrelationIds { get; set; } = true;
+
+	/// <summary>
+	/// Enables OpenTelemetry/Aspire integration where available.
+	/// </summary>
+	public bool EnableOpenTelemetry { get; set; } = false;
+
+	/// <summary>
 	/// Gets or sets whether to include user information in tracking data.
 	/// Should be disabled in production for privacy compliance.
 	/// </summary>

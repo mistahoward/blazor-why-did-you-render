@@ -3,6 +3,7 @@ using Microsoft.JSInterop;
 
 using Blazor.WhyDidYouRender.Abstractions;
 using Blazor.WhyDidYouRender.Configuration;
+using Blazor.WhyDidYouRender.Logging;
 
 namespace Blazor.WhyDidYouRender.Services;
 
@@ -13,6 +14,7 @@ public class WasmSessionContextService : ISessionContextService {
 	private readonly IJSRuntime _jsRuntime;
 	private readonly WhyDidYouRenderConfig _config;
 	private readonly JsonSerializerOptions _jsonOptions;
+	private readonly IWhyDidYouRenderLogger? _logger;
 	private string? _sessionId;
 	private readonly object _lock = new object();
 
@@ -21,9 +23,11 @@ public class WasmSessionContextService : ISessionContextService {
 	/// </summary>
 	/// <param name="jsRuntime">The JavaScript runtime for browser interop.</param>
 	/// <param name="config">The WhyDidYouRender configuration.</param>
-	public WasmSessionContextService(IJSRuntime jsRuntime, WhyDidYouRenderConfig config) {
+	/// <param name="logger">Optional unified logger.</param>
+	public WasmSessionContextService(IJSRuntime jsRuntime, WhyDidYouRenderConfig config, IWhyDidYouRenderLogger? logger = null) {
 		_jsRuntime = jsRuntime ?? throw new ArgumentNullException(nameof(jsRuntime));
 		_config = config ?? throw new ArgumentNullException(nameof(config));
+		_logger = logger;
 
 		_jsonOptions = new JsonSerializerOptions {
 			PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -75,7 +79,8 @@ public class WasmSessionContextService : ISessionContextService {
 			}
 		}
 		catch (Exception ex) {
-			Console.WriteLine($"[WhyDidYouRender] Failed to set session info '{key}': {ex.Message}");
+			if (_logger != null) _logger.LogError($"Failed to set session info '{key}'", ex, new() { ["key"] = key });
+			else Console.WriteLine($"[WhyDidYouRender] Failed to set session info '{key}': {ex.Message}");
 			throw;
 		}
 	}
@@ -101,7 +106,8 @@ public class WasmSessionContextService : ISessionContextService {
 			return JsonSerializer.Deserialize<T>(jsonValue, _jsonOptions);
 		}
 		catch (Exception ex) {
-			Console.WriteLine($"[WhyDidYouRender] Failed to get session info '{key}': {ex.Message}");
+			if (_logger != null) _logger.LogError($"Failed to get session info '{key}'", ex, new() { ["key"] = key });
+			else Console.WriteLine($"[WhyDidYouRender] Failed to get session info '{key}': {ex.Message}");
 			return default;
 		}
 	}
@@ -121,7 +127,8 @@ public class WasmSessionContextService : ISessionContextService {
 				await RemoveLocalStorageAsync(storageKey);
 		}
 		catch (Exception ex) {
-			Console.WriteLine($"[WhyDidYouRender] Failed to remove session info '{key}': {ex.Message}");
+			if (_logger != null) _logger.LogError($"Failed to remove session info '{key}'", ex, new() { ["key"] = key });
+			else Console.WriteLine($"[WhyDidYouRender] Failed to remove session info '{key}': {ex.Message}");
 		}
 	}
 
@@ -152,7 +159,8 @@ public class WasmSessionContextService : ISessionContextService {
 			return result;
 		}
 		catch (Exception ex) {
-			Console.WriteLine($"[WhyDidYouRender] Failed to get session keys: {ex.Message}");
+			if (_logger != null) _logger.LogError("Failed to get session keys", ex);
+			else Console.WriteLine($"[WhyDidYouRender] Failed to get session keys: {ex.Message}");
 			return [];
 		}
 	}
@@ -166,7 +174,8 @@ public class WasmSessionContextService : ISessionContextService {
 				await RemoveSessionInfoAsync(key);
 		}
 		catch (Exception ex) {
-			Console.WriteLine($"[WhyDidYouRender] Failed to clear session: {ex.Message}");
+			if (_logger != null) _logger.LogError("Failed to clear session", ex);
+			else Console.WriteLine($"[WhyDidYouRender] Failed to clear session: {ex.Message}");
 		}
 	}
 
@@ -194,7 +203,8 @@ public class WasmSessionContextService : ISessionContextService {
 			await Task.CompletedTask;
 		}
 		catch (Exception ex) {
-			Console.WriteLine($"[WhyDidYouRender] Storage cleanup failed: {ex.Message}");
+			if (_logger != null) _logger.LogError("Storage cleanup failed", ex);
+			else Console.WriteLine($"[WhyDidYouRender] Storage cleanup failed: {ex.Message}");
 		}
 	}
 

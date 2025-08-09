@@ -1,8 +1,3 @@
-using System;
-using System.Collections.Generic;
-
-using Blazor.WhyDidYouRender.Core.StateTracking;
-
 namespace Blazor.WhyDidYouRender.Records;
 
 /// <summary>

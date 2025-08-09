@@ -2,18 +2,18 @@ using Microsoft.JSInterop;
 
 using Blazor.WhyDidYouRender.Diagnostics;
 using Blazor.WhyDidYouRender.Records;
+using Blazor.WhyDidYouRender.Logging;
 
 namespace Blazor.WhyDidYouRender.Helpers;
 
 /// <summary>
 /// Service for logging render tracking information to the browser console via JavaScript interop.
 /// </summary>
-/// <remarks>
-/// Initializes a new instance of the <see cref="BrowserConsoleLogger"/> class.
-/// </remarks>
 /// <param name="jsRuntime">The JavaScript runtime for interop.</param>
-public class BrowserConsoleLogger(IJSRuntime jsRuntime) : IBrowserConsoleLogger {
+/// <param name="logger">Optional unified logger for structured log output.</param>
+public class BrowserConsoleLogger(IJSRuntime jsRuntime, IWhyDidYouRenderLogger? logger = null) : IBrowserConsoleLogger {
 	private readonly IJSRuntime _jsRuntime = jsRuntime;
+	private readonly IWhyDidYouRenderLogger? _logger = logger;
 	private IJSObjectReference? _module = null;
 	private bool _isInitialized = false;
 	private IErrorTracker? _errorTracker;
@@ -35,10 +35,12 @@ public class BrowserConsoleLogger(IJSRuntime jsRuntime) : IBrowserConsoleLogger 
 		try {
 			await _jsRuntime.InvokeVoidAsync("console.log", "[WhyDidYouRender] Browser console logger initialized!");
 			_isInitialized = true;
-			Console.WriteLine("[WhyDidYouRender] Browser console logger successfully initialized");
+			if (_logger != null) _logger.LogInfo("Browser console logger successfully initialized");
+			else Console.WriteLine("[WhyDidYouRender] Browser console logger successfully initialized");
 		}
 		catch (Exception ex) {
-			Console.WriteLine($"[WhyDidYouRender] Failed to initialize browser console logger: {ex.Message}");
+			if (_logger != null) _logger.LogError("Failed to initialize browser console logger", ex);
+			else Console.WriteLine($"[WhyDidYouRender] Failed to initialize browser console logger: {ex.Message}");
 		}
 	}
 
@@ -47,7 +49,6 @@ public class BrowserConsoleLogger(IJSRuntime jsRuntime) : IBrowserConsoleLogger 
 	/// </summary>
 	/// <param name="renderEvent">The render event to log.</param>
 	public async Task LogRenderEventAsync(RenderEvent renderEvent) {
-		// use a timeout to prevent hanging JS interop calls
 		using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 
 		await SafeExecutor.ExecuteAsync(async () => {
@@ -155,10 +156,10 @@ public class BrowserConsoleLogger(IJSRuntime jsRuntime) : IBrowserConsoleLogger 
 			await _jsRuntime.InvokeVoidAsync("console.groupEnd", cancellationToken);
 		}
 		catch (OperationCanceledException) {
-			// Expected when renders happen quickly - no action needed
 		}
 		catch (Exception ex) {
-			Console.WriteLine($"[WhyDidYouRender] Browser logging failed: {ex.Message}");
+			if (_logger != null) _logger.LogError("Browser logging failed", ex);
+			else Console.WriteLine($"[WhyDidYouRender] Browser logging failed: {ex.Message}");
 		}
 	}
 
@@ -214,7 +215,8 @@ public class BrowserConsoleLogger(IJSRuntime jsRuntime) : IBrowserConsoleLogger 
 			}
 		}
 		catch (Exception ex) {
-			Console.WriteLine($"[WhyDidYouRender] Parameter logging failed: {ex.Message}");
+			if (_logger != null) _logger.LogError("Parameter logging failed", ex);
+			else Console.WriteLine($"[WhyDidYouRender] Parameter logging failed: {ex.Message}");
 			await _jsRuntime.InvokeVoidAsync("console.log",
 				$"{parameterName}: {changeData}");
 		}
@@ -258,17 +260,17 @@ public class BrowserConsoleLogger(IJSRuntime jsRuntime) : IBrowserConsoleLogger 
 			}
 		}
 		catch (OperationCanceledException) {
-			// Expected when renders happen quickly - no action needed
 		}
 		catch (Exception ex) {
-			Console.WriteLine($"[WhyDidYouRender] State change logging failed: {ex.Message}");
+			if (_logger != null) _logger.LogError("State change logging failed", ex);
+			else Console.WriteLine($"[WhyDidYouRender] State change logging failed: {ex.Message}");
 			try {
 				await _jsRuntime.InvokeVoidAsync("console.log", cancellationToken,
 					"State changes: [Unable to log details]");
 			}
 			catch (Exception fallbackEx) {
-				// Fallback logging failed - avoid infinite recursion
-				Console.WriteLine($"[WhyDidYouRender] Fallback logging also failed: {fallbackEx.Message}");
+				if (_logger != null) _logger.LogError("Fallback browser logging failed", fallbackEx);
+				else Console.WriteLine($"[WhyDidYouRender] Fallback logging also failed: {fallbackEx.Message}");
 			}
 		}
 	}
@@ -290,7 +292,8 @@ public class BrowserConsoleLogger(IJSRuntime jsRuntime) : IBrowserConsoleLogger 
 			await _jsRuntime.InvokeVoidAsync($"console.{level}", message);
 		}
 		catch (Exception ex) {
-			Console.WriteLine($"[WhyDidYouRender] Browser message logging failed: {ex.Message}");
+			if (_logger != null) _logger.LogError("Browser message logging failed", ex);
+			else Console.WriteLine($"[WhyDidYouRender] Browser message logging failed: {ex.Message}");
 		}
 	}
 

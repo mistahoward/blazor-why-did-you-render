@@ -2,6 +2,8 @@ using System.Collections.Concurrent;
 using System.Text.Json;
 
 using Microsoft.Extensions.Logging;
+using MEL = Microsoft.Extensions.Logging;
+using Blazor.WhyDidYouRender.Logging;
 
 using Blazor.WhyDidYouRender.Abstractions;
 using Blazor.WhyDidYouRender.Configuration;
@@ -16,6 +18,7 @@ public class ServerErrorTracker : IErrorTracker {
 	private readonly ConcurrentQueue<TrackingError> _errors = new();
 	private readonly WhyDidYouRenderConfig _config;
 	private readonly ILogger<ServerErrorTracker>? _logger;
+	private readonly IWhyDidYouRenderLogger? _unifiedLogger;
 	private readonly Lock _statsLock = new();
 	private int _totalErrorCount = 0;
 	private readonly JsonSerializerOptions _jsonOptions;
@@ -24,10 +27,12 @@ public class ServerErrorTracker : IErrorTracker {
 	/// Initializes a new instance of the <see cref="ServerErrorTracker"/> class.
 	/// </summary>
 	/// <param name="config">The configuration.</param>
-	/// <param name="logger">The logger.</param>
-	public ServerErrorTracker(WhyDidYouRenderConfig config, ILogger<ServerErrorTracker>? logger = null) {
+	/// <param name="logger">The server ILogger.</param>
+	/// <param name="unifiedLogger">Optional unified logger.</param>
+	public ServerErrorTracker(WhyDidYouRenderConfig config, ILogger<ServerErrorTracker>? logger = null, IWhyDidYouRenderLogger? unifiedLogger = null) {
 		_config = config ?? throw new ArgumentNullException(nameof(config));
 		_logger = logger;
+		_unifiedLogger = unifiedLogger;
 
 		_jsonOptions = new JsonSerializerOptions {
 			WriteIndented = false,
@@ -201,14 +206,14 @@ public class ServerErrorTracker : IErrorTracker {
 	/// </summary>
 	/// <param name="trackingError">The tracking error to log.</param>
 	/// <returns>A task representing the logging operation.</returns>
-	private async Task LogErrorAsync(TrackingError trackingError) {
+	private Task LogErrorAsync(TrackingError trackingError) {
 		try {
 			var logLevel = trackingError.Severity switch {
-				ErrorSeverity.Info => LogLevel.Information,
-				ErrorSeverity.Warning => LogLevel.Warning,
-				ErrorSeverity.Error => LogLevel.Error,
-				ErrorSeverity.Critical => LogLevel.Critical,
-				_ => LogLevel.Warning
+				ErrorSeverity.Info => MEL.LogLevel.Information,
+				ErrorSeverity.Warning => MEL.LogLevel.Warning,
+				ErrorSeverity.Error => MEL.LogLevel.Error,
+				ErrorSeverity.Critical => MEL.LogLevel.Critical,
+				_ => MEL.LogLevel.Warning
 			};
 
 			_logger?.Log(logLevel,
@@ -226,19 +231,31 @@ public class ServerErrorTracker : IErrorTracker {
 				message += $" | Method: {trackingError.TrackingMethod}";
 
 			if (_config.Output.HasFlag(TrackingOutput.Console)) {
-				Console.WriteLine(message);
-
-				if (trackingError.Context.Count > 0) {
-					var contextJson = JsonSerializer.Serialize(trackingError.Context, _jsonOptions);
-					Console.WriteLine($"[WhyDidYouRender] Context: {contextJson}");
+				if (_unifiedLogger != null) {
+					var data = new Dictionary<string, object?>();
+					if (trackingError.Context.Count > 0)
+						data["context"] = trackingError.Context;
+					if (!string.IsNullOrEmpty(trackingError.StackTrace) && trackingError.Severity >= ErrorSeverity.Error)
+						data["stackTrace"] = trackingError.StackTrace;
+					_unifiedLogger.LogError(message, null, data);
 				}
-
-				if (!string.IsNullOrEmpty(trackingError.StackTrace) && trackingError.Severity >= ErrorSeverity.Error)
-					Console.WriteLine($"[WhyDidYouRender] Stack Trace: {trackingError.StackTrace}");
+				else {
+					Console.WriteLine(message);
+					if (trackingError.Context.Count > 0) {
+						var contextJson = JsonSerializer.Serialize(trackingError.Context, _jsonOptions);
+						Console.WriteLine($"[WhyDidYouRender] Context: {contextJson}");
+					}
+					if (!string.IsNullOrEmpty(trackingError.StackTrace) && trackingError.Severity >= ErrorSeverity.Error)
+						Console.WriteLine($"[WhyDidYouRender] Stack Trace: {trackingError.StackTrace}");
+				}
 			}
+			return Task.CompletedTask;
+
 		}
 		catch (Exception ex) {
-			Console.WriteLine($"[WhyDidYouRender] Failed to log error: {trackingError.Message} | Logging error: {ex.Message}");
+			if (_unifiedLogger != null) _unifiedLogger.LogError($"Failed to log error: {trackingError.Message}", ex);
+			else Console.WriteLine($"[WhyDidYouRender] Failed to log error: {trackingError.Message} | Logging error: {ex.Message}");
+			return Task.CompletedTask;
 		}
 	}
 }

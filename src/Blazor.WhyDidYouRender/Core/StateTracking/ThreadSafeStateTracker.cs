@@ -102,9 +102,8 @@ public class ThreadSafeStateTracker {
 				lockSlim.ExitReadLock();
 			}
 		}
-		catch (Exception ex) {
+		catch (Exception) {
 			_statistics.RecordOperation("CaptureSnapshot", TimeSpan.Zero, false);
-			// log error but don't throw to prevent breaking component rendering
 			return null;
 		}
 		finally {
@@ -129,7 +128,7 @@ public class ThreadSafeStateTracker {
 		try {
 			var lockSlim = GetOrCreateLock(componentKey);
 
-			// use write lock for state change detection (exclusive access)
+			// write lock ensures exclusive access during state change detection
 			lockSlim.EnterWriteLock();
 			try {
 				var startTime = DateTime.UtcNow;
@@ -188,7 +187,7 @@ public class ThreadSafeStateTracker {
 			if (!activeKeys.Contains(key))
 				keysToRemove.Add(key);
 
-		// remove inactive components
+		// remove components no longer present
 		foreach (var key in keysToRemove) {
 			_componentSnapshots.TryRemove(key, out _);
 
@@ -241,7 +240,6 @@ public class ThreadSafeStateTracker {
 	/// Disposes the thread-safe state tracker.
 	/// </summary>
 	public void Dispose() {
-		// Dispose all locks
 		foreach (var lockSlim in _componentLocks.Values) {
 			lockSlim.Dispose();
 		}

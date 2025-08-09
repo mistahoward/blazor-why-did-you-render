@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Blazor.WhyDidYouRender\Blazor.WhyDidYouRender.csproj" />
+    <ProjectReference Include="..\..\Blazor.WhyDidYouRender.DevHost.ServiceDefaults\Blazor.WhyDidYouRender.DevHost.ServiceDefaults.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

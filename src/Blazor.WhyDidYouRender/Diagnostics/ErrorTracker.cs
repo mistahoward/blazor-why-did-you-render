@@ -4,8 +4,10 @@ using System.Linq;
 using System.Text.Json;
 
 using Microsoft.Extensions.Logging;
+using MEL = Microsoft.Extensions.Logging;
 
 using Blazor.WhyDidYouRender.Configuration;
+using Blazor.WhyDidYouRender.Logging;
 using Blazor.WhyDidYouRender.Records;
 
 namespace Blazor.WhyDidYouRender.Diagnostics;
@@ -17,6 +19,7 @@ public class ErrorTracker : IErrorTracker {
 	private readonly ConcurrentQueue<TrackingError> _errors = new();
 	private readonly WhyDidYouRenderConfig _config;
 	private readonly ILogger<ErrorTracker>? _logger;
+	private readonly IWhyDidYouRenderLogger? _unifiedLogger;
 	private readonly object _statsLock = new();
 	private int _totalErrorCount = 0;
 
@@ -24,10 +27,12 @@ public class ErrorTracker : IErrorTracker {
 	/// Initializes a new instance of the <see cref="ErrorTracker"/> class.
 	/// </summary>
 	/// <param name="config">The configuration.</param>
-	/// <param name="logger">The logger.</param>
-	public ErrorTracker(WhyDidYouRenderConfig config, ILogger<ErrorTracker>? logger = null) {
+	/// <param name="logger">The traditional logger.</param>
+	/// <param name="unifiedLogger">Optional unified logger for structured console output.</param>
+	public ErrorTracker(WhyDidYouRenderConfig config, ILogger<ErrorTracker>? logger = null, IWhyDidYouRenderLogger? unifiedLogger = null) {
 		_config = config;
 		_logger = logger;
+		_unifiedLogger = unifiedLogger;
 	}
 
 	/// <inheritdoc />
@@ -128,11 +133,11 @@ public class ErrorTracker : IErrorTracker {
 	private void LogError(TrackingError error) {
 		try {
 			var logLevel = error.Severity switch {
-				ErrorSeverity.Info => LogLevel.Information,
-				ErrorSeverity.Warning => LogLevel.Warning,
-				ErrorSeverity.Error => LogLevel.Error,
-				ErrorSeverity.Critical => LogLevel.Critical,
-				_ => LogLevel.Warning
+				ErrorSeverity.Info => MEL.LogLevel.Information,
+				ErrorSeverity.Warning => MEL.LogLevel.Warning,
+				ErrorSeverity.Error => MEL.LogLevel.Error,
+				ErrorSeverity.Critical => MEL.LogLevel.Critical,
+				_ => MEL.LogLevel.Warning
 			};
 
 			var message = $"[WhyDidYouRender] {error.Severity} {error.ErrorId}: {error.Message}";
@@ -148,20 +153,27 @@ public class ErrorTracker : IErrorTracker {
 			_logger?.Log(logLevel, message);
 
 			if (_config.Output == TrackingOutput.Console || _config.Output == TrackingOutput.Both) {
-				var consoleMessage = $"{message}";
-				if (error.Context.Any()) {
-					consoleMessage += $" | Context: {JsonSerializer.Serialize(error.Context)}";
+				if (_unifiedLogger != null) {
+					var data = error.Context.Any() ? new Dictionary<string, object?>(error.Context) : new();
+					if (!string.IsNullOrEmpty(error.StackTrace) && error.Severity >= ErrorSeverity.Error)
+						data["stackTrace"] = error.StackTrace;
+					_unifiedLogger.LogError(message, null, data);
 				}
-
-				Console.WriteLine(consoleMessage);
-
-				if (!string.IsNullOrEmpty(error.StackTrace) && error.Severity >= ErrorSeverity.Error) {
-					Console.WriteLine($"[WhyDidYouRender] Stack Trace: {error.StackTrace}");
+				else {
+					var consoleMessage = $"{message}";
+					if (error.Context.Any()) {
+						consoleMessage += $" | Context: {JsonSerializer.Serialize(error.Context)}";
+					}
+					Console.WriteLine(consoleMessage);
+					if (!string.IsNullOrEmpty(error.StackTrace) && error.Severity >= ErrorSeverity.Error) {
+						Console.WriteLine($"[WhyDidYouRender] Stack Trace: {error.StackTrace}");
+					}
 				}
 			}
 		}
-		catch {
-			Console.WriteLine($"[WhyDidYouRender] Failed to log error: {error.Message}");
+		catch (Exception ex) {
+			if (_unifiedLogger != null) _unifiedLogger.LogError($"Failed to log error: {error.Message}", ex);
+			else Console.WriteLine($"[WhyDidYouRender] Failed to log error: {error.Message}");
 		}
 	}
 }

@@ -1,428 +1,322 @@
-# Blazor WhyDidYouRender
+# Blazor WhyDidYouRender - Integration Guide
 
-A powerful **cross-platform** performance monitoring and debugging tool for Blazor applications that helps identify unnecessary re-renders and optimize component performance across **Server**, **WebAssembly**, and **SSR** environments.
+This guide provides step-by-step instructions for integrating WhyDidYouRender into new and existing Blazor applications.
 
-[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/S6S3XYOL5)
+## 🎯 Integration Scenarios
 
-## 🌐 Cross-Platform Support
+### Scenario 1: New Blazor Server App
 
-**WhyDidYouRender v2.0** now supports all Blazor hosting models:
-
-| Environment | Support | Session Management | Console Logging | Performance Tracking |
-|-------------|---------|-------------------|-----------------|---------------------|
-| **🖥️ Blazor Server** | ✅ Full | HttpContext | Server + Browser | ✅ Full |
-| **🌐 Blazor WASM** | ✅ Full | Browser Storage | Browser Only | ✅ Full |
-| **📄 SSR** | ✅ Full | HttpContext | Server + Browser | ✅ Full |
-
-## 🚀 Features
-
-- **🔍 Render Tracking**: Monitor when and why your Blazor components re-render
-- **📊 Performance Metrics**: Track render duration and frequency across all environments
-- **🎯 Parameter Change Detection**: Identify which parameter changes trigger re-renders
-- **⚡ Unnecessary Render Detection**: Find components that re-render without actual changes
-- **🧠 State Tracking**: Advanced field-level change detection with automatic and manual tracking
-- **🏷️ Smart Attributes**: Use `[TrackState]`, `[IgnoreState]`, and `[StateTrackingOptions]` for fine control
-- **🔄 Deep Comparison**: Track complex objects, collections, and nested properties
-- **🌐 Cross-Platform**: Works seamlessly in Server, WASM, and SSR environments
-- **🛠️ Developer-Friendly**: Easy integration with existing Blazor applications
-- **📱 Smart Console Logging**: Adapts to environment (server console + browser console)
-- **💾 Flexible Session Management**: HttpContext (server) or Browser Storage (WASM)
-- **⚙️ Auto-Detection**: Automatically detects hosting environment and adapts
-- **🔧 Environment-Specific**: Optimized services for each hosting model
-- **⚡ Thread-Safe**: Optimized for concurrent access in Blazor Server scenarios
-
-## 📦 Installation
-
-### Package Manager Console
-```powershell
-Install-Package Blazor.WhyDidYouRender
+#### Step 1: Create New Project
+```bash
+dotnet new blazorserver -n MyBlazorApp
+cd MyBlazorApp
 ```
 
-### .NET CLI
+#### Step 2: Install Package
 ```bash
 dotnet add package Blazor.WhyDidYouRender
 ```
 
-### PackageReference
-```xml
-<PackageReference Include="Blazor.WhyDidYouRender" Version="2.0.0" />
-```
-
-> **📢 Version 2.0 Breaking Changes**: See [Migration Guide](#-migration-from-v1x) for upgrading from v1.x
-
-## 🛠️ Quick Start
-
-WhyDidYouRender **automatically detects** your hosting environment and configures itself appropriately. The same code works across all Blazor hosting models!
-
-### 🖥️ Blazor Server / SSR Setup
-
+#### Step 3: Configure Services
+Update `Program.cs`:
 ```csharp
 using Blazor.WhyDidYouRender.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add Blazor services
 builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();
 
-// Add WhyDidYouRender - works automatically!
+// Add WhyDidYouRender
 builder.Services.AddWhyDidYouRender(config =>
 {
-    config.Enabled = true;
+    config.Enabled = builder.Environment.IsDevelopment();
     config.Verbosity = TrackingVerbosity.Normal;
-    config.Output = TrackingOutput.Both; // Server console AND browser console
+    config.Output = TrackingOutput.Both;
     config.TrackParameterChanges = true;
     config.TrackPerformance = true;
-    config.EnableStateTracking = true; // NEW: Track field-level changes
-    config.AutoTrackSimpleTypes = true; // NEW: Auto-track strings, ints, etc.
 });
 
 var app = builder.Build();
 
-// Initialize WhyDidYouRender services
+// Initialize WhyDidYouRender SSR services
 app.Services.InitializeSSRServices();
+
+if (!app.Environment.IsDevelopment())
+{
+    app.UseExceptionHandler("/Error");
+    app.UseHsts();
+}
+
+app.UseHttpsRedirection();
+app.UseStaticFiles();
+app.UseRouting();
+
+app.MapRazorPages();
+app.MapBlazorHub();
+app.MapFallbackToPage("/_Host");
+
+
+### Optional: Enable .NET Aspire / OpenTelemetry (Server/SSR)
+```csharp
+// Add Aspire service defaults
+builder.AddServiceDefaults();
+
+builder.Services.AddWhyDidYouRender(config =>
+{
+    config.EnableOpenTelemetry = true;
+    config.EnableOtelLogs = true;
+    config.EnableOtelTraces = true;
+    config.EnableOtelMetrics = true;
+});
+```
+See also: docs/observability.md for verification steps and troubleshooting.
 
 app.Run();
 ```
 
-### 🌐 Blazor WebAssembly Setup
-
+#### Step 4: Update Components
+Update `Pages/Counter.razor`:
 ```csharp
+@page "/counter"
+@using Blazor.WhyDidYouRender.Components
+@using Blazor.WhyDidYouRender.Extensions
+@inherits TrackedComponentBase
+@inject IJSRuntime JSRuntime
+@inject IServiceProvider ServiceProvider
+
+<PageTitle>Counter</PageTitle>
+
+<h1>Counter</h1>
+
+<p role="status">Current count: @currentCount</p>
+
+<button class="btn btn-primary" @onclick="IncrementCount">Click me</button>
+
+@code {
+    private int currentCount = 0;
+    private bool browserLoggerInitialized = false;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !browserLoggerInitialized)
+        {
+            // Initialize WhyDidYouRender browser logging
+            await ServiceProvider.InitializeWhyDidYouRenderAsync(JSRuntime);
+            browserLoggerInitialized = true;
+        }
+        await base.OnAfterRenderAsync(firstRender);
+    }
+
+    private void IncrementCount()
+    {
+        currentCount++;
+    }
+}
+```
+
+### Scenario 2: Existing Blazor Server App
+
+#### Step 1: Install Package
+```bash
+dotnet add package Blazor.WhyDidYouRender
+```
+
+#### Step 2: Add Service Registration
+In your existing `Program.cs`, add the service registration:
+```csharp
+// Add this after your existing service registrations
+builder.Services.AddWhyDidYouRender(config =>
+{
+    config.Enabled = builder.Environment.IsDevelopment();
+    config.Verbosity = TrackingVerbosity.Normal;
+    config.Output = TrackingOutput.Both;
+    config.TrackParameterChanges = true;
+});
+```
+
+#### Step 3: Gradually Migrate Components
+Start with components you want to optimize:
+```csharp
+// Before
+@inherits ComponentBase
+
+// After
+@using Blazor.WhyDidYouRender.Components
+@inherits TrackedComponentBase
+```
+
+### Scenario 3: Blazor WebAssembly App
+
+#### Step 1: Install Package
+```bash
+dotnet add package Blazor.WhyDidYouRender
+```
+
+#### Step 2: Configure Services
+Update `Program.cs`:
+```csharp
+using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using Blazor.WhyDidYouRender.Extensions;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
+builder.RootComponents.Add<HeadOutlet>("head::after");
 
-// Add WhyDidYouRender - automatically detects WASM!
+builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
+
+// Add WhyDidYouRender
+builder.Services.AddWhyDidYouRender(config =>
+{
+    config.Enabled = builder.HostEnvironment.IsDevelopment();
+    config.Verbosity = TrackingVerbosity.Normal;
+    config.Output = TrackingOutput.BrowserConsole; // WebAssembly only supports browser console
+    config.TrackParameterChanges = true;
+    config.TrackPerformance = true;
+});
+
+await builder.Build().RunAsync();
+```
+
+## ⚙️ Configuration Examples
+
+### Development Configuration
+```csharp
 builder.Services.AddWhyDidYouRender(config =>
 {
     config.Enabled = true;
     config.Verbosity = TrackingVerbosity.Verbose;
-    config.Output = TrackingOutput.BrowserConsole; // Browser console only in WASM
+    config.Output = TrackingOutput.Both;
     config.TrackParameterChanges = true;
     config.TrackPerformance = true;
-    config.EnableStateTracking = true; // NEW: Track field-level changes
-    config.AutoTrackSimpleTypes = true; // NEW: Auto-track strings, ints, etc.
-    // WASM storage is enabled by default
+    config.IncludeSessionInfo = true;
 });
-
-var host = builder.Build();
-
-await host.Services.InitializeWasmAsync(host.Services.GetRequiredService<IJSRuntime>());
-
-await host.RunAsync();
 ```
 
-### 2. Use TrackedComponentBase with State Tracking (Cross-Platform)
+### Production Configuration
+```csharp
+builder.Services.AddWhyDidYouRender(config =>
+{
+    config.Enabled = false; // Disable in production
+});
+```
 
-Update your components to inherit from `TrackedComponentBase` - **works in all environments**:
+### Staging Configuration
+```csharp
+builder.Services.AddWhyDidYouRender(config =>
+{
+    config.Enabled = true;
+    config.Verbosity = TrackingVerbosity.Minimal;
+    config.Output = TrackingOutput.Console;
+    config.TrackPerformance = true;
+});
+```
 
+## 🔧 Advanced Integration
+
+### Custom Configuration Provider
+```csharp
+public class WhyDidYouRenderConfigProvider
+{
+    public static WhyDidYouRenderConfig GetConfiguration(IWebHostEnvironment env)
+    {
+        return new WhyDidYouRenderConfig
+        {
+            Enabled = env.IsDevelopment() || env.IsStaging(),
+            Verbosity = env.IsDevelopment() ? TrackingVerbosity.Verbose : TrackingVerbosity.Normal,
+            Output = env.IsDevelopment() ? TrackingOutput.Both : TrackingOutput.Console,
+            TrackParameterChanges = true,
+            TrackPerformance = true,
+            IncludeSessionInfo = env.IsDevelopment()
+        };
+    }
+}
+
+// Usage in Program.cs
+builder.Services.AddWhyDidYouRender(
+    WhyDidYouRenderConfigProvider.GetConfiguration(builder.Environment)
+);
+```
+
+### Conditional Component Tracking
 ```csharp
 @using Blazor.WhyDidYouRender.Components
-@using Blazor.WhyDidYouRender.Attributes
-@inherits TrackedComponentBase
 
-<h3>My Tracked Component</h3>
-<p>Current count: @currentCount</p>
-<p>Title: @Title</p>
-<p>User: @user?.Name</p>
-<button @onclick="IncrementCount">Click me</button>
-<button @onclick="UpdateUser">Update User</button>
+@if (ShouldTrack)
+{
+    @inherits TrackedComponentBase
+}
+else
+{
+    @inherits ComponentBase
+}
 
 @code {
-    // Simple types are auto-tracked (no attribute needed)
-    private int currentCount = 0;
-    private string message = "Hello World";
+    private bool ShouldTrack =>
+        Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development";
+}
+```
 
-    // Complex types need [TrackState] attribute
-    [TrackState]
-    private UserInfo? user = new() { Name = "John Doe", Email = "john@example.com" };
+### Browser logging initialization (explicit)
 
-    // Performance-sensitive fields can be ignored
-    [IgnoreState("Internal counter - changes frequently")]
-    private long performanceCounter = 0;
+In interactive rendering or when using browser console logging, initialize WhyDidYouRender once JS is available (e.g., in MainLayout):
 
-    [Parameter] public string? Title { get; set; }
+```csharp
+@inherits LayoutComponentBase
+@inject IServiceProvider ServiceProvider
+@inject IJSRuntime JSRuntime
 
-    private void IncrementCount()
+@code {
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        currentCount++;
-        performanceCounter++; // This won't trigger unnecessary render detection
-    }
-
-    private void UpdateUser()
-    {
-        user = new UserInfo { Name = "Jane Doe", Email = "jane@example.com" };
+        if (firstRender)
+        {
+            await ServiceProvider.InitializeAsync(JSRuntime);
+        }
     }
 }
 ```
 
-### 3. Monitor Output (Environment-Aware)
+Notes:
+- WASM: You can alternatively call `await host.Services.InitializeWasmAsync(jsRuntime)` in Program.cs; the component-based init above also works.
+- Server/SSR (interactive) with browser console: explicit `InitializeAsync(JSRuntime)` prevents timing errors on first paint.
+- Server-only logging: set `config.Output = TrackingOutput.Console` to disable browser console output.
 
-WhyDidYouRender automatically adapts its output based on your environment:
+## 🎨 Component Migration Patterns
 
-#### 🖥️ Server/SSR Environment
-- **Server Console**: Detailed logging in your application console
-- **Browser Console**: Real-time debugging in browser dev tools
-- **Session Management**: Uses HttpContext for server-side session tracking
-
-#### 🌐 WASM Environment
-- **Browser Console**: All logging appears in browser dev tools
-- **Session Management**: Uses browser localStorage/sessionStorage
-- **Performance Tracking**: Client-side performance metrics
-
-**Example Output:**
-```
-[WhyDidYouRender] Counter re-rendered (WASM)
-├─ Trigger: StateHasChanged
-├─ Duration: 1.8ms
-├─ Parameters: Title (unchanged)
-├─ State Changes:
-│  ├─ currentCount: 5 → 6 (changed)
-│  ├─ message: "Hello World" (unchanged)
-│  └─ user.Name: "John Doe" → "Jane Doe" (changed)
-├─ Session: wasm-abc123def
-└─ Reason: State field changes detected
-```
-
-<img width="763" height="380" alt="image" src="https://github.com/user-attachments/assets/497fdcbe-75eb-4707-8ccb-4cb4ac07b1c6" />
-
-## 🌐 Cross-Platform Features
-
-### Automatic Environment Detection
-WhyDidYouRender automatically detects your hosting environment and adapts:
-
+### Pattern 1: Gradual Migration
+Start with high-traffic or problematic components:
 ```csharp
-// Same configuration works everywhere!
-builder.Services.AddWhyDidYouRender(config =>
+// Identify components with performance issues first
+@inherits TrackedComponentBase // Add to specific components
+```
+
+### Pattern 2: Base Component Approach
+Create a custom base component:
+```csharp
+// Create MyTrackedComponentBase.cs
+public abstract class MyTrackedComponentBase : TrackedComponentBase
 {
-    config.Enabled = true;
-    config.Output = TrackingOutput.Both; // Adapts automatically:
-    // Server: Console + Browser
-    // WASM: Browser only
-});
+    // Add your common component logic here
+}
+
+// Use in components
+@inherits MyTrackedComponentBase
 ```
 
-### Environment-Specific Services
-
-| Service | Server Implementation | WASM Implementation |
-|---------|----------------------|-------------------|
-| **Session Management** | `ServerSessionContextService` | `WasmSessionContextService` |
-| **Logging** | `ServerTrackingLogger` | `WasmTrackingLogger` |
-| **Error Tracking** | `ServerErrorTracker` | `WasmErrorTracker` |
-| **Storage** | HttpContext.Session | Browser Storage |
-
-## 📖 Configuration
-
-### Cross-Platform Configuration
-
-The same configuration works across all environments, with automatic adaptation:
-
+### Pattern 3: Conditional Tracking
+Use preprocessor directives for conditional tracking:
 ```csharp
-builder.Services.AddWhyDidYouRender(config =>
-{
-    // Core settings (work everywhere)
-    config.Enabled = true;
-    config.Verbosity = TrackingVerbosity.Normal;
-    config.TrackParameterChanges = true;
-    config.TrackPerformance = true;
-    config.IncludeSessionInfo = true;
-
-    // State tracking (NEW in v2.1)
-    config.EnableStateTracking = true;
-    config.AutoTrackSimpleTypes = true; // Auto-track string, int, bool, etc.
-    config.MaxTrackedFieldsPerComponent = 50;
-    config.LogDetailedStateChanges = true;
-
-    // Output adapts automatically:
-    config.Output = TrackingOutput.Both;
-    // Server/SSR: Console + Browser
-    // WASM: Browser only (console not available)
-
-    // Environment detection (usually auto)
-    config.AutoDetectEnvironment = true;
-
-    // WASM-specific settings (ignored in server environments)
-    config.WasmStorageEnabled = true;
-    config.WasmStorageOptions = new WasmStorageOptions
-    {
-        UseSessionStorage = false, // Use localStorage by default
-        StorageKeyPrefix = "WhyDidYouRender_"
-    };
-});
-```
-
-### Environment-Specific Configuration
-
-#### 🖥️ Server/SSR Optimized
-```csharp
-builder.Services.AddWhyDidYouRender(config =>
-{
-    config.Enabled = true;
-    config.Output = TrackingOutput.Both; // Server console + browser
-    config.Verbosity = TrackingVerbosity.Verbose;
-    config.TrackPerformance = true;
-    config.IncludeSessionInfo = true;
-});
-```
-
-#### 🌐 WASM Optimized
-```csharp
-builder.Services.AddWhyDidYouRender(config =>
-{
-    config.Enabled = true;
-    config.Output = TrackingOutput.BrowserConsole; // Browser only
-    config.Verbosity = TrackingVerbosity.Normal;
-    config.WasmStorageEnabled = true;
-    config.TrackPerformance = true;
-});
-```
-
-### Advanced Configuration
-
-```csharp
-builder.Services.AddWhyDidYouRender(config =>
-{
-    // Force specific environment (overrides auto-detection)
-    config.ForceHostingModel = BlazorHostingModel.WebAssembly;
-
-    // Performance tracking
-    config.TrackPerformance = true;
-
-    // Include session information in logs
-    config.IncludeSessionInfo = true;
-
-    // Set verbosity level
-    config.Verbosity = TrackingVerbosity.Verbose;
-
-    // Output to both server console and browser console
-    config.Output = TrackingOutput.Both;
-});
-```
-
-### Environment-Specific Configuration
-
-```csharp
-builder.Services.AddWhyDidYouRender(config =>
-{
-    if (builder.Environment.IsDevelopment())
-    {
-        config.Enabled = true;
-        config.Verbosity = TrackingVerbosity.Verbose;
-        config.Output = TrackingOutput.Both;
-        config.TrackParameterChanges = true;
-        config.TrackPerformance = true;
-    }
-    else if (builder.Environment.IsStaging())
-    {
-        config.Enabled = true;
-        config.Verbosity = TrackingVerbosity.Normal;
-        config.Output = TrackingOutput.Console;
-    }
-    else
-    {
-        config.Enabled = false; // Disable in production
-    }
-});
-```
-
-## 🧠 State Tracking Features
-
-### Automatic State Detection
-
-WhyDidYouRender automatically tracks changes to simple value types:
-
-```csharp
+#if DEBUG
+@using Blazor.WhyDidYouRender.Components
 @inherits TrackedComponentBase
-
-@code {
-    // These are automatically tracked (no attributes needed)
-    private int count = 0;
-    private string message = "Hello";
-    private bool isVisible = true;
-    private DateTime lastUpdate = DateTime.Now;
-}
+#else
+@inherits ComponentBase
+#endif
 ```
 
-### Explicit State Tracking
-
-Use `[TrackState]` for complex objects and collections:
-
-```csharp
-@using Blazor.WhyDidYouRender.Attributes
-@inherits TrackedComponentBase
-
-@code {
-    // Complex objects need explicit tracking
-    [TrackState]
-    private UserProfile user = new() { Name = "John", Age = 30 };
-
-    // Collections with content tracking
-    [TrackState(TrackCollectionContents = true)]
-    private List<string> items = new() { "Item 1", "Item 2" };
-
-    // Custom comparison depth for performance
-    [TrackState(MaxComparisonDepth = 2)]
-    private ComplexObject data = new();
-}
-```
-
-### State Exclusion
-
-Use `[IgnoreState]` to exclude performance-sensitive fields:
-
-```csharp
-@code {
-    // Normal tracked field
-    private int importantCounter = 0;
-
-    // Ignored fields won't trigger unnecessary render detection
-    [IgnoreState("Performance counter - changes frequently")]
-    private long performanceMetric = 0;
-
-    [IgnoreState("Debug info - not relevant for rendering")]
-    private string debugInfo = "";
-}
-```
-
-### Component-Level Configuration
-
-Use `[StateTrackingOptions]` for fine-grained control:
-
-```csharp
-@using Blazor.WhyDidYouRender.Attributes
-@attribute [StateTrackingOptions(
-    MaxFields = 10,
-    AutoTrackSimpleTypes = false,
-    LogStateChanges = true)]
-@inherits TrackedComponentBase
-
-@code {
-    // Only explicitly marked fields will be tracked
-    [TrackState] private int explicitlyTracked = 0;
-    private int notTracked = 0; // Won't be tracked due to AutoTrackSimpleTypes = false
-}
-```
-
-## 🎯 Usage Patterns
-
-### Component Inheritance
-
-The recommended approach is to inherit from `TrackedComponentBase`:
-
-```csharp
-@inherits TrackedComponentBase
-
-@code {
-    // Your component logic here
-}
-```
-
-### Manual Tracking (Advanced)
-
-For existing components that can't inherit from `TrackedComponentBase`, you can use manual tracking:
-
+### Pattern 4: Use `RenderTrackerService` Directly
 ```csharp
 @inject RenderTrackerService RenderTracker
 
@@ -435,145 +329,68 @@ For existing components that can't inherit from `TrackedComponentBase`, you can 
 }
 ```
 
-## 📊 Understanding the Output
+## 🚨 Common Issues & Solutions
 
-### Console Log Format
+### Issue 1: Service Not Registered
+**Error**: `InvalidOperationException: Unable to resolve service for type 'RenderTrackerService'`
 
-```
-[WhyDidYouRender] ComponentName re-rendered
-├─ Trigger: OnParametersSet
-├─ Duration: 1.2ms
-├─ Parameters:
-│  ├─ Title: "Old Value" → "New Value" (changed)
-│  └─ Count: 5 (unchanged)
-├─ State Changes:
-│  ├─ message: "Hello" → "Hi there" (changed)
-│  ├─ user.Name: "John" → "Jane" (changed)
-│  └─ items: [2 items] → [3 items] (collection changed)
-├─ Performance:
-│  ├─ Render Count: 3
-│  └─ Average Duration: 1.8ms
-└─ Reason: Parameter and state changes detected
-```
-
-### Log Levels
-
-- **Debug**: All render events and detailed information
-- **Info**: Normal render events with basic information
-- **Warning**: Potentially unnecessary re-renders
-- **Error**: Performance issues and problems
-
-## 🎨 Best Practices
-
-### 1. Use in Development Only
+**Solution**: Ensure you've called `AddWhyDidYouRender()` in your service registration:
 ```csharp
-config.Enabled = builder.Environment.IsDevelopment();
-```
-
-### 2. Focus on Important Events
-```csharp
-config.Verbosity = TrackingVerbosity.Normal;
-config.TrackParameterChanges = true;
-```
-
-### 3. Selective Component Tracking
-Only track components you're optimizing:
-```csharp
-// Only inherit from TrackedComponentBase for components under investigation
-@inherits TrackedComponentBase
-```
-
-### 4. Parameter Optimization
-Use the insights to optimize parameter passing:
-```csharp
-// Before: Creates new object every render
-<ChildComponent Data="@(new { Count = count })" />
-
-// After: Stable reference
-<ChildComponent Data="@stableDataObject" />
-```
-
-### 5. State Tracking Optimization
-Use state tracking attributes strategically:
-```csharp
-@code {
-    // Track important business state
-    [TrackState] private UserData userData;
-
-    // Ignore performance counters and debug info
-    [IgnoreState] private long renderTime;
-    [IgnoreState] private string debugLog;
-
-    // Limit tracking depth for complex objects
-    [TrackState(MaxComparisonDepth = 1)]
-    private ComplexNestedObject complexData;
-}
-```
-
-## 🔄 Migration from v1.x
-
-### Breaking Changes in v2.0
-
-1. **Removed Error Diagnostics Endpoint** (incompatible with WASM)
-   - `UseWhyDidYouRenderDiagnostics()` method removed
-   - Use browser console logging instead
-
-2. **New Initialization Methods**
-   - Server: `app.Services.InitializeSSRServices()`
-   - WASM: `await host.Services.InitializeWasmServices()`
-
-3. **Configuration Changes**
-   - Added `WasmStorageEnabled` and `WasmStorageOptions`
-   - Added `AutoDetectEnvironment` and `ForceHostingModel`
-   - Added comprehensive state tracking configuration options
-
-### Migration Steps
-
-#### From v1.x Server Setup:
-```csharp
-// v1.x (OLD)
 builder.Services.AddWhyDidYouRender();
-app.UseWhyDidYouRenderDiagnostics("/diagnostics"); // REMOVED
-
-// v2.0 (NEW)
-builder.Services.AddWhyDidYouRender(config => { /* same config */ });
-app.Services.InitializeSSRServices(); // NEW
 ```
 
-#### Component Changes:
-```csharp
-// v1.x and v2.0 - NO CHANGES NEEDED
-@inherits TrackedComponentBase // Still works!
-```
+### Issue 2: No Console Output
+**Problem**: Not seeing any tracking information in browser console.
 
-### New Features in v2.0+
-- ✅ **Full WASM Support** - Works in all Blazor hosting models
-- ✅ **Automatic Environment Detection** - No manual configuration needed
-- ✅ **Cross-Platform Session Management** - Adapts to environment
-- ✅ **Smart Console Logging** - Server console + browser console
-- ✅ **Browser Storage Support** - localStorage/sessionStorage in WASM
-- ✅ **Advanced State Tracking** - Field-level change detection with attributes
-- ✅ **Automatic Type Detection** - Auto-tracks simple types, opt-in for complex types
-- ✅ **Performance Optimizations** - Thread-safe tracking with configurable limits
-- ✅ **Component-Level Control** - Fine-grained configuration per component
+**Solutions**:
+1. Check that tracking is enabled: `config.Enabled = true`
+2. Verify output is set to browser: `config.Output = TrackingOutput.Both`
+3. Ensure components inherit from `TrackedComponentBase`
+4. Initialize browser logging: `await ServiceProvider.InitializeWhyDidYouRenderAsync(JSRuntime)`
+5. Open browser developer tools console
 
-## 🚧 Roadmap
+### Issue 3: Too Much Logging
+**Problem**: Console is flooded with tracking information.
 
-- **Testing Suite**: Comprehensive test coverage for cross-platform scenarios
-- **Performance Profiler**: Advanced performance analysis tools
-- **Custom Formatters**: Extensible output formatting
-- **Real-time Dashboard**: Web-based monitoring dashboard
+**Solutions**:
+1. Reduce verbosity: `config.Verbosity = TrackingVerbosity.Minimal`
+2. Disable parameter tracking: `config.TrackParameterChanges = false`
+3. Disable in production: `config.Enabled = Environment.IsDevelopment()`
 
-## 🤝 Contributing
+### Issue 4: Performance Impact
+**Problem**: Tracking is affecting application performance.
 
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+**Solutions**:
+1. Disable in production environments
+2. Use selective component tracking
+3. Adjust tracking granularity
+4. Consider using diagnostics endpoint instead of console logging
 
-## 📄 License
+## 📊 Monitoring & Debugging
 
-This project is licensed under the GNU Lesser General Public License v3.0 or later - see the [LICENSE](LICENSE) file for details.
+### Browser Console Usage
+1. Open Developer Tools (F12)
+2. Navigate to Console tab
+3. Look for `[WhyDidYouRender]` messages
+4. Use console filters to focus on specific components
 
-**LGPL v3 allows closed source projects to use this library** while keeping the library itself open source.
+## 🔄 Migration Checklist
 
-## 🙏 Acknowledgments
+- [ ] Install Blazor.WhyDidYouRender package
+- [ ] Add service registration in Program.cs
+- [ ] Configure environment-specific settings
+- [ ] Update target components to inherit from TrackedComponentBase
+- [ ] Test in development environment
+- [ ] Verify console output
+- [ ] Configure for staging/production environments
+- [ ] Document component tracking decisions
+- [ ] Train team on usage and interpretation
 
-Inspired by the React [why-did-you-render](https://github.com/welldone-software/why-did-you-render) library.
+## 📚 Next Steps
+
+After successful integration:
+1. Monitor component render patterns
+2. Identify unnecessary re-renders
+3. Optimize component parameters and state management
+4. Use insights to improve application performance
+5. Consider enabling diagnostics endpoint for ongoing monitoring

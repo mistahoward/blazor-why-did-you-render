@@ -24,31 +24,62 @@ public class ServerWhyDidYouRenderLogger : WhyDidYouRenderLoggerBase {
 
     public override void LogDebug(string message, Dictionary<string, object?>? data = null) {
         if (!IsEnabled(LogLevel.Debug)) return;
-        _logger.LogDebug("[WhyDidYouRender] {Message} {@Data}", message, BuildData(data));
+        var dict = BuildData(data);
+        if (dict.Count > 0) {
+            using var scope = _logger.BeginScope(dict);
+            _logger.LogDebug("[WhyDidYouRender] {Message}", message);
+        }
+        else {
+            _logger.LogDebug("[WhyDidYouRender] {Message}", message);
+        }
     }
 
     /// <summary>Writes an informational message using the server logger.</summary>
     /// <inheritdoc />
     public override void LogInfo(string message, Dictionary<string, object?>? data = null) {
         if (!IsEnabled(LogLevel.Info)) return;
-        _logger.LogInformation("[WhyDidYouRender] {Message} {@Data}", message, BuildData(data));
+        var dict = BuildData(data);
+        if (dict.Count > 0) {
+            using var scope = _logger.BeginScope(dict);
+            _logger.LogInformation("[WhyDidYouRender] {Message}", message);
+        }
+        else {
+            _logger.LogInformation("[WhyDidYouRender] {Message}", message);
+        }
     }
 
     /// <summary>Writes a warning message using the server logger.</summary>
     /// <inheritdoc />
     public override void LogWarning(string message, Dictionary<string, object?>? data = null) {
         if (!IsEnabled(LogLevel.Warning)) return;
-        _logger.LogWarning("[WhyDidYouRender] {Message} {@Data}", message, BuildData(data));
+        var dict = BuildData(data);
+        if (dict.Count > 0) {
+            using var scope = _logger.BeginScope(dict);
+            _logger.LogWarning("[WhyDidYouRender] {Message}", message);
+        }
+        else {
+            _logger.LogWarning("[WhyDidYouRender] {Message}", message);
+        }
     }
 
     /// <summary>Writes an error message using the server logger.</summary>
     /// <inheritdoc />
     public override void LogError(string message, Exception? exception = null, Dictionary<string, object?>? data = null) {
         if (!IsEnabled(LogLevel.Error)) return;
-        if (exception is null)
-            _logger.LogError("[WhyDidYouRender] {Message} {@Data}", message, BuildData(data));
-        else
-            _logger.LogError(exception, "[WhyDidYouRender] {Message} {@Data}", message, BuildData(data));
+        var dict = BuildData(data);
+        if (dict.Count > 0) {
+            using var scope = _logger.BeginScope(dict);
+            if (exception is null)
+                _logger.LogError("[WhyDidYouRender] {Message}", message);
+            else
+                _logger.LogError(exception, "[WhyDidYouRender] {Message}", message);
+        }
+        else {
+            if (exception is null)
+                _logger.LogError("[WhyDidYouRender] {Message}", message);
+            else
+                _logger.LogError(exception, "[WhyDidYouRender] {Message}", message);
+        }
     }
 
     /// <summary>
@@ -59,10 +90,10 @@ public class ServerWhyDidYouRenderLogger : WhyDidYouRenderLoggerBase {
     protected Dictionary<string, object?> BuildData(Dictionary<string, object?>? additional = null) {
         var dict = new Dictionary<string, object?>();
         if (_config.EnableCorrelationIds && !string.IsNullOrEmpty(_correlationId))
-            dict["correlationId"] = _correlationId;
+            dict["wdyrl.correlationId"] = _correlationId;
         if (additional != null) {
             foreach (var kv in additional)
-                dict[kv.Key] = kv.Value;
+                dict[kv.Key.StartsWith("wdyrl.") ? kv.Key : $"wdyrl.{kv.Key}"] = kv.Value;
         }
         return dict;
     }

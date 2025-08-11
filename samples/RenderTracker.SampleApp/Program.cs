@@ -4,6 +4,9 @@ using Blazor.WhyDidYouRender.Core;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Wire .NET Aspire service defaults including OpenTelemetry (logs/traces/metrics)
+builder.AddServiceDefaults();
+
 // add session support for WhyDidYouRender
 builder.Services.AddDistributedMemoryCache();
 builder.Services.AddSession(options => {
@@ -29,6 +32,14 @@ builder.Services.AddWhyDidYouRender(config => {
 	config.IncludeSessionInfo = true;
 	config.LogOnlyWhenParametersChange = false;
 	config.MaxParameterChangesToLog = 5;
+
+	// Enable Aspire/OpenTelemetry surfaces in the sample
+	config.EnableOpenTelemetry = true;
+	config.EnableOtelLogs = true;
+	config.EnableOtelTraces = true;
+	config.EnableOtelMetrics = true;
+	// Optional: limit cardinality during demos
+	// config.ComponentWhitelist = new(["Counter", "ComplexObjectDemo", "Home"]);
 
 	// enable unnecessary re-render detection
 	config.DetectUnnecessaryRerenders = true;

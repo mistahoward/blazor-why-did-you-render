@@ -301,34 +301,39 @@ public static class WhyDidYouRenderConfiguration
     private static void ConfigureDevelopment(WhyDidYouRenderConfig config)
     {
         config.Enabled = true;
-        config.LogLevel = LogLevel.Debug;
-        config.IncludeProps = true;
-        config.IncludeState = true;
-        config.TrackHooks = true;
+        config.Verbosity = TrackingVerbosity.Verbose;
+        config.Output = TrackingOutput.Both;
+        config.TrackParameterChanges = true;
         config.TrackPerformance = true;
-        config.HotReloadMode = true;
+        config.EnableStateTracking = true;
+        config.MinimumLogLevel = Blazor.WhyDidYouRender.Logging.LogLevel.Debug;
+        // Optional: enable Aspire/OTel in dev
+        config.EnableOpenTelemetry = true;
+        config.EnableOtelLogs = true;
+        config.EnableOtelTraces = true;
+        config.EnableOtelMetrics = true;
     }
-    
+
     private static void ConfigureStaging(WhyDidYouRenderConfig config)
     {
         config.Enabled = true;
-        config.LogLevel = LogLevel.Warning;
-        config.IncludeProps = true;
-        config.IncludeState = false;
+        config.Verbosity = TrackingVerbosity.Normal;
+        config.Output = TrackingOutput.Console;
         config.TrackPerformance = true;
-        config.LogOnDifferentValues = true;
+        config.MinimumLogLevel = Blazor.WhyDidYouRender.Logging.LogLevel.Warning;
     }
-    
+
     private static void ConfigureProduction(WhyDidYouRenderConfig config)
     {
-        config.Enabled = false; // Completely disabled
+        config.Enabled = false; // Completely disabled in production by default
     }
-    
+
     private static void ConfigureDefault(WhyDidYouRenderConfig config)
     {
         config.Enabled = true;
-        config.LogLevel = LogLevel.Warning;
-        config.LogOnDifferentValues = true;
+        config.Verbosity = TrackingVerbosity.Normal;
+        config.Output = TrackingOutput.Console;
+        config.MinimumLogLevel = Blazor.WhyDidYouRender.Logging.LogLevel.Warning;
     }
 }
 ```

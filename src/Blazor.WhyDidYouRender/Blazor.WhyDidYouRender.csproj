@@ -9,8 +9,8 @@
 
     <!-- NuGet Package Metadata -->
     <PackageId>Blazor.WhyDidYouRender</PackageId>
-    <Version>2.1.1</Version>
-    <PackageReleaseNotes>Minor Release: fixing a bug in state tracking causing incorrect calls to "unnecessary state change"</PackageReleaseNotes>
+    <Version>3.0.0</Version>
+    <PackageReleaseNotes>3.0: Optional .NET Aspire/OpenTelemetry integration (structured logs, traces, and metrics), composite logger with trace↔log correlation, documentation and samples updated. No breaking changes by default; OTel is opt-in.</PackageReleaseNotes>
     <Authors>Your Name</Authors>
     <Company>Your Company</Company>
     <Product>Blazor WhyDidYouRender</Product>
@@ -20,7 +20,7 @@
     <PackageProjectUrl>https://github.com/yourusername/blazor-why-did-you-render</PackageProjectUrl>
     <RepositoryUrl>https://github.com/yourusername/blazor-why-did-you-render</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
-    <PackageLicenseExpression>GPL-3.0-or-later</PackageLicenseExpression>
+    <PackageLicenseExpression>LGPL-3.0-or-later</PackageLicenseExpression>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
     <Copyright>Copyright (c) 2024 Your Name</Copyright>
 

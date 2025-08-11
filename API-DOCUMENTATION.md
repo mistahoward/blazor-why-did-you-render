@@ -1,14 +1,16 @@
-# Blazor WhyDidYouRender - API Documentation v2.0
+# Blazor WhyDidYouRender - API Documentation v3.0
 
 This document provides comprehensive API documentation for all public classes, interfaces, and methods in the **cross-platform** Blazor WhyDidYouRender library.
 
 ## 🌐 Cross-Platform Architecture
 
-WhyDidYouRender v2.0 introduces a service abstraction pattern that provides seamless support across all Blazor hosting models:
+WhyDidYouRender v3.0 builds on the cross-platform architecture and adds optional .NET Aspire/OpenTelemetry integration:
 
 - **🖥️ Blazor Server** - Full server-side tracking with HttpContext session management
 - **🌐 Blazor WebAssembly** - Browser-based tracking with localStorage session management
 - **📄 Server-Side Rendering (SSR)** - Pre-render tracking with server-side optimization
+
+- **📡 .NET Aspire/OTel (Server/SSR)** - Optional logs, traces, and metrics with ActivitySource + Meter
 
 ## 📦 Namespaces
 

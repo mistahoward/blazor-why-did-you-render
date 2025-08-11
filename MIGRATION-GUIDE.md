@@ -2,6 +2,33 @@
 
 This guide helps you migrate from WhyDidYouRender v1.x to v2.0+, which introduces cross-platform support for Blazor Server, WebAssembly, and SSR, plus advanced state tracking capabilities.
 
+## Upgrading from 2.x to 3.0
+
+3.0 introduces optional .NET Aspire/OpenTelemetry integration and an internal logging refactor. Defaults are unchanged unless you opt in.
+
+- Breaking changes: None by default
+- Opt-in features:
+  - EnableOpenTelemetry = true
+  - EnableOtelLogs = true, EnableOtelTraces = true, EnableOtelMetrics = true
+- Host wiring:
+  - Prefer builder.AddServiceDefaults(); or manually add AddSource("Blazor.WhyDidYouRender") and AddMeter("Blazor.WhyDidYouRender") and an OTLP exporter
+- What you’ll see in Aspire:
+  - Traces: WhyDidYouRender.Render spans with wdyrl.* attributes
+  - Metrics: wdyrl.renders, wdyrl.rerenders.unnecessary, wdyrl.render.duration.ms
+  - Structured logs: correlated to traces via Activity.Current
+
+### Package Update (3.0)
+
+```xml
+<PackageReference Include="Blazor.WhyDidYouRender" Version="3.0.0" />
+```
+
+```bash
+# Update via CLI
+dotnet add package Blazor.WhyDidYouRender --version 3.0.0
+```
+
+
 ## 🚨 Breaking Changes Overview
 
 ### Major Changes in v2.0
@@ -107,12 +134,13 @@ app.Services.InitializeSSRServices();
 
 ## ⚙️ Configuration Migration
 
-### Removed Configuration Options
+### Removed (already prior to v1.0)
 
 ```csharp
-// REMOVED in v2.0 - No longer available
-config.EnableDiagnosticsEndpoint = true;  // ❌ Removed for WASM compatibility
-config.DiagnosticsPath = "/diagnostics";  // ❌ Removed for WASM compatibility
+// Legacy diagnostics endpoint (removed prior to v1.0)
+// app.UseWhyDidYouRenderDiagnostics();
+// config.EnableDiagnosticsEndpoint = true;
+// config.DiagnosticsPath = "/diagnostics";
 ```
 
 ### New Configuration Options
@@ -233,21 +261,24 @@ private string debugInfo;
 
 ## 🔍 API Changes
 
-### Removed APIs
+### Removed APIs (historical)
 
 ```csharp
-// REMOVED in v2.0
-app.UseWhyDidYouRenderDiagnostics();  // ❌ Diagnostics endpoint removed
+// Removed prior to v1.0 (legacy diagnostics endpoint)
+// app.UseWhyDidYouRenderDiagnostics();
 ```
 
-### New APIs
+### New/Updated APIs
 
 ```csharp
-// NEW in v2.0 - Cross-platform services
+// v2.0 introduced cross-platform services
 IHostingEnvironmentDetector detector;
 ISessionContextService sessionService;
-ITrackingLogger trackingLogger;
-IErrorTracker errorTracker; // Updated interface
+ITrackingLogger trackingLogger;   // environment adapters for console/browser paths
+IErrorTracker errorTracker;       // updated interface
+
+// v3.0 adds the unified structured logger used by the composite/Aspire path
+Blazor.WhyDidYouRender.Logging.IWhyDidYouRenderLogger unifiedLogger;
 ```
 
 ## 📊 Environment-Specific Migration
@@ -309,7 +340,7 @@ builder.Services.AddWhyDidYouRender(config =>
     // Remove these lines:
     // config.EnableDiagnosticsEndpoint = true;  // ❌
     // config.DiagnosticsPath = "/diagnostics";  // ❌
-    
+
     // Update output configuration:
     config.Output = TrackingOutput.Both; // ✅ New option
 });

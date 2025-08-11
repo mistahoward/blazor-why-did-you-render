@@ -56,6 +56,24 @@ app.MapRazorPages();
 app.MapBlazorHub();
 app.MapFallbackToPage("/_Host");
 
+
+### Optional: Enable .NET Aspire / OpenTelemetry (Server/SSR)
+
+```csharp
+// Add Aspire service defaults
+builder.AddServiceDefaults();
+
+builder.Services.AddWhyDidYouRender(config =>
+{
+    config.EnableOpenTelemetry = true;
+    config.EnableOtelLogs = true;
+    config.EnableOtelTraces = true;
+    config.EnableOtelMetrics = true;
+});
+```
+
+See also: docs/observability.md for verification steps and troubleshooting.
+
 app.Run();
 ```
 
@@ -237,19 +255,33 @@ else
 }
 
 @code {
-    private bool ShouldTrack => 
+    private bool ShouldTrack =>
         Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development";
 }
 ```
 
-### Diagnostics Endpoint Integration
+### Diagnostics Endpoint (historical)
+
+The legacy diagnostics endpoint was removed prior to v1.0.
+
+Use these alternatives:
+- Browser developer tools console for interactive inspection
+- .NET Aspire / OpenTelemetry for structured logs, traces, and metrics (Server/SSR)
+
+Quick Aspire enablement:
 ```csharp
-// In Program.cs, after app.UseRouting()
-if (app.Environment.IsDevelopment())
+builder.AddServiceDefaults();
+
+builder.Services.AddWhyDidYouRender(config =>
 {
-    app.UseWhyDidYouRenderDiagnostics("/dev/renders");
-}
+    config.EnableOpenTelemetry = true;
+    config.EnableOtelLogs = true;
+    config.EnableOtelTraces = true;
+    config.EnableOtelMetrics = true;
+});
 ```
+
+See also: docs/observability.md for verification steps and troubleshooting.
 
 ## 🎨 Component Migration Patterns
 

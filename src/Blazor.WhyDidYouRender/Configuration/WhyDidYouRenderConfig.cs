@@ -194,6 +194,30 @@ public class WhyDidYouRenderConfig {
 	public bool EnableOpenTelemetry { get; set; } = false;
 
 	/// <summary>
+	/// When OpenTelemetry is enabled, controls whether structured logs via ILogger are emitted.
+	/// Default: true.
+	/// </summary>
+	public bool EnableOtelLogs { get; set; } = true;
+
+	/// <summary>
+	/// When OpenTelemetry is enabled, controls whether spans are emitted via ActivitySource.
+	/// Default: true.
+	/// </summary>
+	public bool EnableOtelTraces { get; set; } = true;
+
+	/// <summary>
+	/// When OpenTelemetry is enabled, controls whether metrics are emitted via Meter.
+	/// Default: true.
+	/// </summary>
+	public bool EnableOtelMetrics { get; set; } = true;
+
+	/// <summary>
+	/// Optional whitelist to limit which component names are exported to metrics/logs/traces
+	/// to help reduce metric cardinality. When null or empty, all components are allowed.
+	/// </summary>
+	public HashSet<string>? ComponentWhitelist { get; set; }
+
+	/// <summary>
 	/// Gets or sets whether to include user information in tracking data.
 	/// Should be disabled in production for privacy compliance.
 	/// </summary>

@@ -46,16 +46,17 @@ public abstract class WhyDidYouRenderLoggerBase : IWhyDidYouRenderLogger {
 	/// <inheritdoc />
 	public virtual void LogRenderEvent(Records.RenderEvent renderEvent) {
 		var data = new Dictionary<string, object?> {
-			["componentName"] = renderEvent.ComponentName,
+			["event"] = "render",
+			["component"] = renderEvent.ComponentName,
 			["method"] = renderEvent.Method,
 			["timestamp"] = renderEvent.Timestamp,
-			["durationMs"] = renderEvent.DurationMs,
-			["isUnnecessaryRerender"] = renderEvent.IsUnnecessaryRerender,
-			["isFrequentRerender"] = renderEvent.IsFrequentRerender
+			["duration.ms"] = renderEvent.DurationMs,
+			["unnecessary"] = renderEvent.IsUnnecessaryRerender,
+			["frequent"] = renderEvent.IsFrequentRerender
 		};
 
 		if (renderEvent.IsUnnecessaryRerender)
-			data["unnecessaryReason"] = renderEvent.UnnecessaryRerenderReason;
+			data["reason"] = renderEvent.UnnecessaryRerenderReason;
 
 		LogInfo($"Render event: {renderEvent.ComponentName}.{renderEvent.Method}()", data);
 	}
@@ -63,7 +64,8 @@ public abstract class WhyDidYouRenderLoggerBase : IWhyDidYouRenderLogger {
 	/// <inheritdoc />
 	public virtual void LogParameterChanges(string componentName, Dictionary<string, object?> changes) {
 		var data = new Dictionary<string, object?> {
-			["componentName"] = componentName,
+			["event"] = "param-change",
+			["component"] = componentName,
 			["parameterChanges"] = changes
 		};
 		LogInfo($"Parameter changes for {componentName}", data);
@@ -72,9 +74,10 @@ public abstract class WhyDidYouRenderLoggerBase : IWhyDidYouRenderLogger {
 	/// <inheritdoc />
 	public virtual void LogPerformance(string componentName, string method, double durationMs, Dictionary<string, object?>? metrics = null) {
 		var data = new Dictionary<string, object?> {
-			["componentName"] = componentName,
+			["event"] = "performance",
+			["component"] = componentName,
 			["method"] = method,
-			["durationMs"] = durationMs
+			["duration.ms"] = durationMs
 		};
 
 		if (metrics != null) {
@@ -88,10 +91,11 @@ public abstract class WhyDidYouRenderLoggerBase : IWhyDidYouRenderLogger {
 	/// <inheritdoc />
 	public virtual void LogStateChange(string componentName, string fieldName, object? previousValue, object? currentValue, string changeType) {
 		var data = new Dictionary<string, object?> {
-			["componentName"] = componentName,
-			["fieldName"] = fieldName,
-			["previousValue"] = previousValue,
-			["currentValue"] = currentValue,
+			["event"] = "state-change",
+			["component"] = componentName,
+			["field"] = fieldName,
+			["previous"] = previousValue,
+			["current"] = currentValue,
 			["changeType"] = changeType
 		};
 		LogInfo($"State change: {componentName}.{fieldName}", data);
@@ -100,7 +104,8 @@ public abstract class WhyDidYouRenderLoggerBase : IWhyDidYouRenderLogger {
 	/// <inheritdoc />
 	public virtual void LogUnnecessaryRerender(string componentName, string reason, Dictionary<string, object?>? context = null) {
 		var data = new Dictionary<string, object?> {
-			["componentName"] = componentName,
+			["event"] = "unnecessary-rerender",
+			["component"] = componentName,
 			["reason"] = reason
 		};
 		if (context != null) {
@@ -113,9 +118,10 @@ public abstract class WhyDidYouRenderLoggerBase : IWhyDidYouRenderLogger {
 	/// <inheritdoc />
 	public virtual void LogFrequentRerender(string componentName, int renderCount, TimeSpan timeSpan, Dictionary<string, object?>? context = null) {
 		var data = new Dictionary<string, object?> {
-			["componentName"] = componentName,
+			["event"] = "frequent-rerender",
+			["component"] = componentName,
 			["renderCount"] = renderCount,
-			["timeSpanMs"] = timeSpan.TotalMilliseconds,
+			["timeSpan.ms"] = timeSpan.TotalMilliseconds,
 			["rendersPerSecond"] = renderCount / timeSpan.TotalSeconds
 		};
 		if (context != null) {

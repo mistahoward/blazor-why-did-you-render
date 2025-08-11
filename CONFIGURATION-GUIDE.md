@@ -1,14 +1,16 @@
-# Blazor WhyDidYouRender - Configuration Guide v2.0
+# Blazor WhyDidYouRender - Configuration Guide v3.0
 
 This guide provides comprehensive configuration instructions for WhyDidYouRender across all Blazor hosting environments.
 
 ## 🌐 Cross-Platform Overview
 
-WhyDidYouRender v2.0 automatically adapts to your Blazor hosting environment:
+WhyDidYouRender v3.0 automatically adapts to your Blazor hosting environment and optionally emits Aspire/OTel telemetry:
 
 - **🖥️ Blazor Server** - Full server-side tracking with HttpContext session management
-- **🌐 Blazor WebAssembly** - Browser-based tracking with localStorage session management  
+- **🌐 Blazor WebAssembly** - Browser-based tracking with localStorage session management
 - **📄 Server-Side Rendering (SSR)** - Pre-render tracking with server-side optimization
+
+- **📡 .NET Aspire/OTel (Server/SSR)** - Optional structured logs, traces, and metrics
 
 ## 🚀 Quick Start
 
@@ -51,7 +53,7 @@ protected override async Task OnAfterRenderAsync(bool firstRender)
 // Blazor Server
 await app.Services.InitializeServerAsync();
 
-// Blazor WebAssembly  
+// Blazor WebAssembly
 await host.Services.InitializeWasmAsync(jsRuntime);
 ```
 
@@ -110,9 +112,9 @@ builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
 // Add HTTP client
-builder.Services.AddScoped(sp => new HttpClient 
-{ 
-    BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) 
+builder.Services.AddScoped(sp => new HttpClient
+{
+    BaseAddress = new Uri(builder.HostEnvironment.BaseAddress)
 });
 
 // Add WhyDidYouRender
@@ -123,7 +125,7 @@ builder.Services.AddWhyDidYouRender(config =>
     config.Output = TrackingOutput.BrowserConsole; // Browser console only
     config.TrackParameterChanges = true;
     config.TrackPerformance = true;
-    
+
     // WASM-specific settings
     config.IncludeSessionInfo = true; // Uses browser storage
     config.MaxParameterChangesToLog = 5; // Reduce for performance
@@ -192,7 +194,7 @@ config.IncludeSessionInfo = true;                   // Include session informati
 config.IncludeComponents = new[] { "Counter*", "*Important*" };
 config.ExcludeComponents = new[] { "System.*", "*Layout*" };
 
-// Namespace filtering  
+// Namespace filtering
 config.IncludeNamespaces = new[] { "MyApp.Components.*" };
 config.ExcludeNamespaces = new[] { "Microsoft.*", "System.*" };
 
@@ -215,6 +217,51 @@ config.ForceHostingModel = BlazorHostingModel.Server; // Force specific model
 ```
 
 ## 🎯 Environment-Specific Recommendations
+
+
+## 📡 OpenTelemetry / .NET Aspire
+
+To emit telemetry to the Aspire dashboard, enable OTel and wire the host:
+
+```csharp
+// Program.cs (Server/SSR)
+var builder = WebApplication.CreateBuilder(args);
+
+// Recommended: registers logging, tracing, metrics, and OTLP exporter
+builder.AddServiceDefaults();
+
+builder.Services.AddWhyDidYouRender(config =>
+{
+    config.Enabled = true;
+    // Opt-in telemetry (defaults to true when EnableOpenTelemetry = true)
+    config.EnableOpenTelemetry = true;
+    config.EnableOtelLogs = true;
+    config.EnableOtelTraces = true;
+    config.EnableOtelMetrics = true;
+});
+```
+
+If you don’t use ServiceDefaults, manually add:
+
+```csharp
+builder.Services.AddOpenTelemetry()
+    .WithTracing(t => t
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddSource("Blazor.WhyDidYouRender"))
+    .WithMetrics(m => m
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddRuntimeInstrumentation()
+        .AddMeter("Blazor.WhyDidYouRender"));
+
+builder.Services.AddOpenTelemetry().UseOtlpExporter();
+```
+
+Verification tips:
+- Traces: search WhyDidYouRender.Render; attributes include wdyrl.component, wdyrl.method, wdyrl.duration.ms
+- Metrics: search wdyrl; instruments include wdyrl.renders and wdyrl.render.duration.ms
+- Structured logs: from a span’s menu, “View structured logs” should show correlated entries
 
 ### Development Environment
 

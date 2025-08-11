@@ -59,13 +59,21 @@ public static class ServiceCollectionExtensions {
 			var detector = provider.GetRequiredService<IHostingEnvironmentDetector>();
 			var hostModel = config.ForceHostingModel ?? detector.DetectHostingModel();
 
-			if (config.EnableOpenTelemetry && hostModel != BlazorHostingModel.WebAssembly)
-				return new Logging.AspireWhyDidYouRenderLogger(config);
+			if (hostModel == BlazorHostingModel.WebAssembly)
+				return new Logging.WasmWhyDidYouRenderLogger(config, provider.GetRequiredService<IJSRuntime>());
 
-			return hostModel switch {
-				BlazorHostingModel.WebAssembly => new Logging.WasmWhyDidYouRenderLogger(config, provider.GetRequiredService<IJSRuntime>()),
-				_ => new Logging.ServerWhyDidYouRenderLogger(config, provider.GetRequiredService<Microsoft.Extensions.Logging.ILogger<Logging.ServerWhyDidYouRenderLogger>>())
-			};
+			// Server/SSR paths
+			var serverLogger = new Logging.ServerWhyDidYouRenderLogger(
+				config,
+				provider.GetRequiredService<Microsoft.Extensions.Logging.ILogger<Logging.ServerWhyDidYouRenderLogger>>()
+			);
+
+			if (config.EnableOpenTelemetry) {
+				var otelLogger = new Logging.AspireWhyDidYouRenderLogger(config);
+				return new Logging.CompositeWhyDidYouRenderLogger(config, serverLogger, otelLogger);
+			}
+
+			return serverLogger;
 		});
 
 		RegisterEnvironmentSpecificServices(services, config);

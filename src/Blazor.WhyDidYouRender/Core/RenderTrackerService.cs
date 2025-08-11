@@ -407,15 +407,22 @@ public class RenderTrackerService {
 			// Prefer unified environment-specific logger when available
 			if (_trackingLogger != null) {
 				await _trackingLogger.LogRenderEventAsync(renderEvent);
-				return;
+
+				var shouldForwardToBrowserLogger = _config.Output.HasFlag(TrackingOutput.BrowserConsole)
+					&& _browserLogger != null
+					&& _trackingLogger.SupportsBrowserConsole == false;
+
+				if (shouldForwardToBrowserLogger)
+					await _browserLogger!.LogRenderEventAsync(renderEvent);
 			}
+			else {
+				// fallback to prior behavior when no environment-specific logger is set
+				if (_config.Output.HasFlag(TrackingOutput.Console))
+					LogToConsole(renderEvent);
 
-			// Fallback to prior behavior
-			if (_config.Output.HasFlag(TrackingOutput.Console))
-				LogToConsole(renderEvent);
-
-			if (_config.Output.HasFlag(TrackingOutput.BrowserConsole) && _browserLogger != null)
-				await _browserLogger.LogRenderEventAsync(renderEvent);
+				if (_config.Output.HasFlag(TrackingOutput.BrowserConsole) && _browserLogger != null)
+					await _browserLogger.LogRenderEventAsync(renderEvent);
+			}
 		}
 		catch (Exception ex) {
 			_errorTracker?.TrackError(ex, new Dictionary<string, object?> { ["Method"] = "LogRenderEventAsync" }, ErrorSeverity.Warning);

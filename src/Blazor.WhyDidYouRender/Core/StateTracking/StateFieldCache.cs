@@ -1,5 +1,4 @@
 using System.Collections.Concurrent;
-
 using Blazor.WhyDidYouRender.Records;
 using Blazor.WhyDidYouRender.Records.StateTracking;
 
@@ -9,7 +8,8 @@ namespace Blazor.WhyDidYouRender.Core.StateTracking;
 /// High-performance cache for state field metadata with advanced features like
 /// lazy loading, cache invalidation, and memory management.
 /// </summary>
-public class StateFieldCache {
+public class StateFieldCache
+{
 	/// <summary>
 	/// Cache entries with metadata and access tracking.
 	/// </summary>
@@ -39,7 +39,8 @@ public class StateFieldCache {
 	/// Initializes a new instance of the <see cref="StateFieldCache"/> class.
 	/// </summary>
 	/// <param name="config">Cache configuration options.</param>
-	public StateFieldCache(CacheConfiguration? config = null) {
+	public StateFieldCache(CacheConfiguration? config = null)
+	{
 		_config = config ?? new CacheConfiguration();
 
 		// Start maintenance timer
@@ -47,7 +48,8 @@ public class StateFieldCache {
 			PerformMaintenance,
 			null,
 			TimeSpan.FromMinutes(_config.MaintenanceIntervalMinutes),
-			TimeSpan.FromMinutes(_config.MaintenanceIntervalMinutes));
+			TimeSpan.FromMinutes(_config.MaintenanceIntervalMinutes)
+		);
 	}
 
 	/// <summary>
@@ -56,26 +58,30 @@ public class StateFieldCache {
 	/// <param name="componentType">The component type.</param>
 	/// <param name="metadataFactory">Factory function to create metadata if not cached.</param>
 	/// <returns>The state field metadata.</returns>
-	public async Task<StateFieldMetadata> GetOrCreateAsync(
-		Type componentType,
-		Func<Type, StateFieldMetadata> metadataFactory) {
+	public async Task<StateFieldMetadata> GetOrCreateAsync(Type componentType, Func<Type, StateFieldMetadata> metadataFactory)
+	{
 		ArgumentNullException.ThrowIfNull(componentType);
 		ArgumentNullException.ThrowIfNull(metadataFactory);
 
-		if (_cache.TryGetValue(componentType, out var cacheEntry)) {
+		if (_cache.TryGetValue(componentType, out var cacheEntry))
+		{
 			cacheEntry.UpdateAccessTime();
 			_statistics.RecordHit();
 			return cacheEntry.Metadata;
 		}
-		var lazyTask = _loadingTasks.GetOrAdd(componentType, _ => new Lazy<Task<StateFieldMetadata>>(
-			() => Task.Run(() => CreateAndCacheMetadata(componentType, metadataFactory))));
+		var lazyTask = _loadingTasks.GetOrAdd(
+			componentType,
+			_ => new Lazy<Task<StateFieldMetadata>>(() => Task.Run(() => CreateAndCacheMetadata(componentType, metadataFactory)))
+		);
 
-		try {
+		try
+		{
 			var metadata = await lazyTask.Value;
 			_statistics.RecordMiss();
 			return metadata;
 		}
-		finally {
+		finally
+		{
 			_loadingTasks.TryRemove(componentType, out _);
 		}
 	}
@@ -85,8 +91,10 @@ public class StateFieldCache {
 	/// </summary>
 	/// <param name="componentType">The component type.</param>
 	/// <returns>The cached metadata or null if not available.</returns>
-	public StateFieldMetadata? GetIfCached(Type componentType) {
-		if (_cache.TryGetValue(componentType, out var cacheEntry)) {
+	public StateFieldMetadata? GetIfCached(Type componentType)
+	{
+		if (_cache.TryGetValue(componentType, out var cacheEntry))
+		{
 			cacheEntry.UpdateAccessTime();
 			_statistics.RecordHit();
 			return cacheEntry.Metadata;
@@ -99,16 +107,20 @@ public class StateFieldCache {
 	/// Invalidates cache entries for specific types or all entries.
 	/// </summary>
 	/// <param name="componentTypes">Types to invalidate, or null to invalidate all.</param>
-	public void Invalidate(IEnumerable<Type>? componentTypes = null) {
-		if (componentTypes == null) {
+	public void Invalidate(IEnumerable<Type>? componentTypes = null)
+	{
+		if (componentTypes == null)
+		{
 			var removedCount = _cache.Count;
 			_cache.Clear();
 			_loadingTasks.Clear();
 			_statistics.RecordInvalidation(removedCount);
 		}
-		else {
+		else
+		{
 			var removedCount = 0;
-			foreach (var type in componentTypes) {
+			foreach (var type in componentTypes)
+			{
 				if (_cache.TryRemove(type, out _))
 					removedCount++;
 				_loadingTasks.TryRemove(type, out _);
@@ -121,17 +133,18 @@ public class StateFieldCache {
 	/// Gets current cache statistics.
 	/// </summary>
 	/// <returns>Cache performance statistics.</returns>
-	public CacheStatistics GetStatistics() =>
-		_statistics.CreateSnapshot();
+	public CacheStatistics GetStatistics() => _statistics.CreateSnapshot();
 
 	/// <summary>
 	/// Gets detailed cache information for diagnostics.
 	/// </summary>
 	/// <returns>Detailed cache information.</returns>
-	public CacheInfo GetCacheInfo() {
+	public CacheInfo GetCacheInfo()
+	{
 		var entries = _cache.Values.ToList();
 
-		return new CacheInfo {
+		return new CacheInfo
+		{
 			TotalEntries = entries.Count,
 			LoadingTasks = _loadingTasks.Count,
 			TotalMemoryEstimate = entries.Sum(e => e.EstimatedMemoryUsage),
@@ -139,14 +152,15 @@ public class StateFieldCache {
 			NewestEntry = entries.MaxBy(e => e.CreatedAt)?.CreatedAt,
 			MostRecentlyAccessed = entries.MaxBy(e => e.LastAccessTime)?.LastAccessTime,
 			LeastRecentlyAccessed = entries.MinBy(e => e.LastAccessTime)?.LastAccessTime,
-			Statistics = GetStatistics()
+			Statistics = GetStatistics(),
 		};
 	}
 
 	/// <summary>
 	/// Performs cache maintenance including cleanup of old entries.
 	/// </summary>
-	public void PerformMaintenance() {
+	public void PerformMaintenance()
+	{
 		var cutoffTime = DateTime.UtcNow.AddMinutes(-_config.MaxEntryAgeMinutes);
 		var maxEntries = _config.MaxCacheSize;
 
@@ -157,9 +171,9 @@ public class StateFieldCache {
 			if (kvp.Value.CreatedAt < cutoffTime)
 				entriesToRemove.Add(kvp.Key);
 
-
 		bool overLimitAfterCleanup = allEntries.Count - entriesToRemove.Count > maxEntries;
-		if (overLimitAfterCleanup) {
+		if (overLimitAfterCleanup)
+		{
 			var remainingEntries = allEntries
 				.Where(kvp => !entriesToRemove.Contains(kvp.Key))
 				.OrderBy(kvp => kvp.Value.LastAccessTime)
@@ -182,7 +196,8 @@ public class StateFieldCache {
 	/// <param name="componentType">The component type.</param>
 	/// <param name="metadataFactory">Factory function to create metadata.</param>
 	/// <returns>The created metadata.</returns>
-	private StateFieldMetadata CreateAndCacheMetadata(Type componentType, Func<Type, StateFieldMetadata> metadataFactory) {
+	private StateFieldMetadata CreateAndCacheMetadata(Type componentType, Func<Type, StateFieldMetadata> metadataFactory)
+	{
 		var metadata = metadataFactory(componentType);
 		var cacheEntry = new CacheEntry(metadata);
 
@@ -195,11 +210,14 @@ public class StateFieldCache {
 	/// Performs maintenance as a timer callback.
 	/// </summary>
 	/// <param name="state">Timer state (unused).</param>
-	private void PerformMaintenance(object? state) {
-		try {
+	private void PerformMaintenance(object? state)
+	{
+		try
+		{
 			PerformMaintenance();
 		}
-		catch (Exception ex) {
+		catch (Exception ex)
+		{
 			// record maintenance errors but don't let them stop the timer
 			_statistics.RecordMaintenanceError();
 
@@ -216,13 +234,10 @@ public class StateFieldCache {
 	/// <summary>
 	/// Disposes the cache and stops maintenance.
 	/// </summary>
-	public void Dispose() {
+	public void Dispose()
+	{
 		_maintenanceTimer?.Dispose();
 		_cache.Clear();
 		_loadingTasks.Clear();
 	}
 }
-
-
-
-

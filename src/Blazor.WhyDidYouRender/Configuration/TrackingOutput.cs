@@ -6,7 +6,8 @@ namespace Blazor.WhyDidYouRender.Configuration;
 /// Output destinations for render tracking logs.
 /// </summary>
 [Flags]
-public enum TrackingOutput {
+public enum TrackingOutput
+{
 	/// <summary>
 	/// No output.
 	/// </summary>
@@ -30,5 +31,5 @@ public enum TrackingOutput {
 	/// <summary>
 	/// Output to a custom logger - typically used for .net aspire
 	/// </summary>
-	Logger = 4
+	Logger = 4,
 }

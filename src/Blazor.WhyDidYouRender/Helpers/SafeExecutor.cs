@@ -1,16 +1,16 @@
 using System;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Components;
-
 using Blazor.WhyDidYouRender.Abstractions;
 using Blazor.WhyDidYouRender.Records;
+using Microsoft.AspNetCore.Components;
 
 namespace Blazor.WhyDidYouRender.Helpers;
 
 /// <summary>
 /// Provides safe execution of tracking operations with comprehensive error handling.
 /// </summary>
-public static class SafeExecutor {
+public static class SafeExecutor
+{
 	/// <summary>
 	/// Executes an action safely, catching and logging any exceptions.
 	/// </summary>
@@ -25,13 +25,16 @@ public static class SafeExecutor {
 		IErrorTracker? errorTracker,
 		Dictionary<string, object?>? context = null,
 		string? componentName = null,
-		string? method = null) {
-
-		try {
+		string? method = null
+	)
+	{
+		try
+		{
 			action();
 			return true;
 		}
-		catch (Exception ex) {
+		catch (Exception ex)
+		{
 			HandleError(ex, errorTracker, context, componentName, method);
 			return false;
 		}
@@ -54,12 +57,15 @@ public static class SafeExecutor {
 		IErrorTracker? errorTracker,
 		Dictionary<string, object?>? context = null,
 		string? componentName = null,
-		string? method = null) {
-
-		try {
+		string? method = null
+	)
+	{
+		try
+		{
 			return func();
 		}
-		catch (Exception ex) {
+		catch (Exception ex)
+		{
 			HandleError(ex, errorTracker, context, componentName, method);
 			return defaultValue;
 		}
@@ -79,13 +85,16 @@ public static class SafeExecutor {
 		IErrorTracker? errorTracker,
 		Dictionary<string, object?>? context = null,
 		string? componentName = null,
-		string? method = null) {
-
-		try {
+		string? method = null
+	)
+	{
+		try
+		{
 			await action();
 			return true;
 		}
-		catch (Exception ex) {
+		catch (Exception ex)
+		{
 			HandleError(ex, errorTracker, context, componentName, method);
 			return false;
 		}
@@ -108,12 +117,15 @@ public static class SafeExecutor {
 		IErrorTracker? errorTracker,
 		Dictionary<string, object?>? context = null,
 		string? componentName = null,
-		string? method = null) {
-
-		try {
+		string? method = null
+	)
+	{
+		try
+		{
 			return await func();
 		}
-		catch (Exception ex) {
+		catch (Exception ex)
+		{
 			HandleError(ex, errorTracker, context, componentName, method);
 			return defaultValue;
 		}
@@ -127,16 +139,13 @@ public static class SafeExecutor {
 	/// <param name="action">The tracking action to execute.</param>
 	/// <param name="errorTracker">The error tracker for logging errors.</param>
 	/// <returns>True if the tracking executed successfully; otherwise, false.</returns>
-	public static bool ExecuteTracking(
-		ComponentBase component,
-		string trackingMethod,
-		Action action,
-		IErrorTracker? errorTracker) {
-
+	public static bool ExecuteTracking(ComponentBase component, string trackingMethod, Action action, IErrorTracker? errorTracker)
+	{
 		var componentName = component?.GetType().Name ?? "Unknown";
-		var context = new Dictionary<string, object?> {
+		var context = new Dictionary<string, object?>
+		{
 			["ComponentType"] = component?.GetType().FullName,
-			["TrackingMethod"] = trackingMethod
+			["TrackingMethod"] = trackingMethod,
 		};
 
 		return Execute(action, errorTracker, context, componentName, trackingMethod);
@@ -157,12 +166,14 @@ public static class SafeExecutor {
 		string trackingMethod,
 		Func<T> func,
 		T defaultValue,
-		IErrorTracker? errorTracker) {
-
+		IErrorTracker? errorTracker
+	)
+	{
 		var componentName = component?.GetType().Name ?? "Unknown";
-		var context = new Dictionary<string, object?> {
+		var context = new Dictionary<string, object?>
+		{
 			["ComponentType"] = component?.GetType().FullName,
-			["TrackingMethod"] = trackingMethod
+			["TrackingMethod"] = trackingMethod,
 		};
 
 		return Execute(func, defaultValue, errorTracker, context, componentName, trackingMethod);
@@ -181,22 +192,27 @@ public static class SafeExecutor {
 		IErrorTracker? errorTracker,
 		Dictionary<string, object?>? context,
 		string? componentName,
-		string? method) {
-
+		string? method
+	)
+	{
 		var errorContext = context ?? new Dictionary<string, object?>();
-		if (!string.IsNullOrEmpty(componentName)) {
+		if (!string.IsNullOrEmpty(componentName))
+		{
 			errorContext["ComponentName"] = componentName;
 		}
-		if (!string.IsNullOrEmpty(method)) {
+		if (!string.IsNullOrEmpty(method))
+		{
 			errorContext["TrackingMethod"] = method;
 		}
 
 		var severity = DetermineSeverity(exception);
 
-		if (errorTracker != null) {
+		if (errorTracker != null)
+		{
 			_ = errorTracker.TrackErrorAsync(exception, errorContext, severity, componentName, method);
 		}
-		else {
+		else
+		{
 			Console.WriteLine($"[WhyDidYouRender] Error in {method ?? "tracking"}: {exception.Message}");
 		}
 	}
@@ -206,8 +222,10 @@ public static class SafeExecutor {
 	/// </summary>
 	/// <param name="exception">The exception to evaluate.</param>
 	/// <returns>The appropriate error severity level.</returns>
-	private static ErrorSeverity DetermineSeverity(Exception exception) {
-		return exception switch {
+	private static ErrorSeverity DetermineSeverity(Exception exception)
+	{
+		return exception switch
+		{
 			ArgumentNullException => ErrorSeverity.Warning,
 			ArgumentException => ErrorSeverity.Warning,
 			InvalidOperationException => ErrorSeverity.Warning,
@@ -216,7 +234,7 @@ public static class SafeExecutor {
 			UnauthorizedAccessException => ErrorSeverity.Error,
 			OutOfMemoryException => ErrorSeverity.Critical,
 			StackOverflowException => ErrorSeverity.Critical,
-			_ => ErrorSeverity.Error
+			_ => ErrorSeverity.Error,
 		};
 	}
 
@@ -227,33 +245,36 @@ public static class SafeExecutor {
 	/// <param name="errorTracker">The error tracker for logging recovery attempts.</param>
 	/// <param name="context">Additional context for recovery reporting.</param>
 	/// <returns>True if recovery was successful; otherwise, false.</returns>
-	public static bool AttemptRecovery(
-		Action recoveryAction,
-		IErrorTracker? errorTracker,
-		Dictionary<string, object?>? context = null) {
-
-		try {
+	public static bool AttemptRecovery(Action recoveryAction, IErrorTracker? errorTracker, Dictionary<string, object?>? context = null)
+	{
+		try
+		{
 			recoveryAction();
 
-			if (errorTracker != null) {
+			if (errorTracker != null)
+			{
 				_ = errorTracker.TrackErrorAsync(
 					"Recovery action completed successfully",
 					context ?? new Dictionary<string, object?>(),
 					ErrorSeverity.Info,
 					null,
-					"AttemptRecovery");
+					"AttemptRecovery"
+				);
 			}
 
 			return true;
 		}
-		catch (Exception ex) {
-			if (errorTracker != null) {
+		catch (Exception ex)
+		{
+			if (errorTracker != null)
+			{
 				_ = errorTracker.TrackErrorAsync(
 					ex,
 					context ?? new Dictionary<string, object?>(),
 					ErrorSeverity.Error,
 					null,
-					"AttemptRecovery");
+					"AttemptRecovery"
+				);
 			}
 
 			return false;

@@ -3,7 +3,8 @@ namespace Blazor.WhyDidYouRender.Records;
 /// <summary>
 /// Represents a render event with detailed tracking information.
 /// </summary>
-public record RenderEvent {
+public record RenderEvent
+{
 	/// <summary>
 	/// Timestamp when the render event occurred.
 	/// </summary>

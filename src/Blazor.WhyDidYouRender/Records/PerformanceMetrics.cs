@@ -5,7 +5,8 @@ namespace Blazor.WhyDidYouRender.Records;
 /// <summary>
 /// Performance metrics for a component.
 /// </summary>
-public class PerformanceMetrics {
+public class PerformanceMetrics
+{
 	/// <summary>
 	/// Gets or sets the component name.
 	/// </summary>
@@ -65,7 +66,8 @@ public class PerformanceMetrics {
 /// <summary>
 /// Overall performance statistics across all components.
 /// </summary>
-public record OverallPerformanceStatistics {
+public record OverallPerformanceStatistics
+{
 	/// <summary>
 	/// Gets or sets the total number of components tracked.
 	/// </summary>

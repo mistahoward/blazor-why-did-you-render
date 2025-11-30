@@ -1,16 +1,16 @@
 using System.Text.Json;
-using Microsoft.JSInterop;
-
 using Blazor.WhyDidYouRender.Abstractions;
 using Blazor.WhyDidYouRender.Configuration;
 using Blazor.WhyDidYouRender.Records;
+using Microsoft.JSInterop;
 
 namespace Blazor.WhyDidYouRender.Services;
 
 /// <summary>
 /// WebAssembly implementation of error tracking service (in-memory; browser console logging).
 /// </summary>
-public class WasmErrorTracker : IErrorTracker {
+public class WasmErrorTracker : IErrorTracker
+{
 	private readonly IJSRuntime _jsRuntime;
 	private readonly WhyDidYouRenderConfig _config;
 	private readonly JsonSerializerOptions _jsonOptions;
@@ -23,14 +23,12 @@ public class WasmErrorTracker : IErrorTracker {
 	/// </summary>
 	/// <param name="jsRuntime">The JavaScript runtime for browser interop.</param>
 	/// <param name="config">The WhyDidYouRender configuration.</param>
-	public WasmErrorTracker(IJSRuntime jsRuntime, WhyDidYouRenderConfig config) {
+	public WasmErrorTracker(IJSRuntime jsRuntime, WhyDidYouRenderConfig config)
+	{
 		_jsRuntime = jsRuntime ?? throw new ArgumentNullException(nameof(jsRuntime));
 		_config = config ?? throw new ArgumentNullException(nameof(config));
 
-		_jsonOptions = new JsonSerializerOptions {
-			PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-			WriteIndented = false
-		};
+		_jsonOptions = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, WriteIndented = false };
 	}
 
 	/// <inheritdoc />
@@ -40,12 +38,19 @@ public class WasmErrorTracker : IErrorTracker {
 	public bool SupportsErrorReporting => true; // can log to browser console
 
 	/// <inheritdoc />
-	public string ErrorTrackingDescription =>
-		"WebAssembly error tracking (in-memory only; browser console)";
+	public string ErrorTrackingDescription => "WebAssembly error tracking (in-memory only; browser console)";
 
 	/// <inheritdoc />
-	public async Task TrackErrorAsync(Exception exception, Dictionary<string, object?> context, ErrorSeverity severity, string? componentName = null, string? operation = null) {
-		var trackingError = new TrackingError {
+	public async Task TrackErrorAsync(
+		Exception exception,
+		Dictionary<string, object?> context,
+		ErrorSeverity severity,
+		string? componentName = null,
+		string? operation = null
+	)
+	{
+		var trackingError = new TrackingError
+		{
 			ErrorId = Guid.NewGuid().ToString("N")[..8], // match our existing format
 			Message = exception.Message,
 			ExceptionType = exception.GetType().Name,
@@ -54,7 +59,7 @@ public class WasmErrorTracker : IErrorTracker {
 			Severity = severity,
 			ComponentName = componentName,
 			TrackingMethod = operation,
-			Timestamp = DateTime.UtcNow
+			Timestamp = DateTime.UtcNow,
 		};
 
 		trackingError.Context["ExceptionType"] = exception.GetType().FullName;
@@ -65,23 +70,37 @@ public class WasmErrorTracker : IErrorTracker {
 	}
 
 	/// <inheritdoc />
-	public async Task TrackErrorAsync(string message, Dictionary<string, object?> context, ErrorSeverity severity, string? componentName = null, string? operation = null) {
-		var trackingError = new TrackingError {
+	public async Task TrackErrorAsync(
+		string message,
+		Dictionary<string, object?> context,
+		ErrorSeverity severity,
+		string? componentName = null,
+		string? operation = null
+	)
+	{
+		var trackingError = new TrackingError
+		{
 			ErrorId = Guid.NewGuid().ToString("N")[..8], // match our existing format
 			Message = message,
 			Context = new Dictionary<string, object?>(context),
 			Severity = severity,
 			ComponentName = componentName,
 			TrackingMethod = operation,
-			Timestamp = DateTime.UtcNow
+			Timestamp = DateTime.UtcNow,
 		};
 
 		await TrackErrorInternalAsync(trackingError);
 	}
 
 	/// <inheritdoc />
-	public Task<IEnumerable<TrackingError>> GetRecentErrorsAsync(int count = 50, ErrorSeverity? severity = null, string? componentName = null) {
-		lock (_lock) {
+	public Task<IEnumerable<TrackingError>> GetRecentErrorsAsync(
+		int count = 50,
+		ErrorSeverity? severity = null,
+		string? componentName = null
+	)
+	{
+		lock (_lock)
+		{
 			var errors = _memoryErrors.AsEnumerable();
 
 			if (severity.HasValue)
@@ -96,8 +115,10 @@ public class WasmErrorTracker : IErrorTracker {
 	}
 
 	/// <inheritdoc />
-	public Task<ErrorStatistics> GetErrorStatisticsAsync() {
-		lock (_lock) {
+	public Task<ErrorStatistics> GetErrorStatisticsAsync()
+	{
+		lock (_lock)
+		{
 			var errors = _memoryErrors.ToArray();
 			var now = DateTime.UtcNow;
 			var oneHourAgo = now.AddHours(-1);
@@ -116,17 +137,16 @@ public class WasmErrorTracker : IErrorTracker {
 				.GroupBy(e => e.ComponentName!)
 				.ToDictionary(g => g.Key, g => g.Count());
 
-			var errorRate = errors.Length > 0 && errors.Length > 1
-				? errors.Length / (now - errors.First().Timestamp).TotalMinutes
-				: 0.0;
+			var errorRate = errors.Length > 0 && errors.Length > 1 ? errors.Length / (now - errors.First().Timestamp).TotalMinutes : 0.0;
 
-			var statistics = new ErrorStatistics {
+			var statistics = new ErrorStatistics
+			{
 				TotalErrors = _totalErrorCount,
 				ErrorsLastHour = errorsLastHour,
 				ErrorsLast24Hours = errorsLast24Hours,
 				CommonErrorTypes = commonTypes,
 				ProblematicComponents = problematicComponents,
-				ErrorRate = errorRate
+				ErrorRate = errorRate,
 			};
 
 			return Task.FromResult(statistics);
@@ -134,8 +154,10 @@ public class WasmErrorTracker : IErrorTracker {
 	}
 
 	/// <inheritdoc />
-	public async Task ClearErrorsAsync() {
-		lock (_lock) {
+	public async Task ClearErrorsAsync()
+	{
+		lock (_lock)
+		{
 			_memoryErrors.Clear();
 			_totalErrorCount = 0;
 		}
@@ -144,13 +166,16 @@ public class WasmErrorTracker : IErrorTracker {
 	}
 
 	/// <inheritdoc />
-	public Task<int> GetErrorCountAsync() {
+	public Task<int> GetErrorCountAsync()
+	{
 		return Task.FromResult(_totalErrorCount);
 	}
 
 	/// <inheritdoc />
-	public Task<IEnumerable<TrackingError>> GetErrorsSinceAsync(DateTime since, DateTime? until = null) {
-		lock (_lock) {
+	public Task<IEnumerable<TrackingError>> GetErrorsSinceAsync(DateTime since, DateTime? until = null)
+	{
+		lock (_lock)
+		{
 			var errors = _memoryErrors.AsEnumerable();
 
 			errors = errors.Where(e => e.Timestamp >= since);
@@ -167,7 +192,8 @@ public class WasmErrorTracker : IErrorTracker {
 	/// No-op: browser storage has been removed. Errors are kept in-memory only.
 	/// </summary>
 	/// <returns>A task representing the (no-op) load operation.</returns>
-	public async Task LoadErrorsFromStorageAsync() {
+	public async Task LoadErrorsFromStorageAsync()
+	{
 		await Task.CompletedTask;
 	}
 
@@ -175,7 +201,8 @@ public class WasmErrorTracker : IErrorTracker {
 	/// No-op: browser storage cleanup removed. In-memory list is pruned during tracking.
 	/// </summary>
 	/// <returns>A task representing the (no-op) cleanup operation.</returns>
-	public async Task PerformErrorCleanupAsync() {
+	public async Task PerformErrorCleanupAsync()
+	{
 		await Task.CompletedTask;
 	}
 
@@ -184,8 +211,10 @@ public class WasmErrorTracker : IErrorTracker {
 	/// </summary>
 	/// <param name="trackingError">The tracking error to track.</param>
 	/// <returns>A task representing the tracking operation.</returns>
-	private async Task TrackErrorInternalAsync(TrackingError trackingError) {
-		lock (_lock) {
+	private async Task TrackErrorInternalAsync(TrackingError trackingError)
+	{
+		lock (_lock)
+		{
 			_memoryErrors.Add(trackingError);
 			_totalErrorCount++;
 
@@ -213,23 +242,27 @@ public class WasmErrorTracker : IErrorTracker {
 	/// </summary>
 	/// <param name="trackingError">The tracking error to log.</param>
 	/// <returns>A task representing the logging operation.</returns>
-	private async Task LogErrorToBrowserConsoleAsync(TrackingError trackingError) {
-		try {
-			var consoleMethod = trackingError.Severity switch {
+	private async Task LogErrorToBrowserConsoleAsync(TrackingError trackingError)
+	{
+		try
+		{
+			var consoleMethod = trackingError.Severity switch
+			{
 				ErrorSeverity.Info => "log",
 				ErrorSeverity.Warning => "warn",
 				ErrorSeverity.Error => "error",
 				ErrorSeverity.Critical => "error",
-				_ => "warn"
+				_ => "warn",
 			};
 
 			var message = $"[WhyDidYouRender] {trackingError.Severity} {trackingError.ErrorId}: {trackingError.Message}";
 
-			var logData = new Dictionary<string, object?> {
+			var logData = new Dictionary<string, object?>
+			{
 				["errorId"] = trackingError.ErrorId,
 				["severity"] = trackingError.Severity.ToString(),
 				["timestamp"] = trackingError.Timestamp.ToString("HH:mm:ss.fff"),
-				["context"] = trackingError.Context
+				["context"] = trackingError.Context,
 			};
 
 			if (!string.IsNullOrEmpty(trackingError.ComponentName))
@@ -243,7 +276,8 @@ public class WasmErrorTracker : IErrorTracker {
 
 			await _jsRuntime.InvokeVoidAsync($"console.{consoleMethod}", message, logData);
 		}
-		catch {
+		catch
+		{
 			await _jsRuntime.InvokeVoidAsync("console.error", $"[WhyDidYouRender] Error: {trackingError.Message}");
 		}
 	}
@@ -252,7 +286,8 @@ public class WasmErrorTracker : IErrorTracker {
 	/// Deprecated: storage key no longer used; keeping method for compatibility.
 	/// </summary>
 	/// <returns>A constant key.</returns>
-	private string GetErrorStorageKey() {
+	private string GetErrorStorageKey()
+	{
 		return "errors";
 	}
 }

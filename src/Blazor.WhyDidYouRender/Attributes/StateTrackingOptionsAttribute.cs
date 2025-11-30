@@ -12,7 +12,7 @@ namespace Blazor.WhyDidYouRender.Attributes;
 /// Use this attribute when you need different state tracking behavior for specific components
 /// compared to the global configuration. This is useful for performance-critical components
 /// or components with unique state tracking requirements.
-/// 
+///
 /// Example usage:
 /// <code>
 /// [StateTrackingOptions(MaxFields = 20, AutoTrackSimpleTypes = false)]
@@ -20,7 +20,7 @@ namespace Blazor.WhyDidYouRender.Attributes;
 /// {
 ///     // Only explicitly marked fields will be tracked, max 20 fields
 /// }
-/// 
+///
 /// [StateTrackingOptions(EnableStateTracking = false)]
 /// public class NoStateTrackingComponent : ComponentBase
 /// {
@@ -29,7 +29,8 @@ namespace Blazor.WhyDidYouRender.Attributes;
 /// </code>
 /// </remarks>
 [AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = true)]
-public sealed class StateTrackingOptionsAttribute : Attribute {
+public sealed class StateTrackingOptionsAttribute : Attribute
+{
 	/// <summary>
 	/// Gets or sets whether state tracking is enabled for this component.
 	/// When not set, uses global configuration. When false, no state tracking will occur regardless of other settings.
@@ -81,14 +82,14 @@ public sealed class StateTrackingOptionsAttribute : Attribute {
 	/// <summary>
 	/// Initializes a new instance of the <see cref="StateTrackingOptionsAttribute"/> class.
 	/// </summary>
-	public StateTrackingOptionsAttribute() {
-	}
+	public StateTrackingOptionsAttribute() { }
 
 	/// <summary>
 	/// Initializes a new instance of the <see cref="StateTrackingOptionsAttribute"/> class with a description.
 	/// </summary>
 	/// <param name="description">A description of the state tracking configuration for this component.</param>
-	public StateTrackingOptionsAttribute(string description) {
+	public StateTrackingOptionsAttribute(string description)
+	{
 		Description = description;
 	}
 
@@ -96,7 +97,8 @@ public sealed class StateTrackingOptionsAttribute : Attribute {
 	/// Validates the attribute configuration and returns any validation errors.
 	/// </summary>
 	/// <returns>An array of validation error messages, empty if configuration is valid.</returns>
-	internal string[] Validate() {
+	internal string[] Validate()
+	{
 		List<string> errors = [];
 
 		if (MaxFields >= 0 && MaxFields > 1000)
@@ -113,46 +115,40 @@ public sealed class StateTrackingOptionsAttribute : Attribute {
 	/// </summary>
 	/// <param name="globalDefault">The global default setting.</param>
 	/// <returns>True if state tracking should be enabled.</returns>
-	internal bool ShouldEnableStateTracking(bool globalDefault) =>
-		EnableStateTracking;
+	internal bool ShouldEnableStateTracking(bool globalDefault) => EnableStateTracking;
 
 	/// <summary>
 	/// Gets the effective maximum number of fields to track.
 	/// </summary>
 	/// <param name="globalDefault">The global default setting.</param>
 	/// <returns>The maximum number of fields to track.</returns>
-	internal int GetEffectiveMaxFields(int globalDefault) =>
-		MaxFields == -1 ? globalDefault : MaxFields;
+	internal int GetEffectiveMaxFields(int globalDefault) => MaxFields == -1 ? globalDefault : MaxFields;
 
 	/// <summary>
 	/// Gets the effective auto-track simple types setting.
 	/// </summary>
 	/// <param name="globalDefault">The global default setting.</param>
 	/// <returns>True if simple types should be auto-tracked.</returns>
-	internal bool GetEffectiveAutoTrackSimpleTypes(bool globalDefault) =>
-		AutoTrackSimpleTypes;
+	internal bool GetEffectiveAutoTrackSimpleTypes(bool globalDefault) => AutoTrackSimpleTypes;
 
 	/// <summary>
 	/// Gets the effective log state changes setting.
 	/// </summary>
 	/// <param name="globalDefault">The global default setting.</param>
 	/// <returns>True if state changes should be logged.</returns>
-	internal bool GetEffectiveLogStateChanges(bool globalDefault) =>
-		LogStateChanges;
+	internal bool GetEffectiveLogStateChanges(bool globalDefault) => LogStateChanges;
 
 	/// <summary>
 	/// Gets the effective maximum comparison depth setting.
 	/// </summary>
 	/// <param name="globalDefault">The global default setting.</param>
 	/// <returns>The maximum comparison depth.</returns>
-	internal int GetEffectiveMaxComparisonDepth(int globalDefault) =>
-		MaxComparisonDepth == -1 ? globalDefault : MaxComparisonDepth;
+	internal int GetEffectiveMaxComparisonDepth(int globalDefault) => MaxComparisonDepth == -1 ? globalDefault : MaxComparisonDepth;
 
 	/// <summary>
 	/// Gets the effective track inherited fields setting.
 	/// </summary>
 	/// <param name="globalDefault">The global default setting.</param>
 	/// <returns>True if inherited fields should be tracked.</returns>
-	internal bool GetEffectiveTrackInheritedFields(bool globalDefault) =>
-		TrackInheritedFields;
+	internal bool GetEffectiveTrackInheritedFields(bool globalDefault) => TrackInheritedFields;
 }

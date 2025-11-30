@@ -4,9 +4,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Components;
 using Blazor.WhyDidYouRender.Configuration;
 using Blazor.WhyDidYouRender.Records.StateTracking;
+using Microsoft.AspNetCore.Components;
 
 namespace Blazor.WhyDidYouRender.Core.StateTracking;
 
@@ -14,7 +14,8 @@ namespace Blazor.WhyDidYouRender.Core.StateTracking;
 /// Thread-safe wrapper for state tracking operations, optimized for Blazor Server scenarios
 /// where multiple threads may access component state simultaneously.
 /// </summary>
-public class ThreadSafeStateTracker {
+public class ThreadSafeStateTracker
+{
 	/// <summary>
 	/// Thread-safe storage for component state snapshots.
 	/// </summary>
@@ -54,13 +55,13 @@ public class ThreadSafeStateTracker {
 	public ThreadSafeStateTracker(
 		LazyStateTrackingProvider stateTrackingProvider,
 		WhyDidYouRenderConfig config,
-		ThreadingConfiguration? threadingConfig = null) {
+		ThreadingConfiguration? threadingConfig = null
+	)
+	{
 		_stateTrackingProvider = stateTrackingProvider ?? throw new ArgumentNullException(nameof(stateTrackingProvider));
 		_threadingConfig = threadingConfig ?? new ThreadingConfiguration();
 
-		_concurrencyLimiter = new SemaphoreSlim(
-			_threadingConfig.MaxConcurrentOperations,
-			_threadingConfig.MaxConcurrentOperations);
+		_concurrencyLimiter = new SemaphoreSlim(_threadingConfig.MaxConcurrentOperations, _threadingConfig.MaxConcurrentOperations);
 	}
 
 	/// <summary>
@@ -69,7 +70,8 @@ public class ThreadSafeStateTracker {
 	/// <param name="component">The component to capture state for.</param>
 	/// <param name="cancellationToken">Cancellation token.</param>
 	/// <returns>The captured state snapshot.</returns>
-	public async Task<StateSnapshot?> CaptureSnapshotAsync(ComponentBase component, CancellationToken cancellationToken = default) {
+	public async Task<StateSnapshot?> CaptureSnapshotAsync(ComponentBase component, CancellationToken cancellationToken = default)
+	{
 		if (component == null || !_stateTrackingProvider.IsStateTrackingEnabled)
 			return null;
 
@@ -77,36 +79,42 @@ public class ThreadSafeStateTracker {
 
 		await _concurrencyLimiter.WaitAsync(cancellationToken);
 
-		try {
+		try
+		{
 			var lockSlim = GetOrCreateLock(componentKey);
 
 			lockSlim.EnterReadLock();
-			try {
+			try
+			{
 				var startTime = DateTime.UtcNow;
 				var snapshot = _stateTrackingProvider.SnapshotManager.CaptureSnapshot(component);
 				var duration = DateTime.UtcNow - startTime;
 
 				_statistics.RecordOperation("CaptureSnapshot", duration, true);
 
-				var entry = new ThreadSafeSnapshotEntry {
+				var entry = new ThreadSafeSnapshotEntry
+				{
 					Snapshot = snapshot,
 					ThreadId = Environment.CurrentManagedThreadId,
-					CapturedAt = DateTime.UtcNow
+					CapturedAt = DateTime.UtcNow,
 				};
 
 				_componentSnapshots.AddOrUpdate(componentKey, entry, (_, _) => entry);
 
 				return snapshot;
 			}
-			finally {
+			finally
+			{
 				lockSlim.ExitReadLock();
 			}
 		}
-		catch (Exception) {
+		catch (Exception)
+		{
 			_statistics.RecordOperation("CaptureSnapshot", TimeSpan.Zero, false);
 			return null;
 		}
-		finally {
+		finally
+		{
 			_concurrencyLimiter.Release();
 		}
 	}
@@ -117,7 +125,8 @@ public class ThreadSafeStateTracker {
 	/// <param name="component">The component to analyze.</param>
 	/// <param name="cancellationToken">Cancellation token.</param>
 	/// <returns>State change detection results.</returns>
-	public async Task<StateChangeResult> DetectStateChangesAsync(ComponentBase component, CancellationToken cancellationToken = default) {
+	public async Task<StateChangeResult> DetectStateChangesAsync(ComponentBase component, CancellationToken cancellationToken = default)
+	{
 		if (component == null || !_stateTrackingProvider.IsStateTrackingEnabled)
 			return new StateChangeResult { HasChanges = false };
 
@@ -125,34 +134,40 @@ public class ThreadSafeStateTracker {
 
 		await _concurrencyLimiter.WaitAsync(cancellationToken);
 
-		try {
+		try
+		{
 			var lockSlim = GetOrCreateLock(componentKey);
 
 			// write lock ensures exclusive access during state change detection
 			lockSlim.EnterWriteLock();
-			try {
+			try
+			{
 				var startTime = DateTime.UtcNow;
 				var (hasChanges, changes) = _stateTrackingProvider.SnapshotManager.DetectStateChanges(component);
 				var duration = DateTime.UtcNow - startTime;
 
 				_statistics.RecordOperation("DetectStateChanges", duration, true);
 
-				return new StateChangeResult {
+				return new StateChangeResult
+				{
 					HasChanges = hasChanges,
 					Changes = changes.ToList(),
 					DetectedAt = DateTime.UtcNow,
-					ThreadId = Thread.CurrentThread.ManagedThreadId
+					ThreadId = Thread.CurrentThread.ManagedThreadId,
 				};
 			}
-			finally {
+			finally
+			{
 				lockSlim.ExitWriteLock();
 			}
 		}
-		catch (Exception ex) {
+		catch (Exception ex)
+		{
 			_statistics.RecordOperation("DetectStateChanges", TimeSpan.Zero, false);
 			return new StateChangeResult { HasChanges = false, Error = ex.Message };
 		}
-		finally {
+		finally
+		{
 			_concurrencyLimiter.Release();
 		}
 	}
@@ -161,8 +176,10 @@ public class ThreadSafeStateTracker {
 	/// Removes state tracking for a component when it's disposed.
 	/// </summary>
 	/// <param name="component">The component to clean up.</param>
-	public void CleanupComponent(ComponentBase component) {
-		if (component == null) return;
+	public void CleanupComponent(ComponentBase component)
+	{
+		if (component == null)
+			return;
 
 		var componentKey = new ComponentKey(component);
 
@@ -179,7 +196,8 @@ public class ThreadSafeStateTracker {
 	/// </summary>
 	/// <param name="activeComponents">Currently active components.</param>
 	/// <returns>Number of components cleaned up.</returns>
-	public int PerformBulkCleanup(IEnumerable<ComponentBase> activeComponents) {
+	public int PerformBulkCleanup(IEnumerable<ComponentBase> activeComponents)
+	{
 		var activeKeys = new HashSet<ComponentKey>(activeComponents.Select(c => new ComponentKey(c)));
 		var keysToRemove = new List<ComponentKey>();
 
@@ -188,7 +206,8 @@ public class ThreadSafeStateTracker {
 				keysToRemove.Add(key);
 
 		// remove components no longer present
-		foreach (var key in keysToRemove) {
+		foreach (var key in keysToRemove)
+		{
 			_componentSnapshots.TryRemove(key, out _);
 
 			if (_componentLocks.TryRemove(key, out var lockSlim))
@@ -203,30 +222,26 @@ public class ThreadSafeStateTracker {
 	/// Gets threading statistics for monitoring and diagnostics.
 	/// </summary>
 	/// <returns>Threading performance statistics.</returns>
-	public ThreadingStatistics GetStatistics() =>
-		_statistics.CreateSnapshot();
+	public ThreadingStatistics GetStatistics() => _statistics.CreateSnapshot();
 
 	/// <summary>
 	/// Gets detailed threading information.
 	/// </summary>
 	/// <returns>Detailed threading information.</returns>
-	public ThreadingInfo GetThreadingInfo() {
-		var activeThreads = _componentSnapshots.Values
-			.Select(e => e.ThreadId)
-			.Distinct()
-			.Count();
+	public ThreadingInfo GetThreadingInfo()
+	{
+		var activeThreads = _componentSnapshots.Values.Select(e => e.ThreadId).Distinct().Count();
 
-		return new ThreadingInfo {
+		return new ThreadingInfo
+		{
 			TrackedComponents = _componentSnapshots.Count,
 			ActiveLocks = _componentLocks.Count,
 			ActiveThreads = activeThreads,
 			AvailableConcurrency = _concurrencyLimiter.CurrentCount,
 			MaxConcurrency = _threadingConfig.MaxConcurrentOperations,
-			Statistics = GetStatistics()
+			Statistics = GetStatistics(),
 		};
 	}
-
-
 
 	/// <summary>
 	/// Gets or creates a reader-writer lock for a component.
@@ -239,8 +254,10 @@ public class ThreadSafeStateTracker {
 	/// <summary>
 	/// Disposes the thread-safe state tracker.
 	/// </summary>
-	public void Dispose() {
-		foreach (var lockSlim in _componentLocks.Values) {
+	public void Dispose()
+	{
+		foreach (var lockSlim in _componentLocks.Values)
+		{
 			lockSlim.Dispose();
 		}
 
@@ -253,7 +270,8 @@ public class ThreadSafeStateTracker {
 /// <summary>
 /// Mutable implementation of threading statistics for internal tracking.
 /// </summary>
-internal class MutableThreadingStatistics {
+internal class MutableThreadingStatistics
+{
 	private long _totalOperations = 0;
 	private long _successfulOperations = 0;
 	private long _failedOperations = 0;
@@ -262,22 +280,27 @@ internal class MutableThreadingStatistics {
 	private long _totalOperationTime = 0;
 	private readonly DateTime _startTime = DateTime.UtcNow;
 
-	public void RecordOperation(string operationType, TimeSpan duration, bool success) {
+	public void RecordOperation(string operationType, TimeSpan duration, bool success)
+	{
 		Interlocked.Increment(ref _totalOperations);
 
-		if (success) {
+		if (success)
+		{
 			Interlocked.Increment(ref _successfulOperations);
 			Interlocked.Add(ref _totalOperationTime, duration.Ticks);
 		}
-		else {
+		else
+		{
 			Interlocked.Increment(ref _failedOperations);
 		}
 	}
 
 	public void RecordCleanup() => Interlocked.Increment(ref _cleanupOperations);
+
 	public void RecordBulkCleanup(int count) => Interlocked.Add(ref _bulkCleanupOperations, count);
 
-	public ThreadingStatistics CreateSnapshot() {
+	public ThreadingStatistics CreateSnapshot()
+	{
 		return ThreadingStatistics.Create(
 			_totalOperations,
 			_successfulOperations,
@@ -289,5 +312,3 @@ internal class MutableThreadingStatistics {
 		);
 	}
 }
-
-

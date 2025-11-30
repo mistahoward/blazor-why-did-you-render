@@ -1,5 +1,4 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <TargetFrameworks>net9.0</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -32,13 +31,14 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
-
-
   <!-- Cross-platform package references (compatible with both server and WASM) -->
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Components" Version="9.0.2" />
     <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="9.0.2" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.2" />
+    <PackageReference
+      Include="Microsoft.Extensions.DependencyInjection.Abstractions"
+      Version="9.0.2"
+    />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.2" />
     <PackageReference Include="Microsoft.JSInterop" Version="9.0.2" />
 
@@ -50,8 +50,6 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.2" />
     <PackageReference Include="Microsoft.AspNetCore.Http" Version="2.2.2" />
   </ItemGroup>
-
-
 
   <!-- Package Content -->
   <ItemGroup>
@@ -70,5 +68,4 @@
     <EmbeddedResource Remove="Blazor.WhyDidYouRender.Tests\**" />
     <None Remove="Blazor.WhyDidYouRender.Tests\**" />
   </ItemGroup>
-
 </Project>

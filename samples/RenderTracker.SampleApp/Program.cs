@@ -1,6 +1,6 @@
-using Blazor.WhyDidYouRender.Extensions;
 using Blazor.WhyDidYouRender.Configuration;
 using Blazor.WhyDidYouRender.Core;
+using Blazor.WhyDidYouRender.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -9,21 +9,22 @@ builder.AddServiceDefaults();
 
 // add session support for WhyDidYouRender
 builder.Services.AddDistributedMemoryCache();
-builder.Services.AddSession(options => {
+builder.Services.AddSession(options =>
+{
 	options.IdleTimeout = TimeSpan.FromMinutes(30);
 	options.Cookie.HttpOnly = true;
 	options.Cookie.IsEssential = true;
 });
 
 // add services to the container
-builder.Services.AddRazorComponents()
-	.AddInteractiveServerComponents();
+builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 
 // add background maintenance service for render tracking
 builder.Services.AddHostedService<RenderTracker.SampleApp.Services.RenderTrackingMaintenanceService>();
 
 // add WhyDidYouRender with configuration
-builder.Services.AddWhyDidYouRender(config => {
+builder.Services.AddWhyDidYouRender(config =>
+{
 	config.Enabled = true;
 	config.Verbosity = TrackingVerbosity.Verbose;
 	config.Output = TrackingOutput.Both; // both console and browser for testing
@@ -81,7 +82,8 @@ app.Services.InitializeSSRServices();
 await InitializeRenderTrackingAsync(app.Services);
 
 // Configure the HTTP request pipeline.
-if (!app.Environment.IsDevelopment()) {
+if (!app.Environment.IsDevelopment())
+{
 	app.UseExceptionHandler("/Error", createScopeForErrors: true);
 	// The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
 	app.UseHsts();
@@ -95,8 +97,7 @@ app.UseSession();
 app.UseAntiforgery();
 
 app.MapStaticAssets();
-app.MapRazorComponents<RenderTracker.SampleApp.Component.App>()
-	.AddInteractiveServerRenderMode();
+app.MapRazorComponents<RenderTracker.SampleApp.Component.App>().AddInteractiveServerRenderMode();
 
 // Error diagnostics endpoints removed for WASM compatibility
 
@@ -105,8 +106,10 @@ app.Run();
 /// <summary>
 /// Initializes render tracking with performance optimizations using previously unused methods.
 /// </summary>
-static async Task InitializeRenderTrackingAsync(IServiceProvider services) {
-	try {
+static async Task InitializeRenderTrackingAsync(IServiceProvider services)
+{
+	try
+	{
 		var renderTracker = RenderTrackerService.Instance;
 
 		// Use the unused InitializeStateTrackingAsync method for better startup performance!
@@ -121,7 +124,7 @@ static async Task InitializeRenderTrackingAsync(IServiceProvider services) {
 			typeof(RenderTracker.SampleApp.Components.Pages.StateTrackingDemo),
 			typeof(RenderTracker.SampleApp.Components.Pages.CrossPlatformDemo),
 			typeof(RenderTracker.SampleApp.Components.Pages.Weather),
-			typeof(Blazor.WhyDidYouRender.Components.TrackedComponentBase)
+			typeof(Blazor.WhyDidYouRender.Components.TrackedComponentBase),
 		};
 
 		await renderTracker.PreWarmStateTrackingCacheAsync(commonComponentTypes);
@@ -129,11 +132,15 @@ static async Task InitializeRenderTrackingAsync(IServiceProvider services) {
 
 		// Get initial diagnostics to verify everything is working
 		var diagnostics = renderTracker.GetStateTrackingDiagnostics();
-		if (diagnostics != null) {
-			Console.WriteLine($"[WhyDidYouRender] State tracking diagnostics: Enabled={diagnostics.IsEnabled}, Initialized={diagnostics.IsInitialized}");
+		if (diagnostics != null)
+		{
+			Console.WriteLine(
+				$"[WhyDidYouRender] State tracking diagnostics: Enabled={diagnostics.IsEnabled}, Initialized={diagnostics.IsInitialized}"
+			);
 		}
 	}
-	catch (Exception ex) {
+	catch (Exception ex)
+	{
 		Console.WriteLine($"[WhyDidYouRender] Warning: Failed to initialize state tracking optimizations: {ex.Message}");
 	}
 }

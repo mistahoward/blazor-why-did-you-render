@@ -1,5 +1,4 @@
 using System.Reflection;
-
 using Blazor.WhyDidYouRender.Helpers;
 using Blazor.WhyDidYouRender.Records;
 
@@ -10,13 +9,15 @@ namespace Blazor.WhyDidYouRender.Attributes;
 /// This class helps ensure that attributes are correctly configured and compatible
 /// with their target fields, properties, and components.
 /// </summary>
-internal static class AttributeValidator {
+internal static class AttributeValidator
+{
 	/// <summary>
 	/// Validates all state tracking attributes on a given component type.
 	/// </summary>
 	/// <param name="componentType">The component type to validate.</param>
 	/// <returns>A collection of validation errors, empty if all attributes are valid.</returns>
-	public static List<string> ValidateComponentAttributes(Type componentType) {
+	public static List<string> ValidateComponentAttributes(Type componentType)
+	{
 		List<string> errors = [];
 
 		errors.AddRange(ValidateComponentLevelAttributes(componentType));
@@ -30,19 +31,24 @@ internal static class AttributeValidator {
 	/// </summary>
 	/// <param name="componentType">The component type to validate.</param>
 	/// <returns>A collection of validation errors.</returns>
-	private static List<string> ValidateComponentLevelAttributes(Type componentType) {
+	private static List<string> ValidateComponentLevelAttributes(Type componentType)
+	{
 		var errors = new List<string>();
 
 		var ignoreStateTracking = componentType.GetCustomAttribute<IgnoreStateTrackingAttribute>();
 		var stateTrackingOptions = componentType.GetCustomAttribute<StateTrackingOptionsAttribute>();
 
-		if (ignoreStateTracking != null && stateTrackingOptions != null) {
+		if (ignoreStateTracking != null && stateTrackingOptions != null)
+		{
 			if (stateTrackingOptions.EnableStateTracking == true)
-				errors.Add($"Component {componentType.Name} has conflicting attributes: " +
-						  "IgnoreStateTrackingAttribute and StateTrackingOptionsAttribute with EnableStateTracking=true");
+				errors.Add(
+					$"Component {componentType.Name} has conflicting attributes: "
+						+ "IgnoreStateTrackingAttribute and StateTrackingOptionsAttribute with EnableStateTracking=true"
+				);
 		}
 
-		if (stateTrackingOptions != null) {
+		if (stateTrackingOptions != null)
+		{
 			var optionsErrors = stateTrackingOptions.Validate();
 			errors.AddRange(optionsErrors.Select(error => $"Component {componentType.Name}: {error}"));
 		}
@@ -55,7 +61,8 @@ internal static class AttributeValidator {
 	/// </summary>
 	/// <param name="componentType">The component type to validate.</param>
 	/// <returns>A collection of validation errors.</returns>
-	private static List<string> ValidateFieldAndPropertyAttributes(Type componentType) {
+	private static List<string> ValidateFieldAndPropertyAttributes(Type componentType)
+	{
 		var errors = new List<string>();
 
 		var fields = componentType.GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
@@ -94,7 +101,8 @@ internal static class AttributeValidator {
 	/// - Static/readonly field restrictions
 	/// - Property accessibility requirements
 	/// </remarks>
-	private static IEnumerable<string> Validate(MemberInfo member, Type memberType, string componentName) {
+	private static IEnumerable<string> Validate(MemberInfo member, Type memberType, string componentName)
+	{
 		var trackState = member.GetCustomAttribute<TrackStateAttribute>();
 		var ignoreState = member.GetCustomAttribute<IgnoreStateAttribute>();
 
@@ -103,7 +111,8 @@ internal static class AttributeValidator {
 			yield return $"Component {componentName}, member {member.Name}: Cannot have both TrackStateAttribute and IgnoreStateAttribute";
 
 		// rules for when [TrackState] is present.
-		if (trackState != null) {
+		if (trackState != null)
+		{
 			foreach (var error in trackState.Validate())
 				yield return $"Component {componentName}, member {member.Name}: {error}";
 
@@ -122,14 +131,16 @@ internal static class AttributeValidator {
 			yield break;
 
 		// rules for members that are being tracked (either explicitly or implicitly).
-		if (member is FieldInfo field) {
+		if (member is FieldInfo field)
+		{
 			if (field.IsStatic)
 				yield return $"Component {componentName}, field {member.Name}: Static fields cannot be tracked for state changes";
 
 			if (field.IsInitOnly)
 				yield return $"Component {componentName}, field {member.Name}: Readonly fields should not be tracked (they cannot change after initialization)";
 		}
-		else if (member is PropertyInfo property) {
+		else if (member is PropertyInfo property)
+		{
 			if (!property.CanRead)
 				yield return $"Component {componentName}, property {member.Name}: Write-only properties cannot be tracked for state changes";
 
@@ -144,11 +155,13 @@ internal static class AttributeValidator {
 	/// </summary>
 	/// <param name="componentType">The component type to analyze.</param>
 	/// <returns>A summary of the attribute configuration.</returns>
-	public static AttributeSummary GetAttributeSummary(Type componentType) {
-		var summary = new AttributeSummary {
+	public static AttributeSummary GetAttributeSummary(Type componentType)
+	{
+		var summary = new AttributeSummary
+		{
 			ComponentType = componentType,
 			HasIgnoreStateTracking = componentType.GetCustomAttribute<IgnoreStateTrackingAttribute>() != null,
-			StateTrackingOptions = componentType.GetCustomAttribute<StateTrackingOptionsAttribute>()
+			StateTrackingOptions = componentType.GetCustomAttribute<StateTrackingOptionsAttribute>(),
 		};
 
 		var fields = componentType.GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
@@ -169,7 +182,8 @@ internal static class AttributeValidator {
 	/// <param name="member">The member to analyze.</param>
 	/// <param name="memberType">The type of the member.</param>
 	/// <param name="summary">The summary to update.</param>
-	private static void AnalyzeMemberAttributes(MemberInfo member, Type memberType, AttributeSummary summary) {
+	private static void AnalyzeMemberAttributes(MemberInfo member, Type memberType, AttributeSummary summary)
+	{
 		var trackState = member.GetCustomAttribute<TrackStateAttribute>();
 		var ignoreState = member.GetCustomAttribute<IgnoreStateAttribute>();
 
@@ -180,5 +194,4 @@ internal static class AttributeValidator {
 		else if (TypeHelper.IsSimpleValueType(memberType))
 			summary.AutoTrackedMembers.Add(member.Name);
 	}
-
 }

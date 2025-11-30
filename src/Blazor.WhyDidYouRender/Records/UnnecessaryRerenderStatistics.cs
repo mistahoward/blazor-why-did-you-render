@@ -3,7 +3,8 @@ namespace Blazor.WhyDidYouRender.Records;
 /// <summary>
 /// Statistics about unnecessary re-render detection.
 /// </summary>
-public record UnnecessaryRerenderStatistics {
+public record UnnecessaryRerenderStatistics
+{
 	/// <summary>
 	/// Gets or sets the number of components being tracked.
 	/// </summary>

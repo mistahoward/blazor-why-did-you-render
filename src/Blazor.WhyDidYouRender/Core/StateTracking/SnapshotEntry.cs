@@ -5,7 +5,8 @@ namespace Blazor.WhyDidYouRender.Core.StateTracking;
 /// <summary>
 /// Entry in the optimized snapshot storage containing metadata and weak references.
 /// </summary>
-internal class SnapshotEntry {
+internal class SnapshotEntry
+{
 	/// <summary>
 	/// Gets or sets the weak reference to the component to prevent memory leaks.
 	/// </summary>
@@ -35,7 +36,8 @@ internal class SnapshotEntry {
 /// <summary>
 /// Optimized representation of a state snapshot for efficient storage.
 /// </summary>
-internal class OptimizedSnapshot {
+internal class OptimizedSnapshot
+{
 	/// <summary>
 	/// Gets or sets the component type.
 	/// </summary>

@@ -1,20 +1,19 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
-
-using Microsoft.Extensions.Logging;
-using MEL = Microsoft.Extensions.Logging;
-using Blazor.WhyDidYouRender.Logging;
-
 using Blazor.WhyDidYouRender.Abstractions;
 using Blazor.WhyDidYouRender.Configuration;
+using Blazor.WhyDidYouRender.Logging;
 using Blazor.WhyDidYouRender.Records;
+using Microsoft.Extensions.Logging;
+using MEL = Microsoft.Extensions.Logging;
 
 namespace Blazor.WhyDidYouRender.Services;
 
 /// <summary>
 /// Server-side implementation of error tracking service.
 /// </summary>
-public class ServerErrorTracker : IErrorTracker {
+public class ServerErrorTracker : IErrorTracker
+{
 	private readonly ConcurrentQueue<TrackingError> _errors = new();
 	private readonly WhyDidYouRenderConfig _config;
 	private readonly ILogger<ServerErrorTracker>? _logger;
@@ -29,15 +28,17 @@ public class ServerErrorTracker : IErrorTracker {
 	/// <param name="config">The configuration.</param>
 	/// <param name="logger">The server ILogger.</param>
 	/// <param name="unifiedLogger">Optional unified logger.</param>
-	public ServerErrorTracker(WhyDidYouRenderConfig config, ILogger<ServerErrorTracker>? logger = null, IWhyDidYouRenderLogger? unifiedLogger = null) {
+	public ServerErrorTracker(
+		WhyDidYouRenderConfig config,
+		ILogger<ServerErrorTracker>? logger = null,
+		IWhyDidYouRenderLogger? unifiedLogger = null
+	)
+	{
 		_config = config ?? throw new ArgumentNullException(nameof(config));
 		_logger = logger;
 		_unifiedLogger = unifiedLogger;
 
-		_jsonOptions = new JsonSerializerOptions {
-			WriteIndented = false,
-			PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-		};
+		_jsonOptions = new JsonSerializerOptions { WriteIndented = false, PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 	}
 
 	/// <inheritdoc />
@@ -50,8 +51,16 @@ public class ServerErrorTracker : IErrorTracker {
 	public string ErrorTrackingDescription => "Server-side in-memory error tracking with console logging";
 
 	/// <inheritdoc />
-	public Task TrackErrorAsync(Exception exception, Dictionary<string, object?> context, ErrorSeverity severity, string? componentName = null, string? operation = null) {
-		var trackingError = new TrackingError {
+	public Task TrackErrorAsync(
+		Exception exception,
+		Dictionary<string, object?> context,
+		ErrorSeverity severity,
+		string? componentName = null,
+		string? operation = null
+	)
+	{
+		var trackingError = new TrackingError
+		{
 			ErrorId = Guid.NewGuid().ToString("N")[..8], // match our existing format
 			Message = exception.Message,
 			ExceptionType = exception.GetType().Name,
@@ -60,7 +69,7 @@ public class ServerErrorTracker : IErrorTracker {
 			Severity = severity,
 			ComponentName = componentName,
 			TrackingMethod = operation,
-			Timestamp = DateTime.UtcNow
+			Timestamp = DateTime.UtcNow,
 		};
 
 		trackingError.Context["ExceptionType"] = exception.GetType().FullName;
@@ -71,22 +80,35 @@ public class ServerErrorTracker : IErrorTracker {
 	}
 
 	/// <inheritdoc />
-	public Task TrackErrorAsync(string message, Dictionary<string, object?> context, ErrorSeverity severity, string? componentName = null, string? operation = null) {
-		var trackingError = new TrackingError {
+	public Task TrackErrorAsync(
+		string message,
+		Dictionary<string, object?> context,
+		ErrorSeverity severity,
+		string? componentName = null,
+		string? operation = null
+	)
+	{
+		var trackingError = new TrackingError
+		{
 			ErrorId = Guid.NewGuid().ToString("N")[..8], // match our existing format
 			Message = message,
 			Context = new Dictionary<string, object?>(context),
 			Severity = severity,
 			ComponentName = componentName,
 			TrackingMethod = operation,
-			Timestamp = DateTime.UtcNow
+			Timestamp = DateTime.UtcNow,
 		};
 
 		return TrackErrorInternalAsync(trackingError);
 	}
 
 	/// <inheritdoc />
-	public Task<IEnumerable<TrackingError>> GetRecentErrorsAsync(int count = 50, ErrorSeverity? severity = null, string? componentName = null) {
+	public Task<IEnumerable<TrackingError>> GetRecentErrorsAsync(
+		int count = 50,
+		ErrorSeverity? severity = null,
+		string? componentName = null
+	)
+	{
 		var errors = _errors.ToArray().AsEnumerable();
 
 		if (severity.HasValue)
@@ -100,7 +122,8 @@ public class ServerErrorTracker : IErrorTracker {
 	}
 
 	/// <inheritdoc />
-	public Task<ErrorStatistics> GetErrorStatisticsAsync() {
+	public Task<ErrorStatistics> GetErrorStatisticsAsync()
+	{
 		var errors = _errors.ToArray();
 		var now = DateTime.UtcNow;
 		var oneHourAgo = now.AddHours(-1);
@@ -119,27 +142,28 @@ public class ServerErrorTracker : IErrorTracker {
 			.GroupBy(e => e.ComponentName!)
 			.ToDictionary(g => g.Key, g => g.Count());
 
-		var errorRate = errors.Length > 0 && errors.Length > 1
-			? errors.Length / (now - errors.First().Timestamp).TotalMinutes
-			: 0.0;
+		var errorRate = errors.Length > 0 && errors.Length > 1 ? errors.Length / (now - errors.First().Timestamp).TotalMinutes : 0.0;
 
-		var statistics = new ErrorStatistics {
+		var statistics = new ErrorStatistics
+		{
 			TotalErrors = _totalErrorCount,
 			ErrorsLastHour = errorsLastHour,
 			ErrorsLast24Hours = errorsLast24Hours,
 			CommonErrorTypes = commonTypes,
 			ProblematicComponents = problematicComponents,
-			ErrorRate = errorRate
+			ErrorRate = errorRate,
 		};
 
 		return Task.FromResult(statistics);
 	}
 
 	/// <inheritdoc />
-	public Task ClearErrorsAsync() {
+	public Task ClearErrorsAsync()
+	{
 		while (_errors.TryDequeue(out _)) { }
 
-		lock (_statsLock) {
+		lock (_statsLock)
+		{
 			_totalErrorCount = 0;
 		}
 
@@ -147,12 +171,14 @@ public class ServerErrorTracker : IErrorTracker {
 	}
 
 	/// <inheritdoc />
-	public Task<int> GetErrorCountAsync() {
+	public Task<int> GetErrorCountAsync()
+	{
 		return Task.FromResult(_totalErrorCount);
 	}
 
 	/// <inheritdoc />
-	public Task<IEnumerable<TrackingError>> GetErrorsSinceAsync(DateTime since, DateTime? until = null) {
+	public Task<IEnumerable<TrackingError>> GetErrorsSinceAsync(DateTime since, DateTime? until = null)
+	{
 		var errors = _errors.ToArray().AsEnumerable();
 
 		errors = errors.Where(e => e.Timestamp >= since);
@@ -168,7 +194,8 @@ public class ServerErrorTracker : IErrorTracker {
 	/// Clears old error records.
 	/// </summary>
 	/// <param name="olderThan">Clear errors older than this timespan.</param>
-	public void ClearOldErrors(TimeSpan olderThan) {
+	public void ClearOldErrors(TimeSpan olderThan)
+	{
 		var cutoff = DateTime.UtcNow - olderThan;
 		var newQueue = new ConcurrentQueue<TrackingError>();
 
@@ -185,10 +212,12 @@ public class ServerErrorTracker : IErrorTracker {
 	/// </summary>
 	/// <param name="trackingError">The tracking error to track.</param>
 	/// <returns>A task representing the tracking operation.</returns>
-	private async Task TrackErrorInternalAsync(TrackingError trackingError) {
+	private async Task TrackErrorInternalAsync(TrackingError trackingError)
+	{
 		_errors.Enqueue(trackingError);
 
-		lock (_statsLock) {
+		lock (_statsLock)
+		{
 			_totalErrorCount++;
 		}
 
@@ -206,23 +235,28 @@ public class ServerErrorTracker : IErrorTracker {
 	/// </summary>
 	/// <param name="trackingError">The tracking error to log.</param>
 	/// <returns>A task representing the logging operation.</returns>
-	private Task LogErrorAsync(TrackingError trackingError) {
-		try {
-			var logLevel = trackingError.Severity switch {
+	private Task LogErrorAsync(TrackingError trackingError)
+	{
+		try
+		{
+			var logLevel = trackingError.Severity switch
+			{
 				ErrorSeverity.Info => MEL.LogLevel.Information,
 				ErrorSeverity.Warning => MEL.LogLevel.Warning,
 				ErrorSeverity.Error => MEL.LogLevel.Error,
 				ErrorSeverity.Critical => MEL.LogLevel.Critical,
-				_ => MEL.LogLevel.Warning
+				_ => MEL.LogLevel.Warning,
 			};
 
-			_logger?.Log(logLevel,
+			_logger?.Log(
+				logLevel,
 				"[WhyDidYouRender] {Severity} {ErrorId}: {Message}{ComponentInfo}{MethodInfo}",
 				trackingError.Severity,
 				trackingError.ErrorId,
 				trackingError.Message,
 				!string.IsNullOrEmpty(trackingError.ComponentName) ? $" | Component: {trackingError.ComponentName}" : "",
-				!string.IsNullOrEmpty(trackingError.TrackingMethod) ? $" | Method: {trackingError.TrackingMethod}" : "");
+				!string.IsNullOrEmpty(trackingError.TrackingMethod) ? $" | Method: {trackingError.TrackingMethod}" : ""
+			);
 
 			var message = $"[WhyDidYouRender] {trackingError.Severity} {trackingError.ErrorId}: {trackingError.Message}";
 			if (!string.IsNullOrEmpty(trackingError.ComponentName))
@@ -230,8 +264,10 @@ public class ServerErrorTracker : IErrorTracker {
 			if (!string.IsNullOrEmpty(trackingError.TrackingMethod))
 				message += $" | Method: {trackingError.TrackingMethod}";
 
-			if (_config.Output.HasFlag(TrackingOutput.Console)) {
-				if (_unifiedLogger != null) {
+			if (_config.Output.HasFlag(TrackingOutput.Console))
+			{
+				if (_unifiedLogger != null)
+				{
 					var data = new Dictionary<string, object?>();
 					if (trackingError.Context.Count > 0)
 						data["context"] = trackingError.Context;
@@ -239,9 +275,11 @@ public class ServerErrorTracker : IErrorTracker {
 						data["stackTrace"] = trackingError.StackTrace;
 					_unifiedLogger.LogError(message, null, data);
 				}
-				else {
+				else
+				{
 					Console.WriteLine(message);
-					if (trackingError.Context.Count > 0) {
+					if (trackingError.Context.Count > 0)
+					{
 						var contextJson = JsonSerializer.Serialize(trackingError.Context, _jsonOptions);
 						Console.WriteLine($"[WhyDidYouRender] Context: {contextJson}");
 					}
@@ -250,11 +288,13 @@ public class ServerErrorTracker : IErrorTracker {
 				}
 			}
 			return Task.CompletedTask;
-
 		}
-		catch (Exception ex) {
-			if (_unifiedLogger != null) _unifiedLogger.LogError($"Failed to log error: {trackingError.Message}", ex);
-			else Console.WriteLine($"[WhyDidYouRender] Failed to log error: {trackingError.Message} | Logging error: {ex.Message}");
+		catch (Exception ex)
+		{
+			if (_unifiedLogger != null)
+				_unifiedLogger.LogError($"Failed to log error: {trackingError.Message}", ex);
+			else
+				Console.WriteLine($"[WhyDidYouRender] Failed to log error: {trackingError.Message} | Logging error: {ex.Message}");
 			return Task.CompletedTask;
 		}
 	}

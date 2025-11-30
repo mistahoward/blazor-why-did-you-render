@@ -10,21 +10,22 @@ namespace Blazor.WhyDidYouRender.Attributes;
 /// <remarks>
 /// Use this attribute when you have fields that change frequently but don't affect rendering,
 /// or when you want to exclude performance-sensitive fields from tracking.
-/// 
+///
 /// Example usage:
 /// <code>
 /// [IgnoreState]
 /// private string _internalDebugId; // Excluded even though string is normally auto-tracked
-/// 
+///
 /// [IgnoreState]
 /// private DateTime _lastAccessTime; // Performance-sensitive field
-/// 
+///
 /// [IgnoreState("This field is for internal caching only")]
 /// private Dictionary&lt;string, object&gt; _cache = new();
 /// </code>
 /// </remarks>
 [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property, AllowMultiple = false, Inherited = true)]
-public sealed class IgnoreStateAttribute : Attribute {
+public sealed class IgnoreStateAttribute : Attribute
+{
 	/// <summary>
 	/// Gets the reason why this field is excluded from state tracking.
 	/// This is used for documentation and diagnostic purposes.
@@ -48,14 +49,14 @@ public sealed class IgnoreStateAttribute : Attribute {
 	/// <summary>
 	/// Initializes a new instance of the <see cref="IgnoreStateAttribute"/> class.
 	/// </summary>
-	public IgnoreStateAttribute() {
-	}
+	public IgnoreStateAttribute() { }
 
 	/// <summary>
 	/// Initializes a new instance of the <see cref="IgnoreStateAttribute"/> class with a reason.
 	/// </summary>
 	/// <param name="reason">The reason why this field should be excluded from state tracking.</param>
-	public IgnoreStateAttribute(string reason) {
+	public IgnoreStateAttribute(string reason)
+	{
 		Reason = reason;
 	}
 
@@ -63,7 +64,8 @@ public sealed class IgnoreStateAttribute : Attribute {
 	/// Gets a formatted description of why this field is ignored, suitable for logging.
 	/// </summary>
 	/// <returns>A formatted string describing the exclusion reason.</returns>
-	internal string GetFormattedReason() {
+	internal string GetFormattedReason()
+	{
 		if (string.IsNullOrWhiteSpace(Reason))
 			return "Field explicitly excluded from state tracking";
 
@@ -75,7 +77,8 @@ public sealed class IgnoreStateAttribute : Attribute {
 	/// </summary>
 	/// <param name="isInheritedField">True if the field is inherited from a base class.</param>
 	/// <returns>True if the field should be excluded from tracking.</returns>
-	internal bool ShouldApplyExclusion(bool isInheritedField) {
+	internal bool ShouldApplyExclusion(bool isInheritedField)
+	{
 		if (!isInheritedField)
 			return true;
 

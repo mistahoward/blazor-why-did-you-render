@@ -1,9 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-
-using Microsoft.AspNetCore.Components;
 using Blazor.WhyDidYouRender.Records;
+using Microsoft.AspNetCore.Components;
 
 namespace Blazor.WhyDidYouRender.Core.StateTracking;
 
@@ -16,7 +15,8 @@ namespace Blazor.WhyDidYouRender.Core.StateTracking;
 /// </remarks>
 /// <param name="componentType">The component type.</param>
 /// <param name="fieldValues">The captured field values.</param>
-public class StateSnapshot(Type componentType, IReadOnlyDictionary<string, object?> fieldValues) {
+public class StateSnapshot(Type componentType, IReadOnlyDictionary<string, object?> fieldValues)
+{
 	/// <summary>
 	/// Gets the component type this snapshot was taken from.
 	/// </summary>
@@ -59,7 +59,8 @@ public class StateSnapshot(Type componentType, IReadOnlyDictionary<string, objec
 	/// <param name="component">The component to capture state from.</param>
 	/// <param name="metadata">The metadata describing which fields to capture.</param>
 	/// <returns>A new state snapshot.</returns>
-	public static StateSnapshot Create(ComponentBase component, StateFieldMetadata metadata) {
+	public static StateSnapshot Create(ComponentBase component, StateFieldMetadata metadata)
+	{
 		ArgumentNullException.ThrowIfNull(component);
 		ArgumentNullException.ThrowIfNull(metadata);
 
@@ -68,8 +69,10 @@ public class StateSnapshot(Type componentType, IReadOnlyDictionary<string, objec
 
 		var fieldValues = new Dictionary<string, object?>();
 
-		foreach (var fieldInfo in metadata.AllTrackedFields) {
-			try {
+		foreach (var fieldInfo in metadata.AllTrackedFields)
+		{
+			try
+			{
 				var value = fieldInfo.FieldInfo.GetValue(component);
 
 				if (fieldInfo.TrackCollectionContents && value is System.Collections.IEnumerable enumerable && value is not string)
@@ -77,7 +80,8 @@ public class StateSnapshot(Type componentType, IReadOnlyDictionary<string, objec
 
 				fieldValues[fieldInfo.FieldInfo.Name] = value;
 			}
-			catch (Exception) {
+			catch (Exception)
+			{
 				fieldValues[fieldInfo.FieldInfo.Name] = "[Unable to read]";
 			}
 		}
@@ -90,13 +94,15 @@ public class StateSnapshot(Type componentType, IReadOnlyDictionary<string, objec
 	/// </summary>
 	/// <param name="previous">The previous snapshot to compare with.</param>
 	/// <returns>A collection of state changes.</returns>
-	public IEnumerable<StateChange> GetChangesFrom(StateSnapshot? previous) {
+	public IEnumerable<StateChange> GetChangesFrom(StateSnapshot? previous)
+	{
 		if (previous == null)
-			return FieldValues.Select(kvp => new StateChange {
+			return FieldValues.Select(kvp => new StateChange
+			{
 				FieldName = kvp.Key,
 				PreviousValue = null,
 				CurrentValue = kvp.Value,
-				ChangeType = StateChangeType.Added
+				ChangeType = StateChangeType.Added,
 			});
 
 		if (ComponentType != previous.ComponentType)
@@ -107,28 +113,37 @@ public class StateSnapshot(Type componentType, IReadOnlyDictionary<string, objec
 		foreach (var kvp in FieldValues)
 			if (previous.FieldValues.TryGetValue(kvp.Key, out var previousValue))
 				if (!AreValuesEqual(kvp.Value, previousValue))
-					changes.Add(new StateChange {
-						FieldName = kvp.Key,
-						PreviousValue = previousValue,
-						CurrentValue = kvp.Value,
-						ChangeType = StateChangeType.Modified
-					});
+					changes.Add(
+						new StateChange
+						{
+							FieldName = kvp.Key,
+							PreviousValue = previousValue,
+							CurrentValue = kvp.Value,
+							ChangeType = StateChangeType.Modified,
+						}
+					);
 				else
-					changes.Add(new StateChange {
-						FieldName = kvp.Key,
-						PreviousValue = null,
-						CurrentValue = kvp.Value,
-						ChangeType = StateChangeType.Added
-					});
+					changes.Add(
+						new StateChange
+						{
+							FieldName = kvp.Key,
+							PreviousValue = null,
+							CurrentValue = kvp.Value,
+							ChangeType = StateChangeType.Added,
+						}
+					);
 
 		foreach (var kvp in previous.FieldValues)
 			if (!FieldValues.ContainsKey(kvp.Key))
-				changes.Add(new StateChange {
-					FieldName = kvp.Key,
-					PreviousValue = kvp.Value,
-					CurrentValue = null,
-					ChangeType = StateChangeType.Removed
-				});
+				changes.Add(
+					new StateChange
+					{
+						FieldName = kvp.Key,
+						PreviousValue = kvp.Value,
+						CurrentValue = null,
+						ChangeType = StateChangeType.Removed,
+					}
+				);
 
 		return changes;
 	}
@@ -138,20 +153,22 @@ public class StateSnapshot(Type componentType, IReadOnlyDictionary<string, objec
 	/// </summary>
 	/// <param name="fieldName">The name of the field.</param>
 	/// <returns>The field value, or null if the field is not in this snapshot.</returns>
-	public object? GetFieldValue(string fieldName) =>
-		FieldValues.TryGetValue(fieldName, out var value) ? value : null;
+	public object? GetFieldValue(string fieldName) => FieldValues.TryGetValue(fieldName, out var value) ? value : null;
 
 	/// <summary>
 	/// Creates a deep copy of a collection to prevent reference sharing between snapshots.
 	/// </summary>
 	/// <param name="enumerable">The collection to copy.</param>
 	/// <returns>A new collection containing copies of the original items.</returns>
-	private static object CreateCollectionCopy(System.Collections.IEnumerable enumerable) {
-		try {
+	private static object CreateCollectionCopy(System.Collections.IEnumerable enumerable)
+	{
+		try
+		{
 			var items = enumerable.Cast<object?>().ToList();
 			return new List<object?>(items);
 		}
-		catch (Exception) {
+		catch (Exception)
+		{
 			// if copying fails, fallback to reference
 			return enumerable;
 		}
@@ -163,7 +180,8 @@ public class StateSnapshot(Type componentType, IReadOnlyDictionary<string, objec
 	/// <param name="value1">The first value.</param>
 	/// <param name="value2">The second value.</param>
 	/// <returns>True if the values are equal.</returns>
-	private static bool AreValuesEqual(object? value1, object? value2) {
+	private static bool AreValuesEqual(object? value1, object? value2)
+	{
 		if (ReferenceEquals(value1, value2))
 			return true;
 

@@ -1,6 +1,6 @@
-using Microsoft.AspNetCore.Components;
 using Blazor.WhyDidYouRender.Configuration;
 using Blazor.WhyDidYouRender.Records;
+using Microsoft.AspNetCore.Components;
 
 namespace Blazor.WhyDidYouRender.Core.StateTracking;
 
@@ -8,7 +8,8 @@ namespace Blazor.WhyDidYouRender.Core.StateTracking;
 /// Manages state snapshots for component instances, handling creation, storage, and cleanup.
 /// This class provides efficient snapshot management with memory cleanup to prevent leaks.
 /// </summary>
-public class StateSnapshotManager {
+public class StateSnapshotManager
+{
 	/// <summary>
 	/// Optimized storage for state snapshots with memory management and performance tracking.
 	/// </summary>
@@ -40,15 +41,17 @@ public class StateSnapshotManager {
 	/// <param name="fieldAnalyzer">The field analyzer for component metadata.</param>
 	/// <param name="stateComparer">The state comparer for detailed field comparison.</param>
 	/// <param name="config">The configuration for state tracking.</param>
-	public StateSnapshotManager(StateFieldAnalyzer fieldAnalyzer, StateComparer stateComparer, WhyDidYouRenderConfig config) {
+	public StateSnapshotManager(StateFieldAnalyzer fieldAnalyzer, StateComparer stateComparer, WhyDidYouRenderConfig config)
+	{
 		_fieldAnalyzer = fieldAnalyzer ?? throw new ArgumentNullException(nameof(fieldAnalyzer));
 		_stateComparer = stateComparer ?? throw new ArgumentNullException(nameof(stateComparer));
 		_config = config ?? throw new ArgumentNullException(nameof(config));
 
-		var storageConfig = new StorageConfiguration {
+		var storageConfig = new StorageConfiguration
+		{
 			MaxSnapshots = _config.MaxTrackedComponents,
 			MaxSnapshotAgeMinutes = _config.MaxStateSnapshotAgeMinutes,
-			UseObjectPooling = true
+			UseObjectPooling = true,
 		};
 		_optimizedStorage = new OptimizedSnapshotStorage(storageConfig);
 	}
@@ -58,13 +61,15 @@ public class StateSnapshotManager {
 	/// </summary>
 	/// <param name="component">The component to capture state from.</param>
 	/// <returns>The captured state snapshot.</returns>
-	public StateSnapshot CaptureSnapshot(ComponentBase component) {
+	public StateSnapshot CaptureSnapshot(ComponentBase component)
+	{
 		ArgumentNullException.ThrowIfNull(component);
 
 		if (!_config.EnableStateTracking)
 			return new StateSnapshot(component.GetType(), new Dictionary<string, object?>());
 
-		try {
+		try
+		{
 			var metadata = _fieldAnalyzer.AnalyzeComponentType(component.GetType());
 			var snapshot = StateSnapshot.Create(component, metadata);
 
@@ -73,7 +78,8 @@ public class StateSnapshotManager {
 
 			return snapshot;
 		}
-		catch (Exception) {
+		catch (Exception)
+		{
 			return new StateSnapshot(component.GetType(), new Dictionary<string, object?>());
 		}
 	}
@@ -83,7 +89,8 @@ public class StateSnapshotManager {
 	/// </summary>
 	/// <param name="component">The component to get the snapshot for.</param>
 	/// <returns>The current snapshot, or null if none exists.</returns>
-	public StateSnapshot? GetCurrentSnapshot(ComponentBase component) {
+	public StateSnapshot? GetCurrentSnapshot(ComponentBase component)
+	{
 		ArgumentNullException.ThrowIfNull(component);
 
 		return _optimizedStorage.GetSnapshot(component);
@@ -94,20 +101,23 @@ public class StateSnapshotManager {
 	/// </summary>
 	/// <param name="component">The component to analyze.</param>
 	/// <returns>A tuple containing whether changes occurred and the list of changes.</returns>
-	public (bool HasChanges, IEnumerable<StateChange> Changes) DetectStateChanges(ComponentBase component) {
+	public (bool HasChanges, IEnumerable<StateChange> Changes) DetectStateChanges(ComponentBase component)
+	{
 		ArgumentNullException.ThrowIfNull(component);
 
 		if (!_config.EnableStateTracking)
 			return (false, Enumerable.Empty<StateChange>());
 
-		try {
+		try
+		{
 			var previousSnapshot = GetCurrentSnapshot(component);
 
 			// capture new snapshot WITHOUT storing it yet
 			var metadata = _fieldAnalyzer.AnalyzeComponentType(component.GetType());
 			var currentSnapshot = StateSnapshot.Create(component, metadata);
 
-			if (previousSnapshot == null) {
+			if (previousSnapshot == null)
+			{
 				// first time tracking this component - store the snapshot
 				_optimizedStorage.StoreSnapshot(component, currentSnapshot);
 				PerformPeriodicCleanup();
@@ -125,7 +135,8 @@ public class StateSnapshotManager {
 
 			return (hasChanges, changes);
 		}
-		catch (Exception) {
+		catch (Exception)
+		{
 			// if detection fails, assume no changes
 			return (false, Enumerable.Empty<StateChange>());
 		}
@@ -134,18 +145,19 @@ public class StateSnapshotManager {
 	/// <summary>
 	/// Clears all stored snapshots. Useful for testing or memory management.
 	/// </summary>
-	public void ClearAllSnapshots() =>
-		_optimizedStorage.Clear();
+	public void ClearAllSnapshots() => _optimizedStorage.Clear();
 
 	/// <summary>
 	/// Gets statistics about the snapshot manager for diagnostic purposes.
 	/// </summary>
 	/// <returns>A dictionary containing diagnostic information.</returns>
-	public Dictionary<string, object> GetStatistics() {
+	public Dictionary<string, object> GetStatistics()
+	{
 		var storageInfo = _optimizedStorage.GetStorageInfo();
 		var storageStats = _optimizedStorage.GetStatistics();
 
-		return new Dictionary<string, object> {
+		return new Dictionary<string, object>
+		{
 			["TrackedComponentCount"] = storageInfo.ActiveSnapshots,
 			["TotalSnapshots"] = storageInfo.TotalSnapshots,
 			["EstimatedMemoryUsage"] = storageInfo.EstimatedMemoryUsage,
@@ -153,7 +165,7 @@ public class StateSnapshotManager {
 			["PooledDictionaries"] = storageInfo.PooledDictionaries,
 			["LastCleanupTime"] = _lastCleanup,
 			["IsStateTrackingEnabled"] = _config.EnableStateTracking,
-			["FieldAnalyzerCacheSize"] = _fieldAnalyzer.GetCacheSize()
+			["FieldAnalyzerCacheSize"] = _fieldAnalyzer.GetCacheSize(),
 		};
 	}
 
@@ -161,7 +173,8 @@ public class StateSnapshotManager {
 	/// Performs cleanup of snapshots for components that may no longer be active.
 	/// This is called periodically to prevent memory leaks.
 	/// </summary>
-	public void PerformCleanup() {
+	public void PerformCleanup()
+	{
 		_optimizedStorage.PerformCleanup();
 		_lastCleanup = DateTime.UtcNow;
 	}
@@ -169,7 +182,8 @@ public class StateSnapshotManager {
 	/// <summary>
 	/// Performs periodic cleanup if enough time has passed since the last cleanup.
 	/// </summary>
-	private void PerformPeriodicCleanup() {
+	private void PerformPeriodicCleanup()
+	{
 		var timeSinceLastCleanup = DateTime.UtcNow - _lastCleanup;
 		var storageInfo = _optimizedStorage.GetStorageInfo();
 

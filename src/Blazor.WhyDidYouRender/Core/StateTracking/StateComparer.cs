@@ -1,5 +1,4 @@
 using System.Collections;
-
 using Blazor.WhyDidYouRender.Records;
 using Blazor.WhyDidYouRender.Records.StateTracking;
 
@@ -10,7 +9,8 @@ namespace Blazor.WhyDidYouRender.Core.StateTracking;
 /// This class implements optimized comparison strategies for various data types
 /// to accurately detect state changes while maintaining performance.
 /// </summary>
-public class StateComparer {
+public class StateComparer
+{
 	/// <summary>
 	/// Cache of type-specific comparison strategies for performance.
 	/// </summary>
@@ -19,7 +19,8 @@ public class StateComparer {
 	/// <summary>
 	/// Initializes a new instance of the <see cref="StateComparer"/> class.
 	/// </summary>
-	public StateComparer() {
+	public StateComparer()
+	{
 		InitializeComparisonStrategies();
 	}
 
@@ -31,14 +32,16 @@ public class StateComparer {
 	/// <param name="fieldType">The type of the field being compared.</param>
 	/// <param name="trackingInfo">Optional tracking information for custom comparison settings.</param>
 	/// <returns>True if the values are equal.</returns>
-	public bool AreEqual(object? previous, object? current, Type fieldType, FieldTrackingInfo? trackingInfo = null) {
+	public bool AreEqual(object? previous, object? current, Type fieldType, FieldTrackingInfo? trackingInfo = null)
+	{
 		if (ReferenceEquals(previous, current))
 			return true;
 
 		if (previous == null || current == null)
 			return false;
 
-		if (trackingInfo?.UsesCustomComparison == true) {
+		if (trackingInfo?.UsesCustomComparison == true)
+		{
 			return CompareWithCustomLogic(previous, current, fieldType, trackingInfo);
 		}
 
@@ -53,14 +56,14 @@ public class StateComparer {
 	/// <param name="current">The current state snapshot.</param>
 	/// <param name="metadata">The field metadata for the component.</param>
 	/// <returns>Detailed comparison results.</returns>
-	public StateComparisonResult GetDetailedComparison(
-		StateSnapshot? previous,
-		StateSnapshot current,
-		StateFieldMetadata metadata) {
-		if (previous == null) {
+	public StateComparisonResult GetDetailedComparison(StateSnapshot? previous, StateSnapshot current, StateFieldMetadata metadata)
+	{
+		if (previous == null)
+		{
 			var initialComparisons = current.FieldValues.ToDictionary(
 				kvp => kvp.Key,
-				kvp => FieldComparisonResult.Changed(kvp.Key, null, kvp.Value, "Field added"));
+				kvp => FieldComparisonResult.Changed(kvp.Key, null, kvp.Value, "Field added")
+			);
 			return StateComparisonResult.WithChanges(initialComparisons);
 		}
 
@@ -68,14 +71,16 @@ public class StateComparer {
 		var changedFields = new List<string>();
 		var fieldComparisons = new Dictionary<string, FieldComparisonResult>();
 
-		foreach (var fieldInfo in metadata.AllTrackedFields) {
+		foreach (var fieldInfo in metadata.AllTrackedFields)
+		{
 			var fieldName = fieldInfo.FieldInfo.Name;
 			var previousValue = previous.GetFieldValue(fieldName);
 			var currentValue = current.GetFieldValue(fieldName);
 
 			var areEqual = AreEqual(previousValue, currentValue, fieldInfo.FieldInfo.FieldType, fieldInfo);
 
-			if (!areEqual) {
+			if (!areEqual)
+			{
 				hasChanges = true;
 				changedFields.Add(fieldName);
 			}
@@ -86,15 +91,14 @@ public class StateComparer {
 				: FieldComparisonResult.Changed(fieldName, previousValue, currentValue, reason);
 		}
 
-		return hasChanges
-			? StateComparisonResult.WithChanges(fieldComparisons)
-			: StateComparisonResult.NoChanges(fieldComparisons);
+		return hasChanges ? StateComparisonResult.WithChanges(fieldComparisons) : StateComparisonResult.NoChanges(fieldComparisons);
 	}
 
 	/// <summary>
 	/// Initializes the comparison strategies for different types.
 	/// </summary>
-	private void InitializeComparisonStrategies() {
+	private void InitializeComparisonStrategies()
+	{
 		var simpleValueStrategy = new SimpleValueComparisonStrategy();
 		_comparisonStrategies[typeof(string)] = simpleValueStrategy;
 		_comparisonStrategies[typeof(bool)] = simpleValueStrategy;
@@ -124,7 +128,8 @@ public class StateComparer {
 	/// </summary>
 	/// <param name="type">The type to get a strategy for.</param>
 	/// <returns>The comparison strategy.</returns>
-	private ComparisonStrategy GetComparisonStrategy(Type type) {
+	private ComparisonStrategy GetComparisonStrategy(Type type)
+	{
 		var underlyingType = Nullable.GetUnderlyingType(type) ?? type;
 
 		if (_comparisonStrategies.TryGetValue(underlyingType, out var strategy))
@@ -144,8 +149,10 @@ public class StateComparer {
 	/// <param name="fieldType">The field type.</param>
 	/// <param name="trackingInfo">The tracking information.</param>
 	/// <returns>True if the values are equal.</returns>
-	private bool CompareWithCustomLogic(object previous, object current, Type fieldType, FieldTrackingInfo trackingInfo) {
-		try {
+	private bool CompareWithCustomLogic(object previous, object current, Type fieldType, FieldTrackingInfo trackingInfo)
+	{
+		try
+		{
 			// try to use IEquatable<T> if available
 			if (TryUseIEquatable(previous, current, fieldType, out var result))
 				return result;
@@ -154,11 +161,11 @@ public class StateComparer {
 			if (trackingInfo.TrackCollectionContents && typeof(IEnumerable).IsAssignableFrom(fieldType))
 				return CompareCollectionContents(previous as IEnumerable, current as IEnumerable, trackingInfo.MaxComparisonDepth);
 
-
 			// fall back to Equals method
 			return previous.Equals(current);
 		}
-		catch (Exception) {
+		catch (Exception)
+		{
 			// if custom comparison fails, fall back to reference equality
 			return ReferenceEquals(previous, current);
 		}
@@ -172,13 +179,16 @@ public class StateComparer {
 	/// <param name="fieldType">The field type.</param>
 	/// <param name="result">The comparison result.</param>
 	/// <returns>True if IEquatable was used successfully.</returns>
-	private static bool TryUseIEquatable(object previous, object current, Type fieldType, out bool result) {
+	private static bool TryUseIEquatable(object previous, object current, Type fieldType, out bool result)
+	{
 		result = false;
 
 		var equatableInterface = typeof(IEquatable<>).MakeGenericType(fieldType);
-		if (equatableInterface.IsAssignableFrom(fieldType)) {
+		if (equatableInterface.IsAssignableFrom(fieldType))
+		{
 			var equalsMethod = equatableInterface.GetMethod("Equals", [fieldType]);
-			if (equalsMethod != null) {
+			if (equalsMethod != null)
+			{
 				result = (bool)equalsMethod.Invoke(previous, [current])!;
 				return true;
 			}
@@ -194,7 +204,8 @@ public class StateComparer {
 	/// <param name="current">The current collection.</param>
 	/// <param name="maxDepth">The maximum comparison depth.</param>
 	/// <returns>True if the collections have the same contents.</returns>
-	private bool CompareCollectionContents(IEnumerable? previous, IEnumerable? current, int maxDepth) {
+	private bool CompareCollectionContents(IEnumerable? previous, IEnumerable? current, int maxDepth)
+	{
 		if (previous == null && current == null)
 			return true;
 
@@ -204,14 +215,16 @@ public class StateComparer {
 		if (maxDepth <= 0)
 			return ReferenceEquals(previous, current);
 
-		try {
+		try
+		{
 			var previousList = previous.Cast<object?>().ToList();
 			var currentList = current.Cast<object?>().ToList();
 
 			if (previousList.Count != currentList.Count)
 				return false;
 
-			for (int i = 0; i < previousList.Count; i++) {
+			for (int i = 0; i < previousList.Count; i++)
+			{
 				var prevItem = previousList[i];
 				var currItem = currentList[i];
 
@@ -221,7 +234,8 @@ public class StateComparer {
 
 			return true;
 		}
-		catch (Exception) {
+		catch (Exception)
+		{
 			// if collection comparison fails, fall back to reference equality
 			return ReferenceEquals(previous, current);
 		}
@@ -234,7 +248,8 @@ public class StateComparer {
 	/// <param name="current">The current value.</param>
 	/// <param name="fieldInfo">The field tracking information.</param>
 	/// <returns>A description of the change.</returns>
-	private static string GetChangeReason(object? previous, object? current, FieldTrackingInfo fieldInfo) {
+	private static string GetChangeReason(object? previous, object? current, FieldTrackingInfo fieldInfo)
+	{
 		if (previous == null && current != null)
 			return "Value changed from null to non-null";
 
@@ -250,7 +265,3 @@ public class StateComparer {
 		return "Value changed";
 	}
 }
-
-
-
-

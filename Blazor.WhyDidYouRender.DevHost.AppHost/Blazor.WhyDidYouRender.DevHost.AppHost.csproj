@@ -12,7 +12,10 @@
     <PackageReference Include="Aspire.Hosting.AppHost" Version="9.4.0" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\src\Blazor.WhyDidYouRender.Aspire\Blazor.WhyDidYouRender.Aspire.csproj" IsAspireProjectResource="false" />
+    <ProjectReference
+      Include="..\src\Blazor.WhyDidYouRender.Aspire\Blazor.WhyDidYouRender.Aspire.csproj"
+      IsAspireProjectResource="false"
+    />
     <ProjectReference Include="..\samples\RenderTracker.SampleApp\RenderTracker.SampleApp.csproj" />
     <ProjectReference Include="..\samples\RenderTracker.WasmSampleApp\RenderTracker.WasmSampleApp.csproj" />
   </ItemGroup>

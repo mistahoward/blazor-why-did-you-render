@@ -6,7 +6,8 @@ namespace Blazor.WhyDidYouRender.Logging;
 /// Abstraction for structured, environment-agnostic logging used by WhyDidYouRender.
 /// Implementations may log to server consoles, browser consoles, telemetry, or other sinks.
 /// </summary>
-public interface IWhyDidYouRenderLogger {
+public interface IWhyDidYouRenderLogger
+{
 	/// <summary>
 	/// Writes a debug-level message.
 	/// </summary>

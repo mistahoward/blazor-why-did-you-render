@@ -10,6 +10,7 @@
 		"timespan"
 	],
 	"[csharp]": {
+		"editor.defaultFormatter": "csharpier.csharpier-vscode",
 		"editor.formatOnSave": true
 	}
 }

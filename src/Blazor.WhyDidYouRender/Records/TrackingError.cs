@@ -3,7 +3,8 @@ namespace Blazor.WhyDidYouRender.Records;
 /// <summary>
 /// Represents an error that occurred during render tracking.
 /// </summary>
-public record TrackingError {
+public record TrackingError
+{
 	/// <summary>
 	/// Gets or sets the unique identifier for this error occurrence.
 	/// </summary>
@@ -63,7 +64,8 @@ public record TrackingError {
 /// <summary>
 /// Severity levels for tracking errors.
 /// </summary>
-public enum ErrorSeverity {
+public enum ErrorSeverity
+{
 	/// <summary>
 	/// Informational - minor issues that don't affect functionality.
 	/// </summary>
@@ -82,13 +84,14 @@ public enum ErrorSeverity {
 	/// <summary>
 	/// Critical - severe issues that might affect application stability.
 	/// </summary>
-	Critical
+	Critical,
 }
 
 /// <summary>
 /// Error statistics summary.
 /// </summary>
-public record ErrorStatistics {
+public record ErrorStatistics
+{
 	/// <summary>
 	/// Gets or sets the total number of errors tracked.
 	/// </summary>

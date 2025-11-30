@@ -3,12 +3,12 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using Microsoft.AspNetCore.Components;
 using Blazor.WhyDidYouRender.Attributes;
 using Blazor.WhyDidYouRender.Configuration;
 using Blazor.WhyDidYouRender.Helpers;
 using Blazor.WhyDidYouRender.Records;
 using Blazor.WhyDidYouRender.Records.StateTracking;
+using Microsoft.AspNetCore.Components;
 
 namespace Blazor.WhyDidYouRender.Core.StateTracking;
 
@@ -16,7 +16,8 @@ namespace Blazor.WhyDidYouRender.Core.StateTracking;
 /// Analyzes component types to discover and categorize trackable fields.
 /// This class caches analysis results to avoid repeated reflection operations.
 /// </summary>
-public class StateFieldAnalyzer {
+public class StateFieldAnalyzer
+{
 	/// <summary>
 	/// Enhanced cache for component type metadata with performance optimizations.
 	/// </summary>
@@ -31,13 +32,15 @@ public class StateFieldAnalyzer {
 	/// Initializes a new instance of the <see cref="StateFieldAnalyzer"/> class.
 	/// </summary>
 	/// <param name="config">The configuration for state tracking.</param>
-	public StateFieldAnalyzer(WhyDidYouRenderConfig config) {
+	public StateFieldAnalyzer(WhyDidYouRenderConfig config)
+	{
 		_config = config ?? throw new ArgumentNullException(nameof(config));
 
-		var cacheConfig = new CacheConfiguration {
+		var cacheConfig = new CacheConfiguration
+		{
 			MaxCacheSize = Math.Max(100, _config.MaxTrackedComponents / 2),
 			MaxEntryAgeMinutes = _config.MaxStateSnapshotAgeMinutes,
-			MaintenanceIntervalMinutes = _config.StateSnapshotCleanupIntervalMinutes
+			MaintenanceIntervalMinutes = _config.StateSnapshotCleanupIntervalMinutes,
 		};
 
 		_metadataCache = new StateFieldCache(cacheConfig);
@@ -49,7 +52,8 @@ public class StateFieldAnalyzer {
 	/// </summary>
 	/// <param name="componentType">The component type to analyze.</param>
 	/// <returns>Metadata about the component's trackable fields.</returns>
-	public StateFieldMetadata AnalyzeComponentType(Type componentType) {
+	public StateFieldMetadata AnalyzeComponentType(Type componentType)
+	{
 		ArgumentNullException.ThrowIfNull(componentType);
 
 		if (!typeof(ComponentBase).IsAssignableFrom(componentType))
@@ -68,7 +72,8 @@ public class StateFieldAnalyzer {
 	/// </summary>
 	/// <param name="componentType">The component type to analyze.</param>
 	/// <returns>A task that represents the analysis operation.</returns>
-	public async Task<StateFieldMetadata> AnalyzeComponentTypeAsync(Type componentType) {
+	public async Task<StateFieldMetadata> AnalyzeComponentTypeAsync(Type componentType)
+	{
 		ArgumentNullException.ThrowIfNull(componentType);
 
 		if (!typeof(ComponentBase).IsAssignableFrom(componentType))
@@ -83,7 +88,8 @@ public class StateFieldAnalyzer {
 	/// <param name="field">The field to analyze.</param>
 	/// <param name="componentOptions">Component-level tracking options.</param>
 	/// <returns>The appropriate tracking strategy.</returns>
-	public TrackingStrategy DetermineTrackingStrategy(FieldInfo field, StateTrackingOptionsAttribute? componentOptions = null) {
+	public TrackingStrategy DetermineTrackingStrategy(FieldInfo field, StateTrackingOptionsAttribute? componentOptions = null)
+	{
 		ArgumentNullException.ThrowIfNull(field);
 
 		var ignoreAttribute = field.GetCustomAttribute<IgnoreStateAttribute>();
@@ -97,8 +103,8 @@ public class StateFieldAnalyzer {
 		if (trackAttribute != null)
 			return TrackingStrategy.ExplicitTrack;
 
-		var autoTrackSimpleTypes = componentOptions?.GetEffectiveAutoTrackSimpleTypes(_config.AutoTrackSimpleTypes)
-								  ?? _config.AutoTrackSimpleTypes;
+		var autoTrackSimpleTypes =
+			componentOptions?.GetEffectiveAutoTrackSimpleTypes(_config.AutoTrackSimpleTypes) ?? _config.AutoTrackSimpleTypes;
 
 		if (autoTrackSimpleTypes && TypeHelper.IsSimpleValueType(field.FieldType))
 			return TrackingStrategy.AutoTrack;
@@ -110,60 +116,55 @@ public class StateFieldAnalyzer {
 	/// <summary>
 	/// Clears the metadata cache. Useful for testing or when configuration changes.
 	/// </summary>
-	public void ClearCache() =>
-		_metadataCache.Invalidate();
-
-
+	public void ClearCache() => _metadataCache.Invalidate();
 
 	/// <summary>
 	/// Gets the current cache size for diagnostic purposes.
 	/// </summary>
 	/// <returns>The number of cached component types.</returns>
-	public int GetCacheSize() =>
-		_metadataCache.GetCacheInfo().TotalEntries;
+	public int GetCacheSize() => _metadataCache.GetCacheInfo().TotalEntries;
 
 	/// <summary>
 	/// Gets detailed cache performance information.
 	/// </summary>
 	/// <returns>Cache performance statistics and information.</returns>
-	public CacheInfo GetCacheInfo() =>
-		_metadataCache.GetCacheInfo();
+	public CacheInfo GetCacheInfo() => _metadataCache.GetCacheInfo();
 
 	/// <summary>
 	/// Gets cache performance statistics.
 	/// </summary>
 	/// <returns>Cache performance statistics.</returns>
-	public CacheStatistics GetCacheStatistics() =>
-		_metadataCache.GetStatistics();
+	public CacheStatistics GetCacheStatistics() => _metadataCache.GetStatistics();
 
 	/// <summary>
 	/// Performs cache maintenance to optimize memory usage.
 	/// </summary>
-	public void PerformCacheMaintenance() =>
-		_metadataCache.PerformMaintenance();
+	public void PerformCacheMaintenance() => _metadataCache.PerformMaintenance();
 
 	/// <summary>
 	/// Performs the actual analysis of a component type.
 	/// </summary>
 	/// <param name="componentType">The component type to analyze.</param>
 	/// <returns>Metadata about the component's trackable fields.</returns>
-	private StateFieldMetadata AnalyzeComponentTypeInternal(Type componentType) {
+	private StateFieldMetadata AnalyzeComponentTypeInternal(Type componentType)
+	{
 		var ignoreStateTracking = componentType.GetCustomAttribute<IgnoreStateTrackingAttribute>();
 		var componentOptions = componentType.GetCustomAttribute<StateTrackingOptionsAttribute>();
 
 		// If state tracking is disabled at component level, return empty metadata
-		var isStateTrackingDisabled = ignoreStateTracking != null ||
-									 (componentOptions?.EnableStateTracking == false) ||
-									 !_config.EnableStateTracking;
+		var isStateTrackingDisabled =
+			ignoreStateTracking != null || (componentOptions?.EnableStateTracking == false) || !_config.EnableStateTracking;
 
-		if (isStateTrackingDisabled) {
+		if (isStateTrackingDisabled)
+		{
 			return new StateFieldMetadata(
 				componentType,
 				Array.Empty<FieldTrackingInfo>(),
 				Array.Empty<FieldTrackingInfo>(),
 				Array.Empty<FieldTrackingInfo>(),
 				componentOptions,
-				true);
+				true
+			);
 		}
 
 		// Get all instance fields
@@ -174,11 +175,13 @@ public class StateFieldAnalyzer {
 		var explicitlyTrackedFields = new List<FieldTrackingInfo>();
 		var ignoredFields = new List<FieldTrackingInfo>();
 
-		foreach (var field in fields) {
+		foreach (var field in fields)
+		{
 			var strategy = DetermineTrackingStrategy(field, componentOptions);
 			var trackingInfo = CreateFieldTrackingInfo(field, strategy);
 
-			switch (strategy) {
+			switch (strategy)
+			{
 				case TrackingStrategy.AutoTrack:
 					autoTrackedFields.Add(trackingInfo);
 					break;
@@ -193,14 +196,16 @@ public class StateFieldAnalyzer {
 			}
 		}
 
-		var maxFields = componentOptions?.GetEffectiveMaxFields(_config.MaxTrackedFieldsPerComponent)
-					   ?? _config.MaxTrackedFieldsPerComponent;
+		var maxFields =
+			componentOptions?.GetEffectiveMaxFields(_config.MaxTrackedFieldsPerComponent) ?? _config.MaxTrackedFieldsPerComponent;
 
-		if (autoTrackedFields.Count + explicitlyTrackedFields.Count > maxFields) {
+		if (autoTrackedFields.Count + explicitlyTrackedFields.Count > maxFields)
+		{
 			var totalExplicit = explicitlyTrackedFields.Count;
 			var remainingSlots = Math.Max(0, maxFields - totalExplicit);
 
-			if (remainingSlots < autoTrackedFields.Count) {
+			if (remainingSlots < autoTrackedFields.Count)
+			{
 				autoTrackedFields = autoTrackedFields.Take(remainingSlots).ToList();
 			}
 		}
@@ -211,7 +216,8 @@ public class StateFieldAnalyzer {
 			explicitlyTrackedFields.AsReadOnly(),
 			ignoredFields.AsReadOnly(),
 			componentOptions,
-			false);
+			false
+		);
 	}
 
 	/// <summary>
@@ -220,11 +226,12 @@ public class StateFieldAnalyzer {
 	/// <param name="componentType">The component type.</param>
 	/// <param name="componentOptions">Component-level options.</param>
 	/// <returns>A collection of analyzable fields.</returns>
-	private FieldInfo[] GetAnalyzableFields(Type componentType, StateTrackingOptionsAttribute? componentOptions) {
+	private FieldInfo[] GetAnalyzableFields(Type componentType, StateTrackingOptionsAttribute? componentOptions)
+	{
 		var bindingFlags = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
 
-		var trackInheritedFields = componentOptions?.GetEffectiveTrackInheritedFields(_config.TrackInheritedFields)
-								  ?? _config.TrackInheritedFields;
+		var trackInheritedFields =
+			componentOptions?.GetEffectiveTrackInheritedFields(_config.TrackInheritedFields) ?? _config.TrackInheritedFields;
 
 		if (trackInheritedFields)
 			return componentType.GetFields(bindingFlags);
@@ -238,7 +245,8 @@ public class StateFieldAnalyzer {
 	/// <param name="field">The field to create tracking info for.</param>
 	/// <param name="strategy">The tracking strategy.</param>
 	/// <returns>Field tracking information.</returns>
-	private static FieldTrackingInfo CreateFieldTrackingInfo(FieldInfo field, TrackingStrategy strategy) {
+	private static FieldTrackingInfo CreateFieldTrackingInfo(FieldInfo field, TrackingStrategy strategy)
+	{
 		var trackAttribute = field.GetCustomAttribute<TrackStateAttribute>();
 		var ignoreAttribute = field.GetCustomAttribute<IgnoreStateAttribute>();
 
@@ -250,7 +258,8 @@ public class StateFieldAnalyzer {
 	/// </summary>
 	/// <param name="field">The field to check.</param>
 	/// <returns>True if the field should be skipped.</returns>
-	private static bool ShouldSkipField(FieldInfo field) {
+	private static bool ShouldSkipField(FieldInfo field)
+	{
 		if (field.IsStatic)
 			return true;
 
@@ -271,7 +280,8 @@ public class StateFieldAnalyzer {
 	/// </summary>
 	/// <param name="field">The field to check.</param>
 	/// <returns>True if the field is compiler-generated.</returns>
-	private static bool IsCompilerGeneratedField(FieldInfo field) {
+	private static bool IsCompilerGeneratedField(FieldInfo field)
+	{
 		var name = field.Name;
 
 		// auto-property backing fields
@@ -294,7 +304,8 @@ public class StateFieldAnalyzer {
 	/// </summary>
 	/// <param name="field">The field to check.</param>
 	/// <returns>True if the field is infrastructure-related.</returns>
-	private static bool IsInfrastructureField(FieldInfo field) {
+	private static bool IsInfrastructureField(FieldInfo field)
+	{
 		var fieldType = field.FieldType;
 
 		// skip our own tracker service
@@ -307,6 +318,4 @@ public class StateFieldAnalyzer {
 
 		return false;
 	}
-
-
 }

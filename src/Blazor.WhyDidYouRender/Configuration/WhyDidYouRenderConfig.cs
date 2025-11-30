@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-
 using Blazor.WhyDidYouRender.Abstractions;
 
 namespace Blazor.WhyDidYouRender.Configuration;
@@ -8,7 +7,8 @@ namespace Blazor.WhyDidYouRender.Configuration;
 /// <summary>
 /// Configuration options for the WhyDidYouRender tracking system.
 /// </summary>
-public class WhyDidYouRenderConfig {
+public class WhyDidYouRenderConfig
+{
 	/// <summary>
 	/// Gets or sets whether tracking is enabled.
 	/// </summary>
@@ -290,27 +290,30 @@ public class WhyDidYouRenderConfig {
 	/// </summary>
 	public BlazorHostingModel? ForceHostingModel { get; set; } = null;
 
-
 	/// <summary>
 	/// Validates the configuration for the specified hosting environment.
 	/// </summary>
 	/// <param name="hostingModel">The hosting model to validate against.</param>
 	/// <returns>A list of validation errors, empty if configuration is valid.</returns>
-	public List<string> Validate(BlazorHostingModel hostingModel) {
+	public List<string> Validate(BlazorHostingModel hostingModel)
+	{
 		var errors = new List<string>();
 
 		// Basic validation
-		if (ErrorCleanupIntervalMinutes <= 0) {
+		if (ErrorCleanupIntervalMinutes <= 0)
+		{
 			errors.Add("ErrorCleanupIntervalMinutes must be greater than 0");
 		}
 
-		if (MaxErrorHistorySize <= 0) {
+		if (MaxErrorHistorySize <= 0)
+		{
 			errors.Add("MaxErrorHistorySize must be greater than 0");
 		}
 
 		ValidateStateTrackingConfiguration(errors);
 
-		switch (hostingModel) {
+		switch (hostingModel)
+		{
 			case BlazorHostingModel.WebAssembly:
 
 				break;
@@ -330,9 +333,11 @@ public class WhyDidYouRenderConfig {
 	/// </summary>
 	/// <param name="hostingModel">The hosting model to validate against.</param>
 	/// <exception cref="InvalidOperationException">Thrown when configuration is invalid.</exception>
-	public void ValidateAndThrow(BlazorHostingModel hostingModel) {
+	public void ValidateAndThrow(BlazorHostingModel hostingModel)
+	{
 		var errors = Validate(hostingModel);
-		if (errors.Count > 0) {
+		if (errors.Count > 0)
+		{
 			throw new InvalidOperationException($"WhyDidYouRender configuration is invalid:\n{string.Join("\n", errors)}");
 		}
 	}
@@ -343,16 +348,20 @@ public class WhyDidYouRenderConfig {
 	/// </summary>
 	/// <param name="hostingModel">The hosting model to adapt for.</param>
 	/// <returns>True if any settings were changed, false otherwise.</returns>
-	public bool AdaptForEnvironment(BlazorHostingModel hostingModel) {
+	public bool AdaptForEnvironment(BlazorHostingModel hostingModel)
+	{
 		bool changed = false;
 
-		switch (hostingModel) {
+		switch (hostingModel)
+		{
 			case BlazorHostingModel.WebAssembly:
-				if (Output == TrackingOutput.Console) {
+				if (Output == TrackingOutput.Console)
+				{
 					Output = TrackingOutput.BrowserConsole;
 					changed = true;
 				}
-				else if (Output == TrackingOutput.Both) {
+				else if (Output == TrackingOutput.Both)
+				{
 					Output = TrackingOutput.BrowserConsole;
 					changed = true;
 				}
@@ -370,8 +379,10 @@ public class WhyDidYouRenderConfig {
 	/// Gets a summary of the configuration for logging purposes.
 	/// </summary>
 	/// <returns>A dictionary containing configuration summary.</returns>
-	public Dictionary<string, object> GetConfigurationSummary() {
-		return new Dictionary<string, object> {
+	public Dictionary<string, object> GetConfigurationSummary()
+	{
+		return new Dictionary<string, object>
+		{
 			["Enabled"] = Enabled,
 			["Verbosity"] = Verbosity.ToString(),
 			["Output"] = Output.ToString(),
@@ -388,7 +399,7 @@ public class WhyDidYouRenderConfig {
 			["MaxStateComparisonDepth"] = MaxStateComparisonDepth,
 			["EnableCollectionContentTracking"] = EnableCollectionContentTracking,
 			["MaxTrackedComponents"] = MaxTrackedComponents,
-			["LogDetailedStateChanges"] = LogDetailedStateChanges
+			["LogDetailedStateChanges"] = LogDetailedStateChanges,
 		};
 	}
 
@@ -407,7 +418,6 @@ public class WhyDidYouRenderConfig {
 	///   <item>Browser storage quota considerations</item>
 	/// </list>
 	/// </remarks>
-
 	/// <summary>
 	/// Validates the Server/SSR-specific configuration settings.
 	/// </summary>
@@ -422,14 +432,16 @@ public class WhyDidYouRenderConfig {
 	///   <item>Memory management settings</item>
 	/// </list>
 	/// </remarks>
-	private void ValidateServerConfiguration(List<string> errors) {
+	private void ValidateServerConfiguration(List<string> errors)
+	{
 		if (EnableErrorTracking && MaxErrorHistorySize > 10000)
 			errors.Add("MaxErrorHistorySize should not exceed 10,000 in server environments to avoid memory issues");
 
 		if (EnableErrorTracking && ErrorCleanupIntervalMinutes > 1440) // 24 hours
 			errors.Add("ErrorCleanupIntervalMinutes should not exceed 1440 minutes (24 hours) to prevent memory buildup");
 
-		if (EnableStateTracking) {
+		if (EnableStateTracking)
+		{
 			if (MaxTrackedComponents > 5000)
 				errors.Add("MaxTrackedComponents should not exceed 5,000 in server environments to avoid memory issues");
 
@@ -437,7 +449,9 @@ public class WhyDidYouRenderConfig {
 				errors.Add("MaxTrackedFieldsPerComponent should not exceed 100 in server environments for optimal performance");
 
 			if (StateSnapshotCleanupIntervalMinutes > 60)
-				errors.Add("StateSnapshotCleanupIntervalMinutes should not exceed 60 minutes in server environments to prevent memory buildup");
+				errors.Add(
+					"StateSnapshotCleanupIntervalMinutes should not exceed 60 minutes in server environments to prevent memory buildup"
+				);
 		}
 
 		if (IncludeSessionInfo && !EnableStateTracking && !TrackParameterChanges)
@@ -460,7 +474,8 @@ public class WhyDidYouRenderConfig {
 	///   <item>Maximum tracked components limits</item>
 	/// </list>
 	/// </remarks>
-	private void ValidateStateTrackingConfiguration(List<string> errors) {
+	private void ValidateStateTrackingConfiguration(List<string> errors)
+	{
 		if (MaxTrackedFieldsPerComponent <= 0)
 			errors.Add("MaxTrackedFieldsPerComponent must be greater than 0");
 
@@ -502,7 +517,8 @@ public class WhyDidYouRenderConfig {
 	///  <item>Valid TrackingVerbosity enum values</item>
 	/// </list>
 	/// </remarks>
-	private void ValidateOutputConfiguration(List<string> errors, BlazorHostingModel hostingModel) {
+	private void ValidateOutputConfiguration(List<string> errors, BlazorHostingModel hostingModel)
+	{
 		if (hostingModel == BlazorHostingModel.WebAssembly && (Output == TrackingOutput.Console || Output == TrackingOutput.Both))
 			errors.Add("TrackingOutput.Console is not supported in WebAssembly. Use BrowserConsole instead.");
 

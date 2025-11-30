@@ -3,7 +3,8 @@ namespace Blazor.WhyDidYouRender.Records;
 /// <summary>
 /// Statistics about component render frequency.
 /// </summary>
-public record RenderStatistics {
+public record RenderStatistics
+{
 	/// <summary>
 	/// Gets or sets the component name.
 	/// </summary>

@@ -13,7 +13,9 @@ namespace Blazor.WhyDidYouRender.Core.StateTracking;
 /// </remarks>
 /// <param name="objectGenerator">Factory function for creating new instances.</param>
 /// <exception cref="ArgumentNullException">Thrown when objectGenerator is null.</exception>
-public class ObjectPool<T>(Func<T> objectGenerator) where T : class, new() {
+public class ObjectPool<T>(Func<T> objectGenerator)
+	where T : class, new()
+{
 	/// <summary>
 	/// Thread-safe collection of pooled objects.
 	/// </summary>
@@ -27,21 +29,22 @@ public class ObjectPool<T>(Func<T> objectGenerator) where T : class, new() {
 	/// <summary>
 	/// Initializes a new instance of the <see cref="ObjectPool{T}"/> class with default object creation.
 	/// </summary>
-	public ObjectPool() : this(() => new T()) { }
+	public ObjectPool()
+		: this(() => new T()) { }
 
 	/// <summary>
 	/// Gets an object from the pool, creating a new one if the pool is empty.
 	/// </summary>
 	/// <returns>An object instance from the pool or newly created.</returns>
-	public T Get() =>
-		_objects.TryTake(out var item) ? item : _objectGenerator();
+	public T Get() => _objects.TryTake(out var item) ? item : _objectGenerator();
 
 	/// <summary>
 	/// Returns an object to the pool for reuse.
 	/// </summary>
 	/// <param name="item">The object to return to the pool.</param>
 	/// <exception cref="ArgumentNullException">Thrown when item is null.</exception>
-	public void Return(T item) {
+	public void Return(T item)
+	{
 		ArgumentNullException.ThrowIfNull(item);
 
 		_objects.Add(item);
@@ -59,7 +62,8 @@ public class ObjectPool<T>(Func<T> objectGenerator) where T : class, new() {
 	/// <summary>
 	/// Clears all objects from the pool.
 	/// </summary>
-	public void Clear() {
+	public void Clear()
+	{
 		while (_objects.TryTake(out _)) { }
 	}
 }

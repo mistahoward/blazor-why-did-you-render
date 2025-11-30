@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-
 using Blazor.WhyDidYouRender.Records;
 
 namespace Blazor.WhyDidYouRender.Abstractions;
@@ -9,7 +8,8 @@ namespace Blazor.WhyDidYouRender.Abstractions;
 /// <summary>
 /// Service for tracking and managing errors across different Blazor hosting environments.
 /// </summary>
-public interface IErrorTracker {
+public interface IErrorTracker
+{
 	/// <summary>
 	/// Gets whether this error tracker supports persistent error storage.
 	/// </summary>
@@ -34,7 +34,13 @@ public interface IErrorTracker {
 	/// <param name="componentName">Optional name of the component where the error occurred.</param>
 	/// <param name="operation">Optional name of the operation that was being performed.</param>
 	/// <returns>A task representing the error tracking operation.</returns>
-	Task TrackErrorAsync(Exception exception, Dictionary<string, object?> context, ErrorSeverity severity, string? componentName = null, string? operation = null);
+	Task TrackErrorAsync(
+		Exception exception,
+		Dictionary<string, object?> context,
+		ErrorSeverity severity,
+		string? componentName = null,
+		string? operation = null
+	);
 
 	/// <summary>
 	/// Tracks an error with a custom message.
@@ -45,7 +51,13 @@ public interface IErrorTracker {
 	/// <param name="componentName">Optional name of the component where the error occurred.</param>
 	/// <param name="operation">Optional name of the operation that was being performed.</param>
 	/// <returns>A task representing the error tracking operation.</returns>
-	Task TrackErrorAsync(string message, Dictionary<string, object?> context, ErrorSeverity severity, string? componentName = null, string? operation = null);
+	Task TrackErrorAsync(
+		string message,
+		Dictionary<string, object?> context,
+		ErrorSeverity severity,
+		string? componentName = null,
+		string? operation = null
+	);
 
 	/// <summary>
 	/// Gets recent errors based on the specified criteria.

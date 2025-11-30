@@ -1,6 +1,5 @@
 var builder = DistributedApplication.CreateBuilder(args);
 
-
 // builder.AddProject<Projects.Blazor_WhyDidYouRender_DevHost_AppHost>("webfrontend")
 // 	.WithExternalHttpEndpoints();
 

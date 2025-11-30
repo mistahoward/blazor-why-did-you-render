@@ -1,6 +1,5 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
-
 using Blazor.WhyDidYouRender.Records.StateTracking;
 
 namespace Blazor.WhyDidYouRender.Core.StateTracking;
@@ -9,7 +8,8 @@ namespace Blazor.WhyDidYouRender.Core.StateTracking;
 /// Monitors performance of state tracking operations and provides detailed metrics.
 /// This class helps identify performance bottlenecks and optimize state tracking behavior.
 /// </summary>
-public class StateTrackingPerformanceMonitor {
+public class StateTrackingPerformanceMonitor
+{
 	/// <summary>
 	/// Performance metrics for different operation types.
 	/// </summary>
@@ -32,18 +32,21 @@ public class StateTrackingPerformanceMonitor {
 	/// <param name="operationName">The name of the operation being measured.</param>
 	/// <param name="operation">The operation to measure.</param>
 	/// <returns>The result of the operation.</returns>
-	public T MeasureOperation<T>(string operationName, Func<T> operation) {
+	public T MeasureOperation<T>(string operationName, Func<T> operation)
+	{
 		var stopwatch = Stopwatch.StartNew();
 		var startTime = DateTime.UtcNow;
 
-		try {
+		try
+		{
 			var result = operation();
 			stopwatch.Stop();
 
 			RecordSuccessfulOperation(operationName, stopwatch.Elapsed, startTime);
 			return result;
 		}
-		catch (Exception ex) {
+		catch (Exception ex)
+		{
 			stopwatch.Stop();
 			RecordFailedOperation(operationName, stopwatch.Elapsed, startTime, ex);
 			throw;
@@ -55,11 +58,16 @@ public class StateTrackingPerformanceMonitor {
 	/// </summary>
 	/// <param name="operationName">The name of the operation being measured.</param>
 	/// <param name="operation">The operation to measure.</param>
-	public void MeasureOperation(string operationName, Action operation) {
-		MeasureOperation(operationName, () => {
-			operation();
-			return true;
-		});
+	public void MeasureOperation(string operationName, Action operation)
+	{
+		MeasureOperation(
+			operationName,
+			() =>
+			{
+				operation();
+				return true;
+			}
+		);
 	}
 
 	/// <summary>
@@ -68,7 +76,8 @@ public class StateTrackingPerformanceMonitor {
 	/// <param name="operationName">The name of the operation.</param>
 	/// <param name="duration">The duration of the operation.</param>
 	/// <param name="startTime">When the operation started.</param>
-	private void RecordSuccessfulOperation(string operationName, TimeSpan duration, DateTime startTime) {
+	private void RecordSuccessfulOperation(string operationName, TimeSpan duration, DateTime startTime)
+	{
 		var metrics = _operationMetrics.GetOrAdd(operationName, _ => new MutableOperationMetrics(operationName));
 		metrics.RecordSuccess(duration);
 
@@ -83,7 +92,8 @@ public class StateTrackingPerformanceMonitor {
 	/// <param name="duration">The duration of the operation before failure.</param>
 	/// <param name="startTime">When the operation started.</param>
 	/// <param name="exception">The exception that occurred.</param>
-	private void RecordFailedOperation(string operationName, TimeSpan duration, DateTime startTime, Exception exception) {
+	private void RecordFailedOperation(string operationName, TimeSpan duration, DateTime startTime, Exception exception)
+	{
 		var metrics = _operationMetrics.GetOrAdd(operationName, _ => new MutableOperationMetrics(operationName));
 		metrics.RecordFailure(duration, exception);
 
@@ -95,7 +105,8 @@ public class StateTrackingPerformanceMonitor {
 	/// Adds a timing to the recent timings queue, maintaining size limit.
 	/// </summary>
 	/// <param name="timing">The timing to add.</param>
-	private void AddRecentTiming(OperationTiming timing) {
+	private void AddRecentTiming(OperationTiming timing)
+	{
 		_recentTimings.Enqueue(timing);
 
 		while (_recentTimings.Count > _maxRecentTimings)
@@ -107,9 +118,7 @@ public class StateTrackingPerformanceMonitor {
 	/// </summary>
 	/// <returns>A dictionary of operation metrics.</returns>
 	public Dictionary<string, OperationMetrics> GetAllOperationMetrics() =>
-		_operationMetrics.ToDictionary(
-			kvp => kvp.Key,
-			kvp => kvp.Value.CreateSnapshot());
+		_operationMetrics.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.CreateSnapshot());
 
 	/// <summary>
 	/// Gets recent operation timings for trend analysis.
@@ -117,7 +126,8 @@ public class StateTrackingPerformanceMonitor {
 	/// <param name="operationName">Optional operation name filter.</param>
 	/// <param name="maxCount">Maximum number of timings to return.</param>
 	/// <returns>Recent operation timings.</returns>
-	public List<OperationTiming> GetRecentTimings(string? operationName = null, int maxCount = 100) {
+	public List<OperationTiming> GetRecentTimings(string? operationName = null, int maxCount = 100)
+	{
 		var timings = _recentTimings.ToList();
 
 		if (!string.IsNullOrEmpty(operationName))
@@ -130,11 +140,13 @@ public class StateTrackingPerformanceMonitor {
 	/// Gets a performance summary for all operations.
 	/// </summary>
 	/// <returns>A comprehensive performance summary.</returns>
-	public PerformanceSummary GetPerformanceSummary() {
+	public PerformanceSummary GetPerformanceSummary()
+	{
 		var allMetrics = GetAllOperationMetrics();
 		var recentTimings = GetRecentTimings();
 
-		return new PerformanceSummary {
+		return new PerformanceSummary
+		{
 			TotalOperations = allMetrics.Values.Sum(m => m.TotalOperations),
 			TotalSuccessfulOperations = allMetrics.Values.Sum(m => m.SuccessfulOperations),
 			TotalFailedOperations = allMetrics.Values.Sum(m => m.FailedOperations),
@@ -145,14 +157,15 @@ public class StateTrackingPerformanceMonitor {
 			FastestOperation = allMetrics.Values.MinBy(m => m.MinTime),
 			OperationMetrics = allMetrics,
 			RecentTimingsCount = recentTimings.Count,
-			MonitoringStartTime = allMetrics.Values.MinBy(m => m.FirstOperationTime)?.FirstOperationTime ?? DateTime.UtcNow
+			MonitoringStartTime = allMetrics.Values.MinBy(m => m.FirstOperationTime)?.FirstOperationTime ?? DateTime.UtcNow,
 		};
 	}
 
 	/// <summary>
 	/// Resets all performance metrics.
 	/// </summary>
-	public void Reset() {
+	public void Reset()
+	{
 		_operationMetrics.Clear();
 		while (_recentTimings.TryDequeue(out _)) { }
 	}
@@ -161,7 +174,8 @@ public class StateTrackingPerformanceMonitor {
 /// <summary>
 /// Mutable implementation of operation metrics for internal tracking.
 /// </summary>
-internal class MutableOperationMetrics(string operationName) {
+internal class MutableOperationMetrics(string operationName)
+{
 	private long _totalOperations = 0;
 	private long _successfulOperations = 0;
 	private long _failedOperations = 0;
@@ -173,7 +187,8 @@ internal class MutableOperationMetrics(string operationName) {
 	public DateTime FirstOperationTime { get; private set; } = DateTime.MaxValue;
 	public DateTime LastOperationTime { get; private set; } = DateTime.MinValue;
 
-	public void RecordSuccess(TimeSpan duration) {
+	public void RecordSuccess(TimeSpan duration)
+	{
 		Interlocked.Increment(ref _totalOperations);
 		Interlocked.Increment(ref _successfulOperations);
 		Interlocked.Add(ref _totalTimeTicks, duration.Ticks);
@@ -183,37 +198,47 @@ internal class MutableOperationMetrics(string operationName) {
 		UpdateOperationTimes();
 	}
 
-	public void RecordFailure(TimeSpan duration, Exception exception) {
+	public void RecordFailure(TimeSpan duration, Exception exception)
+	{
 		Interlocked.Increment(ref _totalOperations);
 		Interlocked.Increment(ref _failedOperations);
 		UpdateOperationTimes();
 	}
 
-	private void UpdateMinTime(long ticks) {
-		long current, newValue;
-		do {
+	private void UpdateMinTime(long ticks)
+	{
+		long current,
+			newValue;
+		do
+		{
 			current = _minTimeTicks;
 			newValue = Math.Min(current, ticks);
 		} while (Interlocked.CompareExchange(ref _minTimeTicks, newValue, current) != current);
 	}
 
-	private void UpdateMaxTime(long ticks) {
-		long current, newValue;
-		do {
+	private void UpdateMaxTime(long ticks)
+	{
+		long current,
+			newValue;
+		do
+		{
 			current = _maxTimeTicks;
 			newValue = Math.Max(current, ticks);
 		} while (Interlocked.CompareExchange(ref _maxTimeTicks, newValue, current) != current);
 	}
 
-	private void UpdateOperationTimes() {
+	private void UpdateOperationTimes()
+	{
 		var now = DateTime.UtcNow;
 		if (FirstOperationTime == DateTime.MaxValue)
 			FirstOperationTime = now;
 		LastOperationTime = now;
 	}
 
-	public OperationMetrics CreateSnapshot() {
-		return new OperationMetrics {
+	public OperationMetrics CreateSnapshot()
+	{
+		return new OperationMetrics
+		{
 			OperationName = OperationName,
 			FirstOperationTime = FirstOperationTime,
 			LastOperationTime = LastOperationTime,
@@ -222,9 +247,7 @@ internal class MutableOperationMetrics(string operationName) {
 			FailedOperations = _failedOperations,
 			TotalTimeTicks = _totalTimeTicks,
 			MinTimeTicks = _minTimeTicks,
-			MaxTimeTicks = _maxTimeTicks
+			MaxTimeTicks = _maxTimeTicks,
 		};
 	}
 }
-
-

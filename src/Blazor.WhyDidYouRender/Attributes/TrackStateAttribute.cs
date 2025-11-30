@@ -1,6 +1,5 @@
 using System;
 using System.Collections;
-
 using Blazor.WhyDidYouRender.Helpers;
 
 namespace Blazor.WhyDidYouRender.Attributes;
@@ -14,21 +13,22 @@ namespace Blazor.WhyDidYouRender.Attributes;
 /// Use this attribute when you want to track changes to complex objects that affect component rendering.
 /// The state tracking system will monitor changes to the decorated field/property and include them
 /// in unnecessary render detection analysis.
-/// 
+///
 /// Example usage:
 /// <code>
 /// [TrackState]
 /// private MyCustomStateObject _complexState = new();
-/// 
+///
 /// [TrackState]
 /// private List&lt;string&gt; _items = new();
-/// 
+///
 /// [TrackState(UseCustomComparer = true)]
 /// private Dictionary&lt;string, object&gt; _data = new();
 /// </code>
 /// </remarks>
 [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property, AllowMultiple = false, Inherited = true)]
-public sealed class TrackStateAttribute : Attribute {
+public sealed class TrackStateAttribute : Attribute
+{
 	/// <summary>
 	/// Gets or sets whether to use a custom equality comparer for this field.
 	/// When true, the system will attempt to use IEquatable&lt;T&gt; or override Equals() method.
@@ -72,14 +72,14 @@ public sealed class TrackStateAttribute : Attribute {
 	/// <summary>
 	/// Initializes a new instance of the <see cref="TrackStateAttribute"/> class.
 	/// </summary>
-	public TrackStateAttribute() {
-	}
+	public TrackStateAttribute() { }
 
 	/// <summary>
 	/// Initializes a new instance of the <see cref="TrackStateAttribute"/> class with a description.
 	/// </summary>
 	/// <param name="description">A description of what this state field represents.</param>
-	public TrackStateAttribute(string description) {
+	public TrackStateAttribute(string description)
+	{
 		Description = description;
 	}
 
@@ -87,7 +87,8 @@ public sealed class TrackStateAttribute : Attribute {
 	/// Validates the attribute configuration and returns any validation errors.
 	/// </summary>
 	/// <returns>An array of validation error messages, empty if configuration is valid.</returns>
-	internal string[] Validate() {
+	internal string[] Validate()
+	{
 		List<string> errors = [];
 
 		if (MaxComparisonDepth < 0)
@@ -107,7 +108,8 @@ public sealed class TrackStateAttribute : Attribute {
 	/// </summary>
 	/// <param name="fieldType">The type of the field this attribute is applied to.</param>
 	/// <returns>True if the configuration is appropriate for the field type.</returns>
-	internal bool IsValidForType(Type fieldType) {
+	internal bool IsValidForType(Type fieldType)
+	{
 		if (TypeHelper.IsSimpleValueType(fieldType))
 			return false;
 
@@ -116,6 +118,4 @@ public sealed class TrackStateAttribute : Attribute {
 
 		return true;
 	}
-
-
 }

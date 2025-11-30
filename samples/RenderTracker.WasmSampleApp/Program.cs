@@ -1,8 +1,8 @@
+using Blazor.WhyDidYouRender.Configuration;
+using Blazor.WhyDidYouRender.Extensions;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using RenderTracker.WasmSampleApp;
-using Blazor.WhyDidYouRender.Extensions;
-using Blazor.WhyDidYouRender.Configuration;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
@@ -11,7 +11,8 @@ builder.RootComponents.Add<HeadOutlet>("head::after");
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
 
 // Add WhyDidYouRender with WASM-optimized configuration
-builder.Services.AddWhyDidYouRender(config => {
+builder.Services.AddWhyDidYouRender(config =>
+{
 	config.Enabled = true;
 	config.Verbosity = TrackingVerbosity.Verbose;
 	config.Output = TrackingOutput.BrowserConsole; // WASM-specific: use browser console
@@ -32,7 +33,6 @@ builder.Services.AddWhyDidYouRender(config => {
 	config.MaxTrackedComponents = 100; // lower for WASM memory constraints
 	config.StateSnapshotCleanupIntervalMinutes = 10;
 	config.MaxStateSnapshotAgeMinutes = 30;
-
 });
 
 var app = builder.Build();

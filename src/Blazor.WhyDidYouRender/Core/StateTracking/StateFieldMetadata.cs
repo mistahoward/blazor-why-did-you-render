@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
-
 using Blazor.WhyDidYouRender.Attributes;
 using Blazor.WhyDidYouRender.Records;
 
@@ -11,7 +10,8 @@ namespace Blazor.WhyDidYouRender.Core.StateTracking;
 /// Contains metadata about trackable fields for a specific component type.
 /// This class caches field discovery results to avoid repeated reflection operations.
 /// </summary>
-public class StateFieldMetadata {
+public class StateFieldMetadata
+{
 	/// <summary>
 	/// Gets the component type this metadata applies to.
 	/// </summary>
@@ -77,7 +77,9 @@ public class StateFieldMetadata {
 		IReadOnlyList<FieldTrackingInfo> explicitlyTrackedFields,
 		IReadOnlyList<FieldTrackingInfo> ignoredFields,
 		StateTrackingOptionsAttribute? componentOptions,
-		bool isStateTrackingDisabled) {
+		bool isStateTrackingDisabled
+	)
+	{
 		ComponentType = componentType;
 		AutoTrackedFields = autoTrackedFields;
 		ExplicitlyTrackedFields = explicitlyTrackedFields;
@@ -97,7 +99,8 @@ public class StateFieldMetadata {
 	/// </summary>
 	/// <param name="fieldName">The name of the field.</param>
 	/// <returns>The tracking information, or null if the field is not tracked.</returns>
-	public FieldTrackingInfo? GetFieldTrackingInfo(string fieldName) {
+	public FieldTrackingInfo? GetFieldTrackingInfo(string fieldName)
+	{
 		foreach (var field in AllTrackedFields)
 			if (field.FieldInfo.Name == fieldName)
 				return field;
@@ -105,5 +108,3 @@ public class StateFieldMetadata {
 		return null;
 	}
 }
-
-

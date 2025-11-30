@@ -3,7 +3,8 @@ namespace Blazor.WhyDidYouRender.Logging;
 /// <summary>
 /// Extension methods for LogLevel.
 /// </summary>
-public static class LogLevelExtensions {
+public static class LogLevelExtensions
+{
 	/// <summary>
 	/// Determines whether the current level meets or exceeds the specified minimum.
 	/// </summary>
@@ -17,12 +18,14 @@ public static class LogLevelExtensions {
 	/// </summary>
 	/// <param name="level">The level.</param>
 	/// <returns>A string representation of the level.</returns>
-	public static string ToString(this LogLevel level) => level switch {
-		LogLevel.Debug => "Debug",
-		LogLevel.Info => "Info",
-		LogLevel.Warning => "Warning",
-		LogLevel.Error => "Error",
-		LogLevel.None => "None",
-		_ => "Unknown"
-	};
+	public static string ToString(this LogLevel level) =>
+		level switch
+		{
+			LogLevel.Debug => "Debug",
+			LogLevel.Info => "Info",
+			LogLevel.Warning => "Warning",
+			LogLevel.Error => "Error",
+			LogLevel.None => "None",
+			_ => "Unknown",
+		};
 }

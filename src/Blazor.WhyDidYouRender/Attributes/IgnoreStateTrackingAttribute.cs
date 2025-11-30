@@ -10,7 +10,7 @@ namespace Blazor.WhyDidYouRender.Attributes;
 /// <remarks>
 /// Use this attribute on components where state tracking is not needed or would cause
 /// performance issues. Parameter tracking and other WhyDidYouRender features will still work.
-/// 
+///
 /// Example usage:
 /// <code>
 /// [IgnoreStateTracking]
@@ -18,7 +18,7 @@ namespace Blazor.WhyDidYouRender.Attributes;
 /// {
 ///     // No state tracking will occur for any fields in this component
 /// }
-/// 
+///
 /// [IgnoreStateTracking("This component has complex state that doesn't affect rendering")]
 /// public class DataProcessingComponent : ComponentBase
 /// {
@@ -27,7 +27,8 @@ namespace Blazor.WhyDidYouRender.Attributes;
 /// </code>
 /// </remarks>
 [AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = true)]
-public sealed class IgnoreStateTrackingAttribute : Attribute {
+public sealed class IgnoreStateTrackingAttribute : Attribute
+{
 	/// <summary>
 	/// Gets the reason why state tracking is disabled for this component.
 	/// This is used for documentation and diagnostic purposes.
@@ -51,14 +52,14 @@ public sealed class IgnoreStateTrackingAttribute : Attribute {
 	/// <summary>
 	/// Initializes a new instance of the <see cref="IgnoreStateTrackingAttribute"/> class.
 	/// </summary>
-	public IgnoreStateTrackingAttribute() {
-	}
+	public IgnoreStateTrackingAttribute() { }
 
 	/// <summary>
 	/// Initializes a new instance of the <see cref="IgnoreStateTrackingAttribute"/> class with a reason.
 	/// </summary>
 	/// <param name="reason">The reason why state tracking should be disabled for this component.</param>
-	public IgnoreStateTrackingAttribute(string reason) {
+	public IgnoreStateTrackingAttribute(string reason)
+	{
 		Reason = reason;
 	}
 
@@ -66,7 +67,8 @@ public sealed class IgnoreStateTrackingAttribute : Attribute {
 	/// Gets a formatted description of why state tracking is disabled, suitable for logging.
 	/// </summary>
 	/// <returns>A formatted string describing the exclusion reason.</returns>
-	internal string GetFormattedReason() {
+	internal string GetFormattedReason()
+	{
 		if (string.IsNullOrWhiteSpace(Reason))
 			return "Component explicitly excluded from state tracking";
 
@@ -79,7 +81,8 @@ public sealed class IgnoreStateTrackingAttribute : Attribute {
 	/// <param name="componentType">The component type to check.</param>
 	/// <param name="isInheritedAttribute">True if this attribute is inherited from a base class.</param>
 	/// <returns>True if state tracking should be disabled.</returns>
-	internal bool ShouldDisableStateTracking(Type componentType, bool isInheritedAttribute) {
+	internal bool ShouldDisableStateTracking(Type componentType, bool isInheritedAttribute)
+	{
 		if (!isInheritedAttribute)
 			return true;
 

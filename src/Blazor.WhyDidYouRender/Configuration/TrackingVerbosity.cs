@@ -3,7 +3,8 @@ namespace Blazor.WhyDidYouRender.Configuration;
 /// <summary>
 /// Verbosity levels for render tracking output.
 /// </summary>
-public enum TrackingVerbosity {
+public enum TrackingVerbosity
+{
 	/// <summary>
 	/// Minimal output - only component name and method.
 	/// </summary>
@@ -17,5 +18,5 @@ public enum TrackingVerbosity {
 	/// <summary>
 	/// Verbose output - includes all available information including parameter changes.
 	/// </summary>
-	Verbose
+	Verbose,
 }

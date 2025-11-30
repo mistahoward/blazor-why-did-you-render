@@ -1,6 +1,5 @@
 using System;
 using System.Threading.Tasks;
-
 using Blazor.WhyDidYouRender.Abstractions;
 using Blazor.WhyDidYouRender.Records;
 
@@ -9,7 +8,8 @@ namespace Blazor.WhyDidYouRender.Helpers;
 /// <summary>
 /// Interface for logging render tracking information to the browser console.
 /// </summary>
-public interface IBrowserConsoleLogger : IAsyncDisposable {
+public interface IBrowserConsoleLogger : IAsyncDisposable
+{
 	/// <summary>
 	/// Sets the error tracker for handling JavaScript interop errors.
 	/// </summary>

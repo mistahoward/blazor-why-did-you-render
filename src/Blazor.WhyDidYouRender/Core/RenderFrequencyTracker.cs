@@ -2,18 +2,17 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
-
-using Microsoft.AspNetCore.Components;
-
 using Blazor.WhyDidYouRender.Configuration;
 using Blazor.WhyDidYouRender.Records;
+using Microsoft.AspNetCore.Components;
 
 namespace Blazor.WhyDidYouRender.Core;
 
 /// <summary>
 /// Service responsible for tracking render frequency and detecting frequent re-renders.
 /// </summary>
-public class RenderFrequencyTracker {
+public class RenderFrequencyTracker
+{
 	/// <summary>
 	/// Cache to store render history for each component.
 	/// </summary>
@@ -28,7 +27,8 @@ public class RenderFrequencyTracker {
 	/// Initializes a new instance of the <see cref="RenderFrequencyTracker"/> class.
 	/// </summary>
 	/// <param name="config">The configuration for tracking.</param>
-	public RenderFrequencyTracker(WhyDidYouRenderConfig config) {
+	public RenderFrequencyTracker(WhyDidYouRenderConfig config)
+	{
 		_config = config;
 	}
 
@@ -37,11 +37,13 @@ public class RenderFrequencyTracker {
 	/// </summary>
 	/// <param name="component">The component being rendered.</param>
 	/// <returns>True if component is rendering frequently; otherwise, false.</returns>
-	public bool TrackRenderFrequency(ComponentBase component) {
+	public bool TrackRenderFrequency(ComponentBase component)
+	{
 		var now = DateTime.UtcNow;
 		var history = _renderHistory.GetOrAdd(component, static _ => []);
 
-		lock (history) {
+		lock (history)
+		{
 			history.Add(now);
 
 			var cutoff = now.AddSeconds(-1);
@@ -56,15 +58,18 @@ public class RenderFrequencyTracker {
 	/// </summary>
 	/// <param name="component">The component to get statistics for.</param>
 	/// <returns>Render statistics for the component.</returns>
-	public RenderStatistics GetRenderStatistics(ComponentBase component) {
-		if (!_renderHistory.TryGetValue(component, out var history)) {
-			return new RenderStatistics {
+	public RenderStatistics GetRenderStatistics(ComponentBase component)
+	{
+		if (!_renderHistory.TryGetValue(component, out var history))
+		{
+			return new RenderStatistics
+			{
 				ComponentName = component.GetType().Name,
 				TotalRenders = 0,
 				RendersLastSecond = 0,
 				RendersLastMinute = 0,
 				AverageRenderRate = 0.0,
-				IsFrequentRenderer = false
+				IsFrequentRenderer = false,
 			};
 		}
 
@@ -72,22 +77,22 @@ public class RenderFrequencyTracker {
 		var oneSecondAgo = now.AddSeconds(-1);
 		var oneMinuteAgo = now.AddMinutes(-1);
 
-		lock (history) {
+		lock (history)
+		{
 			var rendersLastSecond = history.Count(t => t >= oneSecondAgo);
 			var rendersLastMinute = history.Count(t => t >= oneMinuteAgo);
 			var totalRenders = history.Count;
 
-			var averageRate = totalRenders > 1 && history.Count > 0
-				? totalRenders / (now - history.First()).TotalMinutes
-				: 0.0;
+			var averageRate = totalRenders > 1 && history.Count > 0 ? totalRenders / (now - history.First()).TotalMinutes : 0.0;
 
-			return new RenderStatistics {
+			return new RenderStatistics
+			{
 				ComponentName = component.GetType().Name,
 				TotalRenders = totalRenders,
 				RendersLastSecond = rendersLastSecond,
 				RendersLastMinute = rendersLastMinute,
 				AverageRenderRate = averageRate,
-				IsFrequentRenderer = rendersLastSecond > _config.FrequentRerenderThreshold
+				IsFrequentRenderer = rendersLastSecond > _config.FrequentRerenderThreshold,
 			};
 		}
 	}
@@ -96,7 +101,8 @@ public class RenderFrequencyTracker {
 	/// Gets render statistics for all tracked components.
 	/// </summary>
 	/// <returns>Collection of render statistics for all components.</returns>
-	public IEnumerable<RenderStatistics> GetAllRenderStatistics() {
+	public IEnumerable<RenderStatistics> GetAllRenderStatistics()
+	{
 		return _renderHistory.Keys.Select(GetRenderStatistics);
 	}
 
@@ -104,19 +110,25 @@ public class RenderFrequencyTracker {
 	/// Cleans up render history for components that haven't rendered recently.
 	/// </summary>
 	/// <param name="olderThan">Remove history older than this timespan.</param>
-	public void CleanupOldHistory(TimeSpan olderThan) {
+	public void CleanupOldHistory(TimeSpan olderThan)
+	{
 		var cutoff = DateTime.UtcNow - olderThan;
 
-		foreach (var kvp in _renderHistory.ToList()) {
+		foreach (var kvp in _renderHistory.ToList())
+		{
 			var history = kvp.Value;
-			lock (history) {
-				for (int i = history.Count - 1; i >= 0; i--) {
-					if (history[i] < cutoff) {
+			lock (history)
+			{
+				for (int i = history.Count - 1; i >= 0; i--)
+				{
+					if (history[i] < cutoff)
+					{
 						history.RemoveAt(i);
 					}
 				}
 
-				if (history.Count == 0) {
+				if (history.Count == 0)
+				{
 					_renderHistory.TryRemove(kvp.Key, out _);
 				}
 			}
@@ -138,8 +150,10 @@ public class RenderFrequencyTracker {
 	/// Gets components that are rendering frequently.
 	/// </summary>
 	/// <returns>Collection of components that exceed the frequent render threshold.</returns>
-	public IEnumerable<ComponentBase> GetFrequentRenderers() {
-		return _renderHistory.Keys.Where(component => {
+	public IEnumerable<ComponentBase> GetFrequentRenderers()
+	{
+		return _renderHistory.Keys.Where(component =>
+		{
 			var stats = GetRenderStatistics(component);
 			return stats.IsFrequentRenderer;
 		});

@@ -1,7 +1,6 @@
 using System.Diagnostics;
-
-using Microsoft.AspNetCore.Components;
 using Blazor.WhyDidYouRender.Records.StateTracking;
+using Microsoft.AspNetCore.Components;
 
 namespace Blazor.WhyDidYouRender.Core.StateTracking;
 
@@ -14,7 +13,8 @@ namespace Blazor.WhyDidYouRender.Core.StateTracking;
 /// </remarks>
 /// <param name="stateTracker">The state tracker to test.</param>
 /// <param name="config">Stress test configuration.</param>
-public class StateTrackingStressTester(ThreadSafeStateTracker stateTracker, StressTestConfiguration? config = null) {
+public class StateTrackingStressTester(ThreadSafeStateTracker stateTracker, StressTestConfiguration? config = null)
+{
 	/// <summary>
 	/// The thread-safe state tracker being tested.
 	/// </summary>
@@ -30,32 +30,43 @@ public class StateTrackingStressTester(ThreadSafeStateTracker stateTracker, Stre
 	/// </summary>
 	/// <param name="cancellationToken">Cancellation token.</param>
 	/// <returns>Test results.</returns>
-	private async Task<StressTestResult> RunConcurrentSnapshotTestAsync(CancellationToken cancellationToken) {
+	private async Task<StressTestResult> RunConcurrentSnapshotTestAsync(CancellationToken cancellationToken)
+	{
 		var result = new StressTestResult { TestName = "Concurrent Snapshot Capture" };
 		var stopwatch = Stopwatch.StartNew();
 
-		try {
+		try
+		{
 			var components = CreateTestComponents(_config.ComponentCount);
 			var tasks = new List<Task>();
 
 			for (int i = 0; i < _config.ConcurrentThreads; i++)
-				tasks.Add(Task.Run(async () => {
-					for (int j = 0; j < _config.OperationsPerThread; j++) {
-						var component = components[j % components.Count];
-						await _stateTracker.CaptureSnapshotAsync(component, cancellationToken);
+				tasks.Add(
+					Task.Run(
+						async () =>
+						{
+							for (int j = 0; j < _config.OperationsPerThread; j++)
+							{
+								var component = components[j % components.Count];
+								await _stateTracker.CaptureSnapshotAsync(component, cancellationToken);
 
-						if (_config.DelayBetweenOperationsMs > 0) {
-							await Task.Delay(_config.DelayBetweenOperationsMs, cancellationToken);
-						}
-					}
-				}, cancellationToken));
+								if (_config.DelayBetweenOperationsMs > 0)
+								{
+									await Task.Delay(_config.DelayBetweenOperationsMs, cancellationToken);
+								}
+							}
+						},
+						cancellationToken
+					)
+				);
 
 			await Task.WhenAll(tasks);
 
 			result.Success = true;
 			result.OperationsCompleted = _config.ConcurrentThreads * _config.OperationsPerThread;
 		}
-		catch (Exception ex) {
+		catch (Exception ex)
+		{
 			result.Success = false;
 			result.ErrorMessage = ex.Message;
 		}
@@ -72,11 +83,13 @@ public class StateTrackingStressTester(ThreadSafeStateTracker stateTracker, Stre
 	/// </summary>
 	/// <param name="cancellationToken">Cancellation token.</param>
 	/// <returns>Test results.</returns>
-	private async Task<StressTestResult> RunConcurrentStateChangeTestAsync(CancellationToken cancellationToken) {
+	private async Task<StressTestResult> RunConcurrentStateChangeTestAsync(CancellationToken cancellationToken)
+	{
 		var result = new StressTestResult { TestName = "Concurrent State Change Detection" };
 		var stopwatch = Stopwatch.StartNew();
 
-		try {
+		try
+		{
 			var components = CreateTestComponents(_config.ComponentCount);
 			var tasks = new List<Task>();
 
@@ -84,28 +97,37 @@ public class StateTrackingStressTester(ThreadSafeStateTracker stateTracker, Stre
 				await _stateTracker.CaptureSnapshotAsync(component, cancellationToken);
 
 			for (int i = 0; i < _config.ConcurrentThreads; i++)
-				tasks.Add(Task.Run(async () => {
-					for (int j = 0; j < _config.OperationsPerThread; j++) {
-						var component = components[j % components.Count];
+				tasks.Add(
+					Task.Run(
+						async () =>
+						{
+							for (int j = 0; j < _config.OperationsPerThread; j++)
+							{
+								var component = components[j % components.Count];
 
-						// modify component state
-						if (component is TestComponent testComponent)
-							testComponent.ModifyState();
+								// modify component state
+								if (component is TestComponent testComponent)
+									testComponent.ModifyState();
 
-						await _stateTracker.DetectStateChangesAsync(component, cancellationToken);
+								await _stateTracker.DetectStateChangesAsync(component, cancellationToken);
 
-						if (_config.DelayBetweenOperationsMs > 0) {
-							await Task.Delay(_config.DelayBetweenOperationsMs, cancellationToken);
-						}
-					}
-				}, cancellationToken));
+								if (_config.DelayBetweenOperationsMs > 0)
+								{
+									await Task.Delay(_config.DelayBetweenOperationsMs, cancellationToken);
+								}
+							}
+						},
+						cancellationToken
+					)
+				);
 
 			await Task.WhenAll(tasks);
 
 			result.Success = true;
 			result.OperationsCompleted = _config.ConcurrentThreads * _config.OperationsPerThread;
 		}
-		catch (Exception ex) {
+		catch (Exception ex)
+		{
 			result.Success = false;
 			result.ErrorMessage = ex.Message;
 		}
@@ -122,38 +144,50 @@ public class StateTrackingStressTester(ThreadSafeStateTracker stateTracker, Stre
 	/// </summary>
 	/// <param name="cancellationToken">Cancellation token.</param>
 	/// <returns>Test results.</returns>
-	private async Task<StressTestResult> RunMixedOperationsTestAsync(CancellationToken cancellationToken) {
+	private async Task<StressTestResult> RunMixedOperationsTestAsync(CancellationToken cancellationToken)
+	{
 		var result = new StressTestResult { TestName = "Mixed Operations Under Load" };
 		var stopwatch = Stopwatch.StartNew();
 
-		try {
+		try
+		{
 			var components = CreateTestComponents(_config.ComponentCount);
 			var tasks = new List<Task>();
 			var random = new Random();
 
-			for (int i = 0; i < _config.ConcurrentThreads; i++) {
-				tasks.Add(Task.Run(async () => {
-					for (int j = 0; j < _config.OperationsPerThread; j++) {
-						var component = components[j % components.Count];
-						var operationType = random.Next(3);
+			for (int i = 0; i < _config.ConcurrentThreads; i++)
+			{
+				tasks.Add(
+					Task.Run(
+						async () =>
+						{
+							for (int j = 0; j < _config.OperationsPerThread; j++)
+							{
+								var component = components[j % components.Count];
+								var operationType = random.Next(3);
 
-						switch (operationType) {
-							case 0: // capture snapshot
-								await _stateTracker.CaptureSnapshotAsync(component, cancellationToken);
-								break;
-							case 1: // detect state changes
-								await _stateTracker.DetectStateChangesAsync(component, cancellationToken);
-								break;
-							case 2: // cleanup component
-								_stateTracker.CleanupComponent(component);
-								break;
-						}
+								switch (operationType)
+								{
+									case 0: // capture snapshot
+										await _stateTracker.CaptureSnapshotAsync(component, cancellationToken);
+										break;
+									case 1: // detect state changes
+										await _stateTracker.DetectStateChangesAsync(component, cancellationToken);
+										break;
+									case 2: // cleanup component
+										_stateTracker.CleanupComponent(component);
+										break;
+								}
 
-						if (_config.DelayBetweenOperationsMs > 0) {
-							await Task.Delay(_config.DelayBetweenOperationsMs, cancellationToken);
-						}
-					}
-				}, cancellationToken));
+								if (_config.DelayBetweenOperationsMs > 0)
+								{
+									await Task.Delay(_config.DelayBetweenOperationsMs, cancellationToken);
+								}
+							}
+						},
+						cancellationToken
+					)
+				);
 			}
 
 			await Task.WhenAll(tasks);
@@ -161,7 +195,8 @@ public class StateTrackingStressTester(ThreadSafeStateTracker stateTracker, Stre
 			result.Success = true;
 			result.OperationsCompleted = _config.ConcurrentThreads * _config.OperationsPerThread;
 		}
-		catch (Exception ex) {
+		catch (Exception ex)
+		{
 			result.Success = false;
 			result.ErrorMessage = ex.Message;
 		}
@@ -178,25 +213,31 @@ public class StateTrackingStressTester(ThreadSafeStateTracker stateTracker, Stre
 	/// </summary>
 	/// <param name="cancellationToken">Cancellation token.</param>
 	/// <returns>Test results.</returns>
-	private async Task<StressTestResult> RunMemoryPressureTestAsync(CancellationToken cancellationToken) {
+	private async Task<StressTestResult> RunMemoryPressureTestAsync(CancellationToken cancellationToken)
+	{
 		var result = new StressTestResult { TestName = "Memory Pressure Test" };
 		var stopwatch = Stopwatch.StartNew();
 
-		try {
+		try
+		{
 			var initialMemory = GC.GetTotalMemory(false);
 			var components = CreateTestComponents(_config.ComponentCount * 10); // more components for memory pressure
 
 			// perform operations that create memory pressure
-			var tasks = Enumerable.Range(0, _config.ConcurrentThreads).Select(async i => {
-				for (int j = 0; j < _config.OperationsPerThread; j++) {
-					var component = components[j % components.Count];
-					await _stateTracker.CaptureSnapshotAsync(component, cancellationToken);
+			var tasks = Enumerable
+				.Range(0, _config.ConcurrentThreads)
+				.Select(async i =>
+				{
+					for (int j = 0; j < _config.OperationsPerThread; j++)
+					{
+						var component = components[j % components.Count];
+						await _stateTracker.CaptureSnapshotAsync(component, cancellationToken);
 
-					// create some memory pressure
-					var largeArray = new byte[1024 * 1024]; // 1MB
-					GC.KeepAlive(largeArray);
-				}
-			});
+						// create some memory pressure
+						var largeArray = new byte[1024 * 1024]; // 1MB
+						GC.KeepAlive(largeArray);
+					}
+				});
 
 			await Task.WhenAll(tasks);
 
@@ -205,7 +246,8 @@ public class StateTrackingStressTester(ThreadSafeStateTracker stateTracker, Stre
 			result.Success = true;
 			result.OperationsCompleted = _config.ConcurrentThreads * _config.OperationsPerThread;
 		}
-		catch (Exception ex) {
+		catch (Exception ex)
+		{
 			result.Success = false;
 			result.ErrorMessage = ex.Message;
 		}
@@ -222,11 +264,13 @@ public class StateTrackingStressTester(ThreadSafeStateTracker stateTracker, Stre
 	/// </summary>
 	/// <param name="cancellationToken">Cancellation token.</param>
 	/// <returns>Test results.</returns>
-	private async Task<StressTestResult> RunCleanupPerformanceTestAsync(CancellationToken cancellationToken) {
+	private async Task<StressTestResult> RunCleanupPerformanceTestAsync(CancellationToken cancellationToken)
+	{
 		var result = new StressTestResult { TestName = "Cleanup Performance Test" };
 		var stopwatch = Stopwatch.StartNew();
 
-		try {
+		try
+		{
 			var components = CreateTestComponents(_config.ComponentCount);
 
 			foreach (var component in components)
@@ -237,7 +281,8 @@ public class StateTrackingStressTester(ThreadSafeStateTracker stateTracker, Stre
 			result.Success = true;
 			result.OperationsCompleted = cleanedUp;
 		}
-		catch (Exception ex) {
+		catch (Exception ex)
+		{
 			result.Success = false;
 			result.ErrorMessage = ex.Message;
 		}
@@ -254,7 +299,8 @@ public class StateTrackingStressTester(ThreadSafeStateTracker stateTracker, Stre
 	/// </summary>
 	/// <param name="count">Number of components to create.</param>
 	/// <returns>List of test components.</returns>
-	private static List<ComponentBase> CreateTestComponents(int count) {
+	private static List<ComponentBase> CreateTestComponents(int count)
+	{
 		var components = new List<ComponentBase>();
 
 		for (int i = 0; i < count; i++)
@@ -263,5 +309,3 @@ public class StateTrackingStressTester(ThreadSafeStateTracker stateTracker, Stre
 		return components;
 	}
 }
-
-

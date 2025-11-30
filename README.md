@@ -364,7 +364,7 @@ builder.Services.AddWhyDidYouRender();
 1. Disable in production environments
 2. Use selective component tracking
 3. Adjust tracking granularity
-4. Consider using diagnostics endpoint instead of console logging
+4. Consider enabling .NET Aspire/OpenTelemetry for server-side observability
 
 ## 📊 Monitoring & Debugging
 
@@ -393,4 +393,4 @@ After successful integration:
 2. Identify unnecessary re-renders
 3. Optimize component parameters and state management
 4. Use insights to improve application performance
-5. Consider enabling diagnostics endpoint for ongoing monitoring
+5. Consider enabling .NET Aspire/OpenTelemetry for ongoing monitoring

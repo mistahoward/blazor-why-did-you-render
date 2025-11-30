@@ -6,7 +6,7 @@ using Microsoft.Extensions.Hosting;
 
 using Blazor.WhyDidYouRender.Configuration;
 using Blazor.WhyDidYouRender.Records;
-using Blazor.WhyDidYouRender.Diagnostics;
+using Blazor.WhyDidYouRender.Abstractions;
 using Blazor.WhyDidYouRender.Helpers;
 using Blazor.WhyDidYouRender.Logging;
 
@@ -72,9 +72,8 @@ public class RenderTrackerService {
 	private static Abstractions.ISessionContextService? _sessionContextService;
 
 	/// <summary>
-	/// Tracking logger for environment-specific logging.
+	/// Unified logger for structured logging.
 	/// </summary>
-	private static Abstractions.ITrackingLogger? _trackingLogger;
 	private static IWhyDidYouRenderLogger? _unifiedLogger;
 
 	/// <summary>
@@ -169,13 +168,6 @@ public class RenderTrackerService {
 			StartCleanupTimer();
 	}
 
-	/// <summary>
-	/// Sets the tracking logger for environment-specific logging.
-	/// </summary>
-	/// <param name="trackingLogger">The tracking logger instance.</param>
-	public static void SetTrackingLogger(Abstractions.ITrackingLogger trackingLogger) {
-		_trackingLogger = trackingLogger ?? throw new ArgumentNullException(nameof(trackingLogger));
-	}
 
 	/// <summary>
 	/// Sets the unified logger for structured logging when available.
@@ -304,10 +296,11 @@ public class RenderTrackerService {
 			return [.. changes];
 		}
 		catch (Exception ex) {
-			_errorTracker?.TrackError(ex, new Dictionary<string, object?> {
-				["ComponentName"] = component.GetType().Name,
-				["TrackingMethod"] = "GetStateChanges"
-			});
+			if (_errorTracker != null)
+				_ = _errorTracker.TrackErrorAsync(ex, new Dictionary<string, object?> {
+					["ComponentName"] = component.GetType().Name,
+					["TrackingMethod"] = "GetStateChanges"
+				}, ErrorSeverity.Error, component.GetType().Name, "GetStateChanges");
 			return null;
 		}
 	}
@@ -404,28 +397,22 @@ public class RenderTrackerService {
 	/// <returns>A task representing the asynchronous logging operation.</returns>
 	private async Task LogRenderEventAsync(RenderEvent renderEvent) {
 		try {
-			// Prefer unified environment-specific logger when available
-			if (_trackingLogger != null) {
-				await _trackingLogger.LogRenderEventAsync(renderEvent);
-
-				var shouldForwardToBrowserLogger = _config.Output.HasFlag(TrackingOutput.BrowserConsole)
-					&& _browserLogger != null
-					&& _trackingLogger.SupportsBrowserConsole == false;
-
-				if (shouldForwardToBrowserLogger)
-					await _browserLogger!.LogRenderEventAsync(renderEvent);
+			if (_unifiedLogger != null) {
+				_unifiedLogger.LogRenderEvent(renderEvent);
+				if (_config.Output.HasFlag(TrackingOutput.BrowserConsole) && _browserLogger != null)
+					await _browserLogger.LogRenderEventAsync(renderEvent);
 			}
 			else {
-				// fallback to prior behavior when no environment-specific logger is set
+				// fallback to prior behavior when no unified logger is set
 				if (_config.Output.HasFlag(TrackingOutput.Console))
 					LogToConsole(renderEvent);
-
 				if (_config.Output.HasFlag(TrackingOutput.BrowserConsole) && _browserLogger != null)
 					await _browserLogger.LogRenderEventAsync(renderEvent);
 			}
 		}
 		catch (Exception ex) {
-			_errorTracker?.TrackError(ex, new Dictionary<string, object?> { ["Method"] = "LogRenderEventAsync" }, ErrorSeverity.Warning);
+			if (_errorTracker != null)
+				_ = _errorTracker.TrackErrorAsync(ex, new Dictionary<string, object?> { ["Method"] = "LogRenderEventAsync" }, ErrorSeverity.Warning, renderEvent.ComponentName, "LogRenderEventAsync");
 		}
 	}
 

@@ -2,7 +2,7 @@ using System;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 
-using Blazor.WhyDidYouRender.Diagnostics;
+using Blazor.WhyDidYouRender.Abstractions;
 using Blazor.WhyDidYouRender.Records;
 
 namespace Blazor.WhyDidYouRender.Helpers;
@@ -194,7 +194,7 @@ public static class SafeExecutor {
 		var severity = DetermineSeverity(exception);
 
 		if (errorTracker != null) {
-			errorTracker.TrackError(exception, errorContext, severity);
+			_ = errorTracker.TrackErrorAsync(exception, errorContext, severity, componentName, method);
 		}
 		else {
 			Console.WriteLine($"[WhyDidYouRender] Error in {method ?? "tracking"}: {exception.Message}");
@@ -235,18 +235,26 @@ public static class SafeExecutor {
 		try {
 			recoveryAction();
 
-			errorTracker?.TrackError(
-				"Recovery action completed successfully",
-				context,
-				ErrorSeverity.Info);
+			if (errorTracker != null) {
+				_ = errorTracker.TrackErrorAsync(
+					"Recovery action completed successfully",
+					context ?? new Dictionary<string, object?>(),
+					ErrorSeverity.Info,
+					null,
+					"AttemptRecovery");
+			}
 
 			return true;
 		}
 		catch (Exception ex) {
-			errorTracker?.TrackError(
-				ex,
-				context,
-				ErrorSeverity.Error);
+			if (errorTracker != null) {
+				_ = errorTracker.TrackErrorAsync(
+					ex,
+					context ?? new Dictionary<string, object?>(),
+					ErrorSeverity.Error,
+					null,
+					"AttemptRecovery");
+			}
 
 			return false;
 		}

@@ -1,7 +1,7 @@
 using System;
 using System.Threading.Tasks;
 
-using Blazor.WhyDidYouRender.Diagnostics;
+using Blazor.WhyDidYouRender.Abstractions;
 using Blazor.WhyDidYouRender.Records;
 
 namespace Blazor.WhyDidYouRender.Helpers;

@@ -121,7 +121,6 @@ static async Task InitializeRenderTrackingAsync(IServiceProvider services) {
 			typeof(RenderTracker.SampleApp.Components.Pages.StateTrackingDemo),
 			typeof(RenderTracker.SampleApp.Components.Pages.CrossPlatformDemo),
 			typeof(RenderTracker.SampleApp.Components.Pages.Weather),
-			typeof(RenderTracker.SampleApp.Components.Pages.Diagnostics),
 			typeof(Blazor.WhyDidYouRender.Components.TrackedComponentBase)
 		};
 

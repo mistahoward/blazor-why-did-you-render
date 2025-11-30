@@ -4,6 +4,8 @@
 @inject IJSRuntime JSRuntime
 @inject IServiceProvider ServiceProvider
 @using Blazor.WhyDidYouRender.Extensions
+@using Blazor.WhyDidYouRender.Abstractions
+
 
 <PageTitle>Home</PageTitle>
 
@@ -14,7 +16,6 @@
 <div class="alert alert-info">
     <h4>🔍 WhyDidYouRender Demo</h4>
     <p>This page demonstrates the WhyDidYouRender tracking system. Open your browser's developer console to see detailed tracking information.</p>
-    <p><strong>🛠️ Diagnostics Dashboard:</strong> <a href="/diagnostics" target="_blank">View Comprehensive Diagnostics</a></p>
 </div>
 
 <div class="row">
@@ -204,20 +205,20 @@
         }
     }
 
-    private void TriggerTrackingError()
+    private async Task TriggerTrackingError()
     {
         // This will intentionally cause an error in tracking to test error handling
         // We'll create a scenario that would cause an error during parameter tracking
 
         // First, let's manually trigger an error in the error tracker if it exists
-        var errorTracker = ServiceProvider.GetService<Blazor.WhyDidYouRender.Diagnostics.IErrorTracker>();
+        var errorTracker = ServiceProvider.GetService<IErrorTracker>();
         if (errorTracker != null)
         {
-            errorTracker.TrackError("Test error triggered manually from UI", new Dictionary<string, object?> {
+            await errorTracker.TrackErrorAsync("Test error triggered manually from UI", new Dictionary<string, object?> {
                 ["ComponentName"] = "Home",
                 ["TrackingMethod"] = "TriggerTrackingError",
                 ["TestScenario"] = "Manual error trigger"
-            }, Blazor.WhyDidYouRender.Records.ErrorSeverity.Warning);
+            }, Blazor.WhyDidYouRender.Records.ErrorSeverity.Warning, "Home", "TriggerTrackingError");
 
             // Also trigger a more serious error
             try
@@ -226,11 +227,11 @@
             }
             catch (Exception ex)
             {
-                errorTracker.TrackError(ex, new Dictionary<string, object?> {
+                await errorTracker.TrackErrorAsync(ex, new Dictionary<string, object?> {
                     ["ComponentName"] = "Home",
                     ["TrackingMethod"] = "TriggerTrackingError",
                     ["TestScenario"] = "Exception during tracking"
-                }, Blazor.WhyDidYouRender.Records.ErrorSeverity.Error);
+                }, Blazor.WhyDidYouRender.Records.ErrorSeverity.Error, "Home", "TriggerTrackingError");
             }
 
             Console.WriteLine("[Test] Errors have been logged to the error tracking system");

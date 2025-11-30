@@ -77,7 +77,7 @@
                     <h6>✅ WASM Features Working:</h6>
                     <ul class="mb-0">
                         <li>Browser console logging</li>
-                        <li>Browser storage for session management</li>
+                        <li>Ephemeral session ID (storage disabled by default)</li>
                         <li>JavaScript interop for performance tracking</li>
                         <li>Cross-platform component inheritance</li>
                     </ul>
@@ -97,7 +97,7 @@
     
     protected override async Task OnInitializedAsync()
     {
-        // Get session ID to demonstrate WASM session management
+        // Get session ID (ephemeral by default; storage disabled unless explicitly enabled)
         try
         {
             sessionId = await GetSessionIdAsync();

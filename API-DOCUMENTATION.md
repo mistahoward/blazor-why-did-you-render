@@ -7,7 +7,7 @@ This document provides comprehensive API documentation for all public classes, i
 WhyDidYouRender v3.0 builds on the cross-platform architecture and adds optional .NET Aspire/OpenTelemetry integration:
 
 - **🖥️ Blazor Server** - Full server-side tracking with HttpContext session management
-- **🌐 Blazor WebAssembly** - Browser-based tracking with localStorage session management
+- **🌐 Blazor WebAssembly** - Browser-based tracking; no persisted session storage by default
 - **📄 Server-Side Rendering (SSR)** - Pre-render tracking with server-side optimization
 
 - **📡 .NET Aspire/OTel (Server/SSR)** - Optional logs, traces, and metrics with ActivitySource + Meter
@@ -22,6 +22,8 @@ WhyDidYouRender v3.0 builds on the cross-platform architecture and adds optional
 - `Blazor.WhyDidYouRender.Records` - Data transfer objects
 - `Blazor.WhyDidYouRender.Services` - **NEW** Environment-specific service implementations
 - `Blazor.WhyDidYouRender.Helpers` - Utility classes
+
+- `Blazor.WhyDidYouRender.Logging` - Unified logging interfaces and implementations
 
 ## 🔧 Cross-Platform Interfaces
 
@@ -55,46 +57,47 @@ Provides cross-platform session management with automatic environment adaptation
 public interface ISessionContextService
 {
     string GetSessionId();
-    Task SetSessionInfoAsync(string key, object value);
-    Task<T?> GetSessionInfoAsync<T>(string key);
-    Task RemoveSessionInfoAsync(string key);
-    Task<IEnumerable<string>> GetSessionKeysAsync();
-    Task ClearSessionAsync();
-
-    bool SupportsPersistentStorage { get; }
-    bool SupportsCrossRequestPersistence { get; }
-    string StorageDescription { get; }
 }
 ```
 
 **Implementations**:
 - **Server**: `ServerSessionContextService` - Uses HttpContext.Session
-- **WASM**: `WasmSessionContextService` - Uses browser localStorage/sessionStorage
+- **WASM**: `WasmSessionContextService` - Ephemeral session (no persisted storage)
 
-### ITrackingLogger
+### IWhyDidYouRenderLogger
 
-**Namespace**: `Blazor.WhyDidYouRender.Abstractions`
+**Namespace**: `Blazor.WhyDidYouRender.Logging`
 
-Provides environment-aware logging with automatic output adaptation.
+Unified, structured logger used across environments (Server, WASM, SSR, Aspire/OpenTelemetry). Prefer this over any legacy logger.
 
 ```csharp
-public interface ITrackingLogger
+public interface IWhyDidYouRenderLogger
 {
-    bool SupportsServerConsole { get; }
-    bool SupportsBrowserConsole { get; }
-    string LoggingDescription { get; }
+    // Levels
+    void LogDebug(string message, Dictionary<string, object?>? data = null);
+    void LogInfo(string message, Dictionary<string, object?>? data = null);
+    void LogWarning(string message, Dictionary<string, object?>? data = null);
+    void LogError(string message, Exception? exception = null, Dictionary<string, object?>? data = null);
 
-    Task InitializeAsync();
-    Task LogRenderEventAsync(RenderEvent renderEvent);
-    Task LogMessageAsync(TrackingVerbosity verbosity, string message, object? data = null);
-    Task LogParameterChangeAsync(string componentName, string parameterName, object? oldValue, object? newValue, string changeType);
-    Task LogPerformanceAsync(string componentName, string method, double durationMs, Dictionary<string, object?>? additionalMetrics = null);
+    // Structured events
+    void LogRenderEvent(RenderEvent renderEvent);
+    void LogParameterChanges(string componentName, Dictionary<string, object?> changes);
+    void LogPerformance(string componentName, string method, double durationMs, Dictionary<string, object?>? metrics = null);
+
+    // Control/log level
+    bool IsEnabled(LogLevel level);
+    void SetLogLevel(LogLevel level);
+    LogLevel GetLogLevel();
 }
 ```
 
-**Implementations**:
-- **Server**: `ServerTrackingLogger` - Console + Browser logging
-- **WASM**: `WasmTrackingLogger` - Browser console only
+**Implementations** (examples):
+- `ConsoleWhyDidYouRenderLogger` (fallback when MEL logger unavailable)
+- `ServerWhyDidYouRenderLogger`
+- `WasmWhyDidYouRenderLogger`
+- `CompositeWhyDidYouRenderLogger` (fans-out to multiple sinks)
+- `AspireWhyDidYouRenderLogger` (OTel/Aspire aware)
+
 
 ### IErrorTracker
 
@@ -121,7 +124,7 @@ public interface IErrorTracker
 
 **Implementations**:
 - **Server**: `ServerErrorTracker` - In-memory with console logging
-- **WASM**: `WasmErrorTracker` - Browser storage with console logging
+- **WASM**: `WasmErrorTracker` - In-memory with browser console logging (no storage)
 
 ## 🧩 Core Components
 

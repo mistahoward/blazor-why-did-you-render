@@ -54,7 +54,7 @@ public static class ServiceCollectionExtensions {
 		services.AddSingleton<PerformanceTracker>();
 		services.AddSingleton<IHostingEnvironmentDetector, HostingEnvironmentDetector>();
 
-		// Register new unified logger interface alongside existing ITrackingLogger for now
+		// Register unified logger interface
 		services.AddSingleton<Logging.IWhyDidYouRenderLogger>(provider => {
 			var detector = provider.GetRequiredService<IHostingEnvironmentDetector>();
 			var hostModel = config.ForceHostingModel ?? detector.DetectHostingModel();
@@ -62,18 +62,18 @@ public static class ServiceCollectionExtensions {
 			if (hostModel == BlazorHostingModel.WebAssembly)
 				return new Logging.WasmWhyDidYouRenderLogger(config, provider.GetRequiredService<IJSRuntime>());
 
-			// Server/SSR paths
-			var serverLogger = new Logging.ServerWhyDidYouRenderLogger(
-				config,
-				provider.GetRequiredService<Microsoft.Extensions.Logging.ILogger<Logging.ServerWhyDidYouRenderLogger>>()
-			);
+			// Server/SSR paths with safe fallback
+			var melLogger = provider.GetService<Microsoft.Extensions.Logging.ILogger<Logging.ServerWhyDidYouRenderLogger>>();
+			Logging.IWhyDidYouRenderLogger baseLogger = melLogger != null
+				? new Logging.ServerWhyDidYouRenderLogger(config, melLogger)
+				: new Logging.ConsoleWhyDidYouRenderLogger(config);
 
 			if (config.EnableOpenTelemetry) {
 				var otelLogger = new Logging.AspireWhyDidYouRenderLogger(config);
-				return new Logging.CompositeWhyDidYouRenderLogger(config, serverLogger, otelLogger);
+				return new Logging.CompositeWhyDidYouRenderLogger(config, baseLogger, otelLogger);
 			}
 
-			return serverLogger;
+			return baseLogger;
 		});
 
 		RegisterEnvironmentSpecificServices(services, config);
@@ -113,19 +113,9 @@ public static class ServiceCollectionExtensions {
 			LogWarning(serviceProvider, "Browser logger service not found in DI container");
 		}
 
-		var trackingLogger = serviceProvider.GetService<ITrackingLogger>();
-		if (trackingLogger != null) {
-			LogInfo(serviceProvider, "Tracking logger service found, initializing...");
-			await trackingLogger.InitializeAsync();
-			LogInfo(serviceProvider, "Tracking logger initialized successfully");
-		}
+
 
 		if (detector?.IsClientSide == true) {
-			var errorTracker = serviceProvider.GetService<IErrorTracker>();
-			if (errorTracker is WasmErrorTracker wasmErrorTracker) {
-				await wasmErrorTracker.LoadErrorsFromStorageAsync();
-				LogInfo(serviceProvider, "WASM error tracker loaded from storage");
-			}
 		}
 	}
 
@@ -140,32 +130,18 @@ public static class ServiceCollectionExtensions {
 
 			if (config.ForceHostingModel.HasValue) {
 				return config.ForceHostingModel.Value switch {
-					BlazorHostingModel.WebAssembly => new WasmSessionContextService(
-						provider.GetRequiredService<IJSRuntime>(), config, provider.GetService<Logging.IWhyDidYouRenderLogger>()),
+					BlazorHostingModel.WebAssembly => new WasmSessionContextService(),
 					_ => new ServerSessionContextService(
 						provider.GetService<Microsoft.AspNetCore.Http.IHttpContextAccessor>()!, config, provider.GetService<Logging.IWhyDidYouRenderLogger>())
 				};
 			}
 
 			return detector.IsClientSide
-				? new WasmSessionContextService(provider.GetRequiredService<IJSRuntime>(), config, provider.GetService<Logging.IWhyDidYouRenderLogger>())
+				? new WasmSessionContextService()
 				: new ServerSessionContextService(provider.GetService<Microsoft.AspNetCore.Http.IHttpContextAccessor>()!, config, provider.GetService<Logging.IWhyDidYouRenderLogger>());
 		});
 
-		services.AddSingleton<ITrackingLogger>(provider => {
-			var detector = provider.GetRequiredService<IHostingEnvironmentDetector>();
 
-			if (config.ForceHostingModel.HasValue)
-				return config.ForceHostingModel.Value switch {
-					BlazorHostingModel.WebAssembly => new WasmTrackingLogger(
-						provider.GetRequiredService<IJSRuntime>(), config),
-					_ => new ServerTrackingLogger(config, null, provider.GetService<Logging.IWhyDidYouRenderLogger>())
-				};
-
-			return detector.IsClientSide
-				? new WasmTrackingLogger(provider.GetRequiredService<IJSRuntime>(), config)
-				: new ServerTrackingLogger(config, null, provider.GetService<Logging.IWhyDidYouRenderLogger>());
-		});
 
 		services.AddSingleton<IErrorTracker>(provider => {
 			var detector = provider.GetRequiredService<IHostingEnvironmentDetector>();
@@ -182,6 +158,8 @@ public static class ServiceCollectionExtensions {
 				? new WasmErrorTracker(provider.GetRequiredService<IJSRuntime>(), config)
 				: new ServerErrorTracker(config, logger, provider.GetService<Logging.IWhyDidYouRenderLogger>());
 		});
+
+
 
 		services.AddHttpContextAccessor();
 	}
@@ -245,36 +223,30 @@ public static class ServiceCollectionExtensions {
 		else
 			LogInfo(serviceProvider, "Initializing services (environment detection unavailable)...");
 
-		var oldErrorTracker = serviceProvider.GetService<Diagnostics.IErrorTracker>();
-		if (oldErrorTracker != null) {
-			tracker.SetErrorTracker(oldErrorTracker);
-			LogInfo(serviceProvider, "Legacy error tracker initialized");
-		}
+
 
 		var newErrorTracker = serviceProvider.GetService<IErrorTracker>();
-		if (newErrorTracker != null)
-			LogInfo(serviceProvider, $"New error tracker initialized: {newErrorTracker.ErrorTrackingDescription}");
+		if (newErrorTracker != null) {
+			tracker.SetErrorTracker(newErrorTracker);
+			LogInfo(serviceProvider, $"Error tracker initialized: {newErrorTracker.ErrorTrackingDescription}");
+		}
 		else
-			LogError(serviceProvider, "New error tracker service not found!");
+			LogError(serviceProvider, "Error tracker service not found!");
 
 		var sessionContextService = serviceProvider.GetService<ISessionContextService>();
 		if (sessionContextService != null) {
 			RenderTrackerService.SetSessionContextService(sessionContextService);
-			LogInfo(serviceProvider, $"Session context service initialized: {sessionContextService.StorageDescription}");
+			LogInfo(serviceProvider, "Session context service initialized.");
 		}
 		else
 			LogError(serviceProvider, "Session context service not found!");
 
-		var trackingLogger = serviceProvider.GetService<ITrackingLogger>();
-		if (trackingLogger != null) {
-			RenderTrackerService.SetTrackingLogger(trackingLogger);
-			LogInfo(serviceProvider, $"Tracking logger initialized: {trackingLogger.LoggingDescription}");
-		}
+
 
 		var unified = serviceProvider.GetService<Logging.IWhyDidYouRenderLogger>();
 		if (unified != null) RenderTrackerService.SetUnifiedLogger(unified);
 		else {
-			LogError(serviceProvider, "Tracking logger service not found!");
+			LogError(serviceProvider, "Unified logger service not found!");
 		}
 
 		var hostEnvironment = serviceProvider.GetService<IHostEnvironment>();
@@ -308,33 +280,7 @@ public static class ServiceCollectionExtensions {
 			if (sessionService is WasmSessionContextService wasmSession)
 				LogInfo(serviceProvider, "WASM session service ready");
 
-			var errorTracker = serviceProvider.GetService<IErrorTracker>();
-			if (errorTracker is WasmErrorTracker wasmErrorTracker) {
-				await wasmErrorTracker.LoadErrorsFromStorageAsync();
-				LogInfo(serviceProvider, "WASM error history loaded from storage");
-			}
 
-			var config = serviceProvider.GetService<WhyDidYouRenderConfig>();
-			if (config?.WasmStorage.AutoCleanupStorage == true) {
-				_ = Task.Run(async () => {
-					while (true) {
-						await Task.Delay(TimeSpan.FromMinutes(config.WasmStorage.StorageCleanupIntervalMinutes));
-
-						try {
-							if (sessionService is WasmSessionContextService wasmSessionCleanup)
-								await wasmSessionCleanup.PerformStorageCleanupAsync();
-
-							if (errorTracker is WasmErrorTracker wasmErrorCleanup)
-								await wasmErrorCleanup.PerformErrorCleanupAsync();
-						}
-						catch (Exception ex) {
-							LogError(serviceProvider, "Storage cleanup failed", ex);
-						}
-					}
-				});
-
-				LogInfo(serviceProvider, "WASM storage cleanup scheduled");
-			}
 		}
 
 		LogInfo(serviceProvider, "WebAssembly initialization complete");

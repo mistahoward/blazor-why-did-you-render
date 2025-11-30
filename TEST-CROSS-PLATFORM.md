@@ -39,7 +39,7 @@ dotnet run
 ### 2. Test WASM Features
 1. **Navigate to**: `https://localhost:5001/whydidyourender-demo`
 2. **Check Browser Console**: Should see WhyDidYouRender initialization and render events
-3. **Check Browser Storage**: Should see session data in localStorage/sessionStorage
+3. No persisted browser storage: session ID is ephemeral (in-memory)
 4. **Test Interactions**:
    - Click "Click me (+1)" - should log render events to browser console
    - Click "Update Time Only" - should track parameter changes
@@ -48,7 +48,7 @@ dotnet run
 
 ### 3. Expected WASM Behavior
 - ✅ Browser console shows all render tracking
-- ✅ Browser storage contains session data
+- ✅ No persisted browser storage (ephemeral session ID only)
 - ✅ JavaScript interop works for performance tracking
 - ✅ Component inheritance works with TrackedComponentBase
 - ✅ No server console output (client-side only)
@@ -61,7 +61,7 @@ dotnet run
 | Component tracking | ✅ | ✅ | ✅ |
 | Parameter change detection | ✅ | ✅ | ✅ |
 | Performance metrics | ✅ | ✅ | ✅ |
-| Session management | HttpContext | Browser Storage | ✅ |
+| Session management | HttpContext | Ephemeral (in-memory) | ✅ |
 | Console logging | Server + Browser | Browser Only | ✅ |
 | TrackedComponentBase | ✅ | ✅ | ✅ |
 
@@ -88,7 +88,7 @@ dotnet run
 
 #### 3. Session Management Issues
 - **Server**: Verify session middleware is enabled
-- **WASM**: Check browser storage permissions
+- **WASM**: Not applicable (no browser storage)
 
 #### 4. Component Not Tracked
 - **Solution**: Ensure component inherits from `TrackedComponentBase`

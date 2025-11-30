@@ -260,28 +260,7 @@ else
 }
 ```
 
-### Diagnostics Endpoint (historical)
 
-The legacy diagnostics endpoint was removed prior to v1.0.
-
-Use these alternatives:
-- Browser developer tools console for interactive inspection
-- .NET Aspire / OpenTelemetry for structured logs, traces, and metrics (Server/SSR)
-
-Quick Aspire enablement:
-```csharp
-builder.AddServiceDefaults();
-
-builder.Services.AddWhyDidYouRender(config =>
-{
-    config.EnableOpenTelemetry = true;
-    config.EnableOtelLogs = true;
-    config.EnableOtelTraces = true;
-    config.EnableOtelMetrics = true;
-});
-```
-
-See also: docs/observability.md for verification steps and troubleshooting.
 
 ## 🎨 Component Migration Patterns
 
@@ -351,7 +330,7 @@ builder.Services.AddWhyDidYouRender();
 1. Disable in production environments
 2. Use selective component tracking
 3. Adjust tracking granularity
-4. Consider using diagnostics endpoint instead of console logging
+4. Consider enabling .NET Aspire/OpenTelemetry for server-side observability
 
 ## 📊 Monitoring & Debugging
 
@@ -361,11 +340,6 @@ builder.Services.AddWhyDidYouRender();
 3. Look for `[WhyDidYouRender]` messages
 4. Use console filters to focus on specific components
 
-### Diagnostics Endpoint Usage
-1. Enable diagnostics endpoint in configuration
-2. Navigate to `/diagnostics/renders` (or your configured path)
-3. View aggregated render statistics
-4. Export data for analysis
 
 ## 🔄 Migration Checklist
 
@@ -386,4 +360,4 @@ After successful integration:
 2. Identify unnecessary re-renders
 3. Optimize component parameters and state management
 4. Use insights to improve application performance
-5. Consider enabling diagnostics endpoint for ongoing monitoring
+5. Consider enabling .NET Aspire/OpenTelemetry for ongoing monitoring

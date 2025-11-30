@@ -29,6 +29,53 @@ dotnet add package Blazor.WhyDidYouRender --version 3.0.0
 ```
 
 
+## WIP: Breaking changes — unified async error tracking and logging
+
+This upcoming release removes legacy diagnostics/logging types and consolidates on the async error tracker and unified logger.
+
+### Removed
+- Blazor.WhyDidYouRender.Diagnostics.IErrorTracker (sync)
+- Diagnostics/ErrorTracker and Diagnostics/ErrorTrackerAdapter
+- Abstractions/ITrackingLogger and Services/ServerTrackingLogger, Services/WasmTrackingLogger
+
+### Use instead
+- Abstractions.IErrorTracker (async): TrackErrorAsync, GetRecentErrorsAsync, GetErrorStatisticsAsync, etc.
+- Logging.IWhyDidYouRenderLogger (unified logger used by Console/Aspire/Composite variants)
+
+### Code migration examples
+
+Before (legacy sync tracker):
+```csharp
+using Blazor.WhyDidYouRender.Diagnostics;
+
+void Trigger()
+{
+    var tracker = Services.GetService<IErrorTracker>();
+    tracker?.TrackError("Something went wrong", new Dictionary<string, object?>());
+}
+```
+
+After (async tracker + await):
+```csharp
+using Blazor.WhyDidYouRender.Abstractions;
+using Blazor.WhyDidYouRender.Records;
+
+async Task Trigger()
+{
+    var tracker = Services.GetService<IErrorTracker>();
+    if (tracker != null)
+        await tracker.TrackErrorAsync("Something went wrong", new Dictionary<string, object?>(), ErrorSeverity.Warning, componentName: "Home", operation: "Trigger");
+}
+```
+
+### DI and initialization
+- Keep using builder.Services.AddWhyDidYouRender(...)
+- No manual wiring of legacy loggers is needed; the library initializes RenderTrackerService with the async IErrorTracker automatically.
+- If you previously referenced ITrackingLogger directly, migrate to Logging.IWhyDidYouRenderLogger.
+
+Notes: This section is a WIP during active development. See CHANGELOG.md (Unreleased) for the latest details.
+
+
 ## 🚨 Breaking Changes Overview
 
 ### Major Changes in v2.0
@@ -134,14 +181,6 @@ app.Services.InitializeSSRServices();
 
 ## ⚙️ Configuration Migration
 
-### Removed (already prior to v1.0)
-
-```csharp
-// Legacy diagnostics endpoint (removed prior to v1.0)
-// app.UseWhyDidYouRenderDiagnostics();
-// config.EnableDiagnosticsEndpoint = true;
-// config.DiagnosticsPath = "/diagnostics";
-```
 
 ### New Configuration Options
 
@@ -261,12 +300,6 @@ private string debugInfo;
 
 ## 🔍 API Changes
 
-### Removed APIs (historical)
-
-```csharp
-// Removed prior to v1.0 (legacy diagnostics endpoint)
-// app.UseWhyDidYouRenderDiagnostics();
-```
 
 ### New/Updated APIs
 
@@ -274,7 +307,7 @@ private string debugInfo;
 // v2.0 introduced cross-platform services
 IHostingEnvironmentDetector detector;
 ISessionContextService sessionService;
-ITrackingLogger trackingLogger;   // environment adapters for console/browser paths
+
 IErrorTracker errorTracker;       // updated interface
 
 // v3.0 adds the unified structured logger used by the composite/Aspire path
@@ -321,6 +354,12 @@ await host.Services.InitializeWasmAsync(
 );
 await host.RunAsync();
 ```
+### WASM storage removed (v3.0)
+
+- Change: Browser storage (localStorage/sessionStorage) support has been removed. Session IDs are ephemeral (in-memory) only.
+- Action: Remove any `config.WasmStorage` usage from your code. No replacement needed.
+- For durable correlation, prefer .NET Aspire/OpenTelemetry logs/traces instead of browser storage.
+
 
 ## 🛠️ Step-by-Step Migration
 
@@ -334,15 +373,11 @@ dotnet add package Blazor.WhyDidYouRender --version 2.0.0
 ### Step 2: Update Service Registration
 
 ```csharp
-// Remove any diagnostics configuration
+// Update service registration
 builder.Services.AddWhyDidYouRender(config =>
 {
-    // Remove these lines:
-    // config.EnableDiagnosticsEndpoint = true;  // ❌
-    // config.DiagnosticsPath = "/diagnostics";  // ❌
-
-    // Update output configuration:
-    config.Output = TrackingOutput.Both; // ✅ New option
+    // Example: adjust output configuration
+    config.Output = TrackingOutput.Both;
 });
 ```
 

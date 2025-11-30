@@ -11,14 +11,13 @@ builder.RootComponents.Add<HeadOutlet>("head::after");
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
 
 // Add WhyDidYouRender with WASM-optimized configuration
-builder.Services.AddWhyDidYouRender(config =>
-{
+builder.Services.AddWhyDidYouRender(config => {
 	config.Enabled = true;
 	config.Verbosity = TrackingVerbosity.Verbose;
 	config.Output = TrackingOutput.BrowserConsole; // WASM-specific: use browser console
 	config.TrackParameterChanges = true;
 	config.TrackPerformance = true;
-	config.IncludeSessionInfo = true;
+	config.IncludeSessionInfo = false;
 	config.AutoDetectEnvironment = true; // Let it auto-detect WASM
 
 	// enable state tracking for advanced analysis (WASM-optimized)
@@ -34,13 +33,6 @@ builder.Services.AddWhyDidYouRender(config =>
 	config.StateSnapshotCleanupIntervalMinutes = 10;
 	config.MaxStateSnapshotAgeMinutes = 30;
 
-	// Configure WASM-specific storage options
-	config.WasmStorage.UseLocalStorage = true;
-	config.WasmStorage.UseSessionStorage = true;
-	config.WasmStorage.MaxStoredErrors = 50;
-	config.WasmStorage.MaxStoredSessions = 5;
-	config.WasmStorage.AutoCleanupStorage = true;
-	config.WasmStorage.StorageCleanupIntervalMinutes = 30;
 });
 
 var app = builder.Build();

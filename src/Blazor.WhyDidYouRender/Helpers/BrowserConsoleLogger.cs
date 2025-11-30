@@ -1,6 +1,6 @@
 using Microsoft.JSInterop;
 
-using Blazor.WhyDidYouRender.Diagnostics;
+using Blazor.WhyDidYouRender.Abstractions;
 using Blazor.WhyDidYouRender.Records;
 using Blazor.WhyDidYouRender.Logging;
 

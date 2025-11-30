@@ -7,7 +7,7 @@ This guide provides comprehensive configuration instructions for WhyDidYouRender
 WhyDidYouRender v3.0 automatically adapts to your Blazor hosting environment and optionally emits Aspire/OTel telemetry:
 
 - **🖥️ Blazor Server** - Full server-side tracking with HttpContext session management
-- **🌐 Blazor WebAssembly** - Browser-based tracking with localStorage session management
+- **🌐 Blazor WebAssembly** - Browser-based tracking with ephemeral session (no persisted storage)
 - **📄 Server-Side Rendering (SSR)** - Pre-render tracking with server-side optimization
 
 - **📡 .NET Aspire/OTel (Server/SSR)** - Optional structured logs, traces, and metrics
@@ -126,9 +126,6 @@ builder.Services.AddWhyDidYouRender(config =>
     config.TrackParameterChanges = true;
     config.TrackPerformance = true;
 
-    // WASM-specific settings
-    config.IncludeSessionInfo = true; // Uses browser storage
-    config.MaxParameterChangesToLog = 5; // Reduce for performance
 });
 
 var host = builder.Build();

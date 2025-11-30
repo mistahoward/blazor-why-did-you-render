@@ -10,7 +10,7 @@
     <!-- NuGet Package Metadata -->
     <PackageId>Blazor.WhyDidYouRender</PackageId>
     <Version>3.0.0</Version>
-    <PackageReleaseNotes>3.0: Optional .NET Aspire/OpenTelemetry integration (structured logs, traces, and metrics), composite logger with trace↔log correlation, documentation and samples updated. No breaking changes by default; OTel is opt-in.</PackageReleaseNotes>
+    <PackageReleaseNotes>Unreleased: Working log for upcoming release — breaking: removed Diagnostics.IErrorTracker and legacy ITrackingLogger; unified async Abstractions.IErrorTracker and Logging.IWhyDidYouRenderLogger; .NET 9 SDK pinned; Aspire extension added. See CHANGELOG.md.</PackageReleaseNotes>
     <Authors>Your Name</Authors>
     <Company>Your Company</Company>
     <Product>Blazor WhyDidYouRender</Product>

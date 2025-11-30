@@ -8,7 +8,7 @@ using Blazor.WhyDidYouRender.Records;
 namespace Blazor.WhyDidYouRender.Services;
 
 /// <summary>
-/// WebAssembly implementation of error tracking service using browser storage.
+/// WebAssembly implementation of error tracking service (in-memory; browser console logging).
 /// </summary>
 public class WasmErrorTracker : IErrorTracker {
 	private readonly IJSRuntime _jsRuntime;
@@ -34,14 +34,14 @@ public class WasmErrorTracker : IErrorTracker {
 	}
 
 	/// <inheritdoc />
-	public bool SupportsPersistentStorage => _config.WasmStorage.UseLocalStorage;
+	public bool SupportsPersistentStorage => false;
 
 	/// <inheritdoc />
 	public bool SupportsErrorReporting => true; // can log to browser console
 
 	/// <inheritdoc />
 	public string ErrorTrackingDescription =>
-		$"WebAssembly error tracking with browser storage (Local: {_config.WasmStorage.UseLocalStorage}, Session: {_config.WasmStorage.UseSessionStorage})";
+		"WebAssembly error tracking (in-memory only; browser console)";
 
 	/// <inheritdoc />
 	public async Task TrackErrorAsync(Exception exception, Dictionary<string, object?> context, ErrorSeverity severity, string? componentName = null, string? operation = null) {
@@ -140,7 +140,7 @@ public class WasmErrorTracker : IErrorTracker {
 			_totalErrorCount = 0;
 		}
 
-		await ClearStoredErrorsAsync();
+		await Task.CompletedTask;
 	}
 
 	/// <inheritdoc />
@@ -164,55 +164,19 @@ public class WasmErrorTracker : IErrorTracker {
 	}
 
 	/// <summary>
-	/// Loads errors from browser storage into memory.
+	/// No-op: browser storage has been removed. Errors are kept in-memory only.
 	/// </summary>
-	/// <returns>A task representing the load operation.</returns>
+	/// <returns>A task representing the (no-op) load operation.</returns>
 	public async Task LoadErrorsFromStorageAsync() {
-		try {
-			var storageKey = GetErrorStorageKey();
-			string? errorsJson = null;
-
-			if (_config.WasmStorage.UseLocalStorage)
-				errorsJson = await _jsRuntime.InvokeAsync<string?>("localStorage.getItem", storageKey);
-			else if (_config.WasmStorage.UseSessionStorage)
-				errorsJson = await _jsRuntime.InvokeAsync<string?>("sessionStorage.getItem", storageKey);
-
-			if (!string.IsNullOrEmpty(errorsJson)) {
-				var storedErrors = JsonSerializer.Deserialize<List<TrackingError>>(errorsJson, _jsonOptions);
-				if (storedErrors != null)
-					lock (_lock) {
-						_memoryErrors.AddRange(storedErrors);
-						_totalErrorCount = Math.Max(_totalErrorCount, _memoryErrors.Count);
-					}
-			}
-		}
-		catch (Exception ex) {
-			await _jsRuntime.InvokeVoidAsync("console.warn", $"[WhyDidYouRender] Failed to load errors from storage: {ex.Message}");
-		}
+		await Task.CompletedTask;
 	}
 
 	/// <summary>
-	/// Performs automatic cleanup of old errors if configured.
+	/// No-op: browser storage cleanup removed. In-memory list is pruned during tracking.
 	/// </summary>
-	/// <returns>A task representing the cleanup operation.</returns>
+	/// <returns>A task representing the (no-op) cleanup operation.</returns>
 	public async Task PerformErrorCleanupAsync() {
-		if (!_config.WasmStorage.AutoCleanupStorage)
-			return;
-
-		try {
-			var cutoff = DateTime.UtcNow.AddMinutes(-_config.WasmStorage.StorageCleanupIntervalMinutes);
-
-			lock (_lock) {
-				var errorsToKeep = _memoryErrors.Where(e => e.Timestamp >= cutoff).ToList();
-				_memoryErrors.Clear();
-				_memoryErrors.AddRange(errorsToKeep);
-			}
-
-			await SaveErrorsToStorageAsync();
-		}
-		catch (Exception ex) {
-			await _jsRuntime.InvokeVoidAsync("console.warn", $"[WhyDidYouRender] Error cleanup failed: {ex.Message}");
-		}
+		await Task.CompletedTask;
 	}
 
 	/// <summary>
@@ -225,63 +189,24 @@ public class WasmErrorTracker : IErrorTracker {
 			_memoryErrors.Add(trackingError);
 			_totalErrorCount++;
 
-			bool shouldCleanup = _memoryErrors.Count > _config.WasmStorage.MaxStoredErrors;
-			while (shouldCleanup)
+			while (_memoryErrors.Count > _config.MaxErrorHistorySize)
 				_memoryErrors.RemoveAt(0);
 		}
-
-		await SaveErrorsToStorageAsync();
 
 		await LogErrorToBrowserConsoleAsync(trackingError);
 	}
 
 	/// <summary>
-	/// Saves errors to browser storage.
+	/// No-op: browser storage has been removed.
 	/// </summary>
-	/// <returns>A task representing the save operation.</returns>
-	private async Task SaveErrorsToStorageAsync() {
-		try {
-			List<TrackingError> errorsToSave;
-			lock (_lock)
-				errorsToSave = _memoryErrors.ToList();
-
-			var errorsJson = JsonSerializer.Serialize(errorsToSave, _jsonOptions);
-
-			if (errorsJson.Length > _config.WasmStorage.MaxStorageEntrySize) {
-				var reducedErrors = errorsToSave.TakeLast(_config.WasmStorage.MaxStoredErrors / 2).ToList();
-				errorsJson = JsonSerializer.Serialize(reducedErrors, _jsonOptions);
-			}
-
-			var storageKey = GetErrorStorageKey();
-
-			if (_config.WasmStorage.UseLocalStorage)
-				await _jsRuntime.InvokeVoidAsync("localStorage.setItem", storageKey, errorsJson);
-			else if (_config.WasmStorage.UseSessionStorage)
-				await _jsRuntime.InvokeVoidAsync("sessionStorage.setItem", storageKey, errorsJson);
-		}
-		catch (Exception ex) {
-			await _jsRuntime.InvokeVoidAsync("console.warn", $"[WhyDidYouRender] Failed to save errors to storage: {ex.Message}");
-		}
-	}
+	/// <returns>A completed task.</returns>
+	private Task SaveErrorsToStorageAsync() => Task.CompletedTask;
 
 	/// <summary>
-	/// Clears stored errors from browser storage.
+	/// No-op: browser storage has been removed.
 	/// </summary>
-	/// <returns>A task representing the clear operation.</returns>
-	private async Task ClearStoredErrorsAsync() {
-		try {
-			var storageKey = GetErrorStorageKey();
-
-			if (_config.WasmStorage.UseLocalStorage)
-				await _jsRuntime.InvokeVoidAsync("localStorage.removeItem", storageKey);
-
-			if (_config.WasmStorage.UseSessionStorage)
-				await _jsRuntime.InvokeVoidAsync("sessionStorage.removeItem", storageKey);
-		}
-		catch (Exception ex) {
-			await _jsRuntime.InvokeVoidAsync("console.warn", $"[WhyDidYouRender] Failed to clear stored errors: {ex.Message}");
-		}
-	}
+	/// <returns>A completed task.</returns>
+	private Task ClearStoredErrorsAsync() => Task.CompletedTask;
 
 	/// <summary>
 	/// Logs an error to the browser console.
@@ -324,10 +249,10 @@ public class WasmErrorTracker : IErrorTracker {
 	}
 
 	/// <summary>
-	/// Gets the storage key for errors.
+	/// Deprecated: storage key no longer used; keeping method for compatibility.
 	/// </summary>
-	/// <returns>The storage key for errors.</returns>
+	/// <returns>A constant key.</returns>
 	private string GetErrorStorageKey() {
-		return $"{_config.WasmStorage.StorageKeyPrefix}errors";
+		return "errors";
 	}
 }

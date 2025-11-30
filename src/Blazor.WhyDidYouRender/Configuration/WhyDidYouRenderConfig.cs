@@ -290,11 +290,6 @@ public class WhyDidYouRenderConfig {
 	/// </summary>
 	public BlazorHostingModel? ForceHostingModel { get; set; } = null;
 
-	/// <summary>
-	/// Gets or sets WASM-specific storage options.
-	/// Only applies when running in WebAssembly environment.
-	/// </summary>
-	public WasmStorageOptions WasmStorage { get; set; } = new();
 
 	/// <summary>
 	/// Validates the configuration for the specified hosting environment.
@@ -317,7 +312,7 @@ public class WhyDidYouRenderConfig {
 
 		switch (hostingModel) {
 			case BlazorHostingModel.WebAssembly:
-				ValidateWasmConfiguration(errors);
+
 				break;
 			case BlazorHostingModel.Server:
 			case BlazorHostingModel.ServerSideRendering:
@@ -385,8 +380,6 @@ public class WhyDidYouRenderConfig {
 			["IncludeSessionInfo"] = IncludeSessionInfo,
 			["AutoDetectEnvironment"] = AutoDetectEnvironment,
 			["ForceHostingModel"] = ForceHostingModel?.ToString() ?? "Auto",
-			["WasmStorageEnabled"] = WasmStorage.UseLocalStorage || WasmStorage.UseSessionStorage,
-
 			["EnableStateTracking"] = EnableStateTracking,
 			["AutoTrackSimpleTypes"] = AutoTrackSimpleTypes,
 			["MaxTrackedFieldsPerComponent"] = MaxTrackedFieldsPerComponent,
@@ -414,28 +407,6 @@ public class WhyDidYouRenderConfig {
 	///   <item>Browser storage quota considerations</item>
 	/// </list>
 	/// </remarks>
-	private void ValidateWasmConfiguration(List<string> errors) {
-		if (WasmStorage.MaxStorageEntrySize <= 0)
-			errors.Add("WasmStorage.MaxStorageEntrySize must be greater than 0");
-
-		if (WasmStorage.MaxStoredErrors <= 0)
-			errors.Add("WasmStorage.MaxStoredErrors must be greater than 0");
-
-		if (WasmStorage.MaxStoredSessions <= 0)
-			errors.Add("WasmStorage.MaxStoredSessions must be greater than 0");
-
-		if (WasmStorage.StorageCleanupIntervalMinutes <= 0)
-			errors.Add("WasmStorage.StorageCleanupIntervalMinutes must be greater than 0");
-
-		if (string.IsNullOrWhiteSpace(WasmStorage.StorageKeyPrefix))
-			errors.Add("WasmStorage.StorageKeyPrefix cannot be null or empty");
-
-		if (!WasmStorage.UseLocalStorage && !WasmStorage.UseSessionStorage)
-			errors.Add("At least one of WasmStorage.UseLocalStorage or WasmStorage.UseSessionStorage must be enabled");
-
-		if (WasmStorage.MaxStorageEntrySize > 5 * 1024 * 1024) // 5MB
-			errors.Add("WasmStorage.MaxStorageEntrySize is very large and may cause browser storage quota issues");
-	}
 
 	/// <summary>
 	/// Validates the Server/SSR-specific configuration settings.

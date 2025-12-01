@@ -1,0 +1,41 @@
+{
+    "$schema": "https://cdn.statically.io/gh/nguyenngoclongdev/cdn/main/schema/v11/terminal-keeper.json",
+    "theme": "tribe",
+    "active": "default",
+    "activateOnStartup": false,
+    "keepExistingTerminals": false,
+    "sessions": {
+        "default": [
+            {
+                "name": "Server Sample App",
+                "autoExecuteCommands": false,
+                "icon": "server",
+                "color": "terminal.ansiBlue",
+                "cwd": "samples/RenderTracker.SampleApp",
+                "commands": [
+                    "dotnet watch run"
+                ]
+            },
+            {
+                "name": "WASM Sample App",
+                "autoExecuteCommands": false,
+                "icon": "globe",
+                "color": "terminal.ansiCyan",
+                "cwd": "samples/RenderTracker.WasmSampleApp",
+                "commands": [
+                    "dotnet watch run"
+                ]
+            },
+            {
+                "name": "Aspire AppHost",
+                "autoExecuteCommands": false,
+                "icon": "telescope",
+                "color": "terminal.ansiMagenta",
+                "cwd": "Blazor.WhyDidYouRender.DevHost.AppHost",
+                "commands": [
+                    "dotnet run"
+                ]
+            }
+        ]
+    }
+}

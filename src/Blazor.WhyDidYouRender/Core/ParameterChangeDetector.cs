@@ -3,7 +3,8 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using System.Text.Json;
+using Blazor.WhyDidYouRender.Attributes;
+using Blazor.WhyDidYouRender.Core.StateTracking;
 using Microsoft.AspNetCore.Components;
 
 namespace Blazor.WhyDidYouRender.Core;
@@ -19,9 +20,58 @@ public class ParameterChangeDetector
 	private readonly ConcurrentDictionary<ComponentBase, Dictionary<string, object?>> _previousParameters = new();
 
 	/// <summary>
-	/// Cached JSON serializer options for performance.
+	/// State comparer used for opt-in deep parameter comparison.
 	/// </summary>
-	private static readonly JsonSerializerOptions _jsonOptions = new() { WriteIndented = false };
+	private readonly StateComparer _stateComparer = new();
+
+	/// <summary>
+	/// Cache of parameter metadata (including tracking attributes) per component type.
+	/// </summary>
+	private static readonly ConcurrentDictionary<Type, List<ParameterMetadata>> _parameterMetadataCache = new();
+
+	/// <summary>
+	/// Metadata describing how a particular component parameter should be compared.
+	/// </summary>
+	private sealed class ParameterMetadata
+	{
+		public string Name { get; init; } = string.Empty;
+		public PropertyInfo PropertyInfo { get; init; } = default!;
+		public TrackStateAttribute? TrackStateAttribute { get; init; }
+		public bool EnableDeepComparison => TrackStateAttribute != null;
+	}
+
+	/// <summary>
+	/// Gets cached parameter metadata for a component type.
+	/// </summary>
+	private static List<ParameterMetadata> GetParameterMetadata(Type componentType)
+	{
+		return _parameterMetadataCache.GetOrAdd(
+			componentType,
+			type =>
+			{
+				var properties = type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
+				var list = new List<ParameterMetadata>();
+
+				foreach (var prop in properties)
+				{
+					if (prop.GetCustomAttribute<ParameterAttribute>() == null)
+						continue;
+
+					var trackState = prop.GetCustomAttribute<TrackStateAttribute>();
+					list.Add(
+						new ParameterMetadata
+						{
+							Name = prop.Name,
+							PropertyInfo = prop,
+							TrackStateAttribute = trackState,
+						}
+					);
+				}
+
+				return list;
+			}
+		);
+	}
 
 	/// <summary>
 	/// Detects parameter changes for a component.
@@ -40,59 +90,67 @@ public class ParameterChangeDetector
 		try
 		{
 			var componentType = component.GetType();
-			var parameterProperties = componentType.GetProperties().Where(p => p.GetCustomAttribute<ParameterAttribute>() != null).ToList();
+			var parameterMetadata = GetParameterMetadata(componentType);
 
-			if (parameterProperties.Count == 0)
+			if (parameterMetadata.Count == 0)
 				return null;
 
-			var currentParameters = new Dictionary<string, object?>();
-			foreach (var prop in parameterProperties)
+			var previousParameters = _previousParameters.GetOrAdd(component, _ => new Dictionary<string, object?>());
+			var changes = new Dictionary<string, object?>();
+			foreach (var metadata in parameterMetadata)
 			{
+				object? currentValue;
 				try
 				{
-					currentParameters[prop.Name] = prop.GetValue(component);
+					currentValue = metadata.PropertyInfo.GetValue(component);
 				}
 				catch
 				{
-					// If we can't get the value, skip this parameter
-					currentParameters[prop.Name] = "[Unable to read]";
+					// If we can't get the value, record the failure but do not attempt
+					// deep comparison.
+					currentValue = "[Unable to read]";
 				}
-			}
-
-			var previousParameters = _previousParameters.GetOrAdd(component, _ => new Dictionary<string, object?>());
-
-			var changes = new Dictionary<string, object?>();
-			foreach (var kvp in currentParameters)
-			{
-				var paramName = kvp.Key;
-				var currentValue = kvp.Value;
+				var paramName = metadata.Name;
+				var paramType = metadata.PropertyInfo.PropertyType;
 
 				if (previousParameters.TryGetValue(paramName, out var previousValue))
 				{
-					if (!AreParameterValuesEqual(previousValue, currentValue))
+					if (HasParameterValueChanged(previousValue, currentValue, paramType))
 					{
+						// If this parameter has opted in via [TrackState], we use deep
+						// comparison to determine whether the change is actually
+						// meaningful. Otherwise, every detected change is treated as
+						// meaningful.
+						var isMeaningful =
+							!metadata.EnableDeepComparison || !AreParameterValuesDeepEqual(previousValue, currentValue, metadata);
+
 						changes[paramName] = new
 						{
 							Previous = previousValue,
 							Current = currentValue,
 							Changed = true,
+							IsMeaningful = isMeaningful,
 						};
 					}
 				}
 				else
 				{
-					changes[paramName] = new
+					// First time we've seen this parameter for this component
+					// instance. Treat non-null values as meaningful.
+					if (currentValue != null)
 					{
-						Previous = (object?)null,
-						Current = currentValue,
-						Changed = true,
-					};
+						changes[paramName] = new
+						{
+							Previous = (object?)null,
+							Current = currentValue,
+							Changed = true,
+							IsMeaningful = true,
+						};
+					}
 				}
-			}
 
-			foreach (var kvp in currentParameters)
-			{
-				previousParameters[kvp.Key] = kvp.Value;
+				// Update snapshot for the next comparison
+				previousParameters[paramName] = currentValue;
 			}
 
 			return changes.Count > 0 ? changes : null;
@@ -101,42 +159,6 @@ public class ParameterChangeDetector
 		{
 			// If parameter detection fails, return null
 			return null;
-		}
-	}
-
-	/// <summary>
-	/// Determines if two parameter values are equal.
-	/// </summary>
-	/// <param name="previous">The previous parameter value.</param>
-	/// <param name="current">The current parameter value.</param>
-	/// <returns>True if the values are equal; otherwise, false.</returns>
-	private static bool AreParameterValuesEqual(object? previous, object? current)
-	{
-		// Handle null cases
-		if (previous == null && current == null)
-			return true;
-		if (previous == null || current == null)
-			return false;
-
-		// Handle reference equality
-		if (ReferenceEquals(previous, current))
-			return true;
-
-		// Handle value types and strings
-		if (previous.Equals(current))
-			return true;
-
-		// For complex objects, try JSON comparison as a fallback
-		try
-		{
-			var previousJson = JsonSerializer.Serialize(previous, _jsonOptions);
-			var currentJson = JsonSerializer.Serialize(current, _jsonOptions);
-			return previousJson == currentJson;
-		}
-		catch
-		{
-			// If serialization fails, assume they're different
-			return false;
 		}
 	}
 
@@ -152,8 +174,17 @@ public class ParameterChangeDetector
 
 		try
 		{
-			// Try to extract Previous and Current values from the change object
+			// Prefer the explicit IsMeaningful flag when DetectParameterChanges has
+			// computed it (for opt-in deep comparison scenarios).
 			var changeType = change.GetType();
+			var isMeaningfulProp = changeType.GetProperty("IsMeaningful");
+			if (isMeaningfulProp != null && isMeaningfulProp.PropertyType == typeof(bool))
+			{
+				var value = (bool?)isMeaningfulProp.GetValue(change);
+				return value ?? true;
+			}
+
+			// Legacy fallback: infer meaning from Previous / Current values only.
 			var previousProp = changeType.GetProperty("Previous");
 			var currentProp = changeType.GetProperty("Current");
 
@@ -186,6 +217,38 @@ public class ParameterChangeDetector
 		{
 			return true; // If we can't determine, assume it's meaningful
 		}
+	}
+
+	/// <summary>
+	/// Determines whether a parameter value has changed between renders, using
+	/// reference-based semantics for complex types and value semantics for
+	/// simple types.
+	/// </summary>
+	private static bool HasParameterValueChanged(object? previous, object? current, Type parameterType)
+	{
+		if (previous is null && current is null)
+			return false;
+		if (previous is null || current is null)
+			return true;
+
+		var underlyingType = Nullable.GetUnderlyingType(parameterType) ?? parameterType;
+		if (underlyingType.IsValueType || underlyingType == typeof(string))
+			return !previous.Equals(current);
+
+		// For reference types (including collections), treat a new reference as a
+		// parameter change regardless of value equality. Deep comparison is
+		// handled separately when a parameter has opted into it.
+		return !ReferenceEquals(previous, current);
+	}
+
+	/// <summary>
+	/// Performs opt-in deep comparison for parameters that have been annotated
+	/// with [TrackState].
+	/// </summary>
+	private bool AreParameterValuesDeepEqual(object? previous, object? current, ParameterMetadata metadata)
+	{
+		var parameterType = metadata.PropertyInfo.PropertyType;
+		return _stateComparer.AreParameterValuesEqual(previous, current, parameterType, metadata.TrackStateAttribute);
 	}
 
 	/// <summary>

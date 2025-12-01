@@ -103,7 +103,11 @@ public class RenderTrackerService
 	{
 		ArgumentNullException.ThrowIfNull(configureAction);
 		configureAction(_config);
-		InitializeServices();
+
+		// Always (re)create the unnecessary rerender detector so that configuration
+		// changes to state tracking and related options take effect immediately.
+		_unnecessaryRerenderDetector = new UnnecessaryRerenderDetector(_config);
+		_servicesInitialized = true;
 	}
 
 	/// <summary>
@@ -309,8 +313,13 @@ public class RenderTrackerService
 				return null;
 
 			var (hasChanges, changes) = stateSnapshotManager.DetectStateChanges(component);
+			// When state tracking is enabled for this component but no changes are detected,
+			// return an empty list rather than null. This allows the unnecessary re-render
+			// detector to distinguish between "no tracking" (null) and "tracked with no
+			// changes" (empty list), so StateHasChanged calls without real state changes
+			// can be flagged as unnecessary.
 			if (!hasChanges)
-				return null;
+				return [];
 
 			return [.. changes];
 		}

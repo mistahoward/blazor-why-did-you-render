@@ -123,7 +123,18 @@ public class BrowserConsoleLogger(IJSRuntime jsRuntime, IWhyDidYouRenderLogger? 
 				consoleMethod = "console.group";
 				messageStyle = "color: #FF5722; font-weight: bold; background-color: #FFEBEE; padding: 2px 4px; border-radius: 3px;";
 				icon = "⚠️";
-				message = $"{icon} UNNECESSARY RE-RENDER | {renderEvent.ComponentName} | {renderEvent.Method}";
+
+				// Surface the reason directly in the main message when available so that
+				// developers can immediately see *why* the render was considered unnecessary.
+				if (!string.IsNullOrEmpty(renderEvent.UnnecessaryRerenderReason))
+				{
+					message =
+						$"{icon} UNNECESSARY RE-RENDER | {renderEvent.ComponentName} | {renderEvent.Method} | {renderEvent.UnnecessaryRerenderReason}";
+				}
+				else
+				{
+					message = $"{icon} UNNECESSARY RE-RENDER | {renderEvent.ComponentName} | {renderEvent.Method}";
+				}
 			}
 			else if (renderEvent.IsFrequentRerender)
 			{

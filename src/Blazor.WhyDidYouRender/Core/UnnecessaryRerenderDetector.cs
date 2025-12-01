@@ -85,8 +85,19 @@ public class UnnecessaryRerenderDetector
 	{
 		if (method == "OnParametersSet")
 		{
+			// When a parent component re-renders, Blazor will call OnParametersSet on
+			// child components even if none of *their* parameters changed. That is a
+			// normal part of the rendering pipeline and, while potentially interesting
+			// from a performance perspective, it is *not* considered an unnecessary
+			// re-render for this component in isolation.
+			//
+			// Therefore, we only flag OnParametersSet as unnecessary when there are
+			// parameter changes but they are deemed "not meaningful" (for example,
+			// when opt-in deep comparison for parameters says the new value is
+			// effectively the same as the previous one). If there are no parameter
+			// changes at all, we treat the render as necessary.
 			if (parameterChanges == null || parameterChanges.Count == 0)
-				return (true, "OnParametersSet called but no parameter changes detected");
+				return (false, null);
 
 			var hasMeaningfulParameterChanges = parameterChanges.Values.Any(ParameterChangeDetector.HasMeaningfulParameterChange);
 
@@ -132,8 +143,12 @@ public class UnnecessaryRerenderDetector
 	{
 		if (method == "OnParametersSet")
 		{
+			// Legacy path mirrors the state-tracking semantics: we do *not*
+			// classify cascaded OnParametersSet calls (no parameter changes for
+			// this component) as unnecessary renders. Those are normal side
+			// effects of a parent re-render.
 			if (parameterChanges == null || parameterChanges.Count == 0)
-				return (true, "OnParametersSet called but no parameter changes detected");
+				return (false, null);
 
 			var hasMeaningfulChanges = parameterChanges.Values.Any(ParameterChangeDetector.HasMeaningfulParameterChange);
 

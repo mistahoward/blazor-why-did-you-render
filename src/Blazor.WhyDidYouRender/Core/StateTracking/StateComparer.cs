@@ -1,4 +1,5 @@
 using System.Collections;
+using Blazor.WhyDidYouRender.Attributes;
 using Blazor.WhyDidYouRender.Records;
 using Blazor.WhyDidYouRender.Records.StateTracking;
 
@@ -47,6 +48,55 @@ public class StateComparer
 
 		var strategy = GetComparisonStrategy(fieldType);
 		return strategy.Compare(previous, current, this);
+	}
+
+	/// <summary>
+	/// Compares two <em>parameter</em> values for equality, honoring opt-in deep comparison
+	/// semantics configured via <see cref="TrackStateAttribute"/>.
+	/// </summary>
+	/// <param name="previous">The previous parameter value.</param>
+	/// <param name="current">The current parameter value.</param>
+	/// <param name="parameterType">The declared parameter type.</param>
+	/// <param name="trackStateAttribute">Optional tracking attribute applied to the parameter.</param>
+	/// <returns>
+	/// True if the values are considered equal under the configured comparison rules; otherwise false.
+	/// </returns>
+	public bool AreParameterValuesEqual(object? previous, object? current, Type parameterType, TrackStateAttribute? trackStateAttribute)
+	{
+		// Fast paths first: null/reference equality
+		if (ReferenceEquals(previous, current))
+			return true;
+
+		if (previous is null || current is null)
+			return false;
+
+		// When no attribute is present, fall back to simple value semantics. This
+		// preserves the default, WDYR-style behavior for unannotated parameters.
+		if (trackStateAttribute is null)
+			return previous.Equals(current);
+
+		var underlyingType = Nullable.GetUnderlyingType(parameterType) ?? parameterType;
+		var isCollection = typeof(IEnumerable).IsAssignableFrom(underlyingType) && underlyingType != typeof(string);
+
+		// For collections, opting in via [TrackState] means we default to comparing
+		// collection contents rather than just the collection reference.
+		if (isCollection)
+		{
+			var depth = trackStateAttribute.MaxComparisonDepth <= 0 ? 1 : trackStateAttribute.MaxComparisonDepth;
+			return CompareCollectionContents(previous as IEnumerable, current as IEnumerable, depth);
+		}
+
+		// For non-collection complex types, allow the consumer to opt into custom
+		// comparison via IEquatable<T>. If that is not available we fall back to
+		// the type's Equals implementation.
+		if (trackStateAttribute.UseCustomComparer)
+		{
+			if (TryUseIEquatable(previous, current, underlyingType, out var equatableResult))
+				return equatableResult;
+		}
+
+		// Final fallback – rely on the type's own equality semantics.
+		return previous.Equals(current);
 	}
 
 	/// <summary>
@@ -228,7 +278,10 @@ public class StateComparer
 				var prevItem = previousList[i];
 				var currItem = currentList[i];
 
-				if (!AreEqual(prevItem, currItem, typeof(object)))
+				// Use the most specific runtime type we can for element comparison so
+				// that value types and simple types get proper value semantics.
+				var itemType = prevItem?.GetType() ?? currItem?.GetType() ?? typeof(object);
+				if (!AreEqual(prevItem, currItem, itemType))
 					return false;
 			}
 

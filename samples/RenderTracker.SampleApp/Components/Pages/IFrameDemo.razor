@@ -1,0 +1,95 @@
+@page "/iframe-demo"
+@rendermode InteractiveServer
+@inherits TrackedComponentBase
+@using Blazor.WhyDidYouRender.Attributes
+
+<PageTitle>IFrame Demo</PageTitle>
+
+<h1>IFrame Demo</h1>
+
+<p>This page demonstrates component tracking behavior when an iframe is present.</p>
+
+<div class="mb-3">
+    <label for="iframeUrl" class="form-label">IFrame URL:</label>
+    <input type="text" class="form-control" id="iframeUrl" @bind="iframeUrl" @bind:event="oninput" />
+</div>
+
+<div class="mb-3">
+    <button class="btn btn-primary" @onclick="LoadUrl">Load URL</button>
+    <button class="btn btn-secondary" @onclick="IncrementCounter">Increment Counter (@counter)</button>
+    <button class="btn btn-warning" @onclick="ForceRender">Force Re-render</button>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                Embedded IFrame
+            </div>
+            <div class="card-body p-0">
+                <iframe src="@currentUrl" 
+                        width="100%" 
+                        height="400" 
+                        style="border: none;"
+                        title="Embedded content"
+                        sandbox="allow-scripts allow-same-origin">
+                </iframe>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                Component State
+            </div>
+            <div class="card-body">
+                <p><strong>Counter:</strong> @counter</p>
+                <p><strong>Current URL:</strong> @currentUrl</p>
+                <p><strong>Last Action:</strong> @lastAction</p>
+                <p><strong>Render Count:</strong> @renderCount</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [TrackState]
+    private string iframeUrl = "https://example.com";
+
+    [TrackState]
+    private string currentUrl = "https://example.com";
+
+    [TrackState]
+    private int counter = 0;
+
+    [TrackState]
+    private string lastAction = "None";
+
+    [IgnoreState("Render count - changes every render")]
+    private int renderCount = 0;
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        base.OnAfterRender(firstRender);
+        renderCount++;
+    }
+
+    private void LoadUrl()
+    {
+        currentUrl = iframeUrl;
+        lastAction = "Loaded URL";
+    }
+
+    private void IncrementCounter()
+    {
+        counter++;
+        lastAction = "Incremented Counter";
+    }
+
+    private void ForceRender()
+    {
+        lastAction = "Forced Re-render";
+        StateHasChanged();
+    }
+}
+

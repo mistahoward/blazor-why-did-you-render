@@ -68,7 +68,7 @@ public class RenderTrackerService
 	/// <summary>
 	/// Session context service for session management.
 	/// </summary>
-	private static Abstractions.ISessionContextService? _sessionContextService;
+	private static ISessionContextService? _sessionContextService;
 
 	/// <summary>
 	/// Unified logger for structured logging.
@@ -104,7 +104,7 @@ public class RenderTrackerService
 		ArgumentNullException.ThrowIfNull(configureAction);
 		configureAction(_config);
 
-		// Always (re)create the unnecessary rerender detector so that configuration
+		// always (re)create the unnecessary rerender detector so that configuration
 		// changes to state tracking and related options take effect immediately.
 		_unnecessaryRerenderDetector = new UnnecessaryRerenderDetector(_config);
 		_servicesInitialized = true;
@@ -162,7 +162,7 @@ public class RenderTrackerService
 	/// Sets the session context service for session management.
 	/// </summary>
 	/// <param name="sessionContextService">The session context service instance.</param>
-	public static void SetSessionContextService(Abstractions.ISessionContextService sessionContextService)
+	public static void SetSessionContextService(ISessionContextService sessionContextService)
 	{
 		_sessionContextService = sessionContextService ?? throw new ArgumentNullException(nameof(sessionContextService));
 	}
@@ -313,7 +313,7 @@ public class RenderTrackerService
 				return null;
 
 			var (hasChanges, changes) = stateSnapshotManager.DetectStateChanges(component);
-			// When state tracking is enabled for this component but no changes are detected,
+			// when state tracking is enabled for this component but no changes are detected,
 			// return an empty list rather than null. This allows the unnecessary re-render
 			// detector to distinguish between "no tracking" (null) and "tracked with no
 			// changes" (empty list), so StateHasChanged calls without real state changes

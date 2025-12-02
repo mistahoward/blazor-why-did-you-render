@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using Blazor.WhyDidYouRender.Abstractions;
 using Blazor.WhyDidYouRender.Attributes;
 using Blazor.WhyDidYouRender.Configuration;
@@ -9,7 +6,6 @@ using Blazor.WhyDidYouRender.Helpers;
 using Blazor.WhyDidYouRender.Logging;
 using Blazor.WhyDidYouRender.Records;
 using Microsoft.AspNetCore.Components;
-using Xunit;
 
 namespace Blazor.WhyDidYouRender.Tests;
 
@@ -25,7 +21,7 @@ public class RenderTrackerServiceTests
 
 	private sealed class StatefulComponent : ComponentBase
 	{
-		// Auto-tracked simple field used to exercise state tracking end-to-end.
+		// auto-tracked simple field used to exercise state tracking end-to-end.
 		private int _counter;
 
 		public int Counter => _counter;
@@ -35,21 +31,21 @@ public class RenderTrackerServiceTests
 
 	private sealed class MixedStateComponent : ComponentBase
 	{
-		// Auto-tracked simple field (tracked by default when AutoTrackSimpleTypes is enabled).
+		// auto-tracked simple field (tracked by default when AutoTrackSimpleTypes is enabled).
 		private int _autoTrackedCounter;
 
-		// Explicitly tracked complex field with collection content tracking.
+		// explicitly tracked complex field with collection content tracking.
 		[TrackState(TrackCollectionContents = true)]
-		private readonly List<string> _trackedItems = new();
+		private readonly List<string> _trackedItems = [];
 
-		// Would normally be auto-tracked, but explicitly ignored.
+		// would normally be auto-tracked, but explicitly ignored.
 		[IgnoreState]
 		private int _ignoredCounter;
 
 		// Has both TrackState and IgnoreState; IgnoreState should win and exclude it.
 		[TrackState(TrackCollectionContents = true)]
 		[IgnoreState]
-		private readonly List<string> _ignoredItemsWithTrackState = new();
+		private readonly List<string> _ignoredItemsWithTrackState = [];
 
 		public void MutateTracked()
 		{
@@ -255,7 +251,7 @@ public class RenderTrackerServiceTests
 
 		tracker.ClearAllTrackingData();
 
-		// ParameterComponent has a [Parameter] property that remains null, so
+		// parameterComponent has a [Parameter] property that remains null, so
 		// DetectParameterChanges returns null and, with LogOnlyWhenParametersChange
 		// enabled, OnParametersSet should not be logged at all.
 		var component = new ParameterComponent();
@@ -321,10 +317,10 @@ public class RenderTrackerServiceTests
 
 		var component = new StatefulComponent();
 
-		// First render primes the state snapshot for this component.
+		// first render primes the state snapshot for this component.
 		tracker.TrackRender(component, "OnParametersSet", false);
 
-		// Second render via StateHasChanged without any state mutation should be
+		// second render via StateHasChanged without any state mutation should be
 		// considered unnecessary when state tracking is enabled.
 		tracker.TrackRender(component, "StateHasChanged", false);
 
@@ -361,10 +357,10 @@ public class RenderTrackerServiceTests
 
 		var component = new StatefulComponent();
 
-		// Baseline snapshot with initial counter value.
+		// baseline snapshot with initial counter value
 		tracker.TrackRender(component, "OnParametersSet", false);
 
-		// Mutate state before calling StateHasChanged so that the snapshot manager
+		// mutate state before calling StateHasChanged so that the snapshot manager
 		// detects a real state change.
 		component.Increment();
 		tracker.TrackRender(component, "StateHasChanged", false);
@@ -403,10 +399,10 @@ public class RenderTrackerServiceTests
 
 		var component = new MixedStateComponent();
 
-		// Prime the snapshot with initial values.
+		// prime the snapshot with initial values.
 		tracker.TrackRender(component, "OnParametersSet", false);
 
-		// Mutate both tracked and ignored fields. Only the tracked ones should
+		// mutate both tracked and ignored fields. Only the tracked ones should
 		// appear in the resulting StateChanges list.
 		component.MutateTracked();
 		component.MutateIgnored();
@@ -420,11 +416,11 @@ public class RenderTrackerServiceTests
 		Assert.NotNull(renderEvent.StateChanges);
 		var fieldNames = renderEvent.StateChanges!.Select(c => c.FieldName).ToList();
 
-		// Tracked fields should be present.
+		// tracked fields should be present.
 		Assert.Contains("_autoTrackedCounter", fieldNames);
 		Assert.Contains("_trackedItems", fieldNames);
 
-		// Ignored fields should not appear in StateChanges.
+		// ignored fields should not appear in StateChanges.
 		Assert.DoesNotContain("_ignoredCounter", fieldNames);
 		Assert.DoesNotContain("_ignoredItemsWithTrackState", fieldNames);
 	}

@@ -35,18 +35,38 @@ public class StateComparer
 	/// <returns>True if the values are equal.</returns>
 	public bool AreEqual(object? previous, object? current, Type fieldType, FieldTrackingInfo? trackingInfo = null)
 	{
+		// Fast paths for reference and null equality
 		if (ReferenceEquals(previous, current))
 			return true;
 
 		if (previous == null || current == null)
 			return false;
 
-		if (trackingInfo?.UsesCustomComparison == true)
+		var underlyingType = Nullable.GetUnderlyingType(fieldType) ?? fieldType;
+
+		// When TrackCollectionContents is enabled for a field, always prefer content
+		// comparison for collections, regardless of whether a custom comparer was
+		// requested. This ensures that state tracking for collection fields only
+		// reports changes when the actual contents differ rather than on every
+		// render due to snapshot cloning.
+		if (trackingInfo is { TrackCollectionContents: true })
 		{
-			return CompareWithCustomLogic(previous, current, fieldType, trackingInfo);
+			var isCollection = typeof(IEnumerable).IsAssignableFrom(underlyingType) && underlyingType != typeof(string);
+			if (isCollection)
+			{
+				var depth = trackingInfo.MaxComparisonDepth <= 0 ? 1 : trackingInfo.MaxComparisonDepth;
+				return CompareCollectionContents(previous as IEnumerable, current as IEnumerable, depth);
+			}
 		}
 
-		var strategy = GetComparisonStrategy(fieldType);
+		// For non-collection fields, allow opt-in custom comparison via
+		// IEquatable<T> when requested.
+		if (trackingInfo?.UsesCustomComparison == true)
+		{
+			return CompareWithCustomLogic(previous, current, underlyingType, trackingInfo);
+		}
+
+		var strategy = GetComparisonStrategy(underlyingType);
 		return strategy.Compare(previous, current, this);
 	}
 

@@ -60,6 +60,14 @@ public class RenderTrackerServiceTests
 		}
 	}
 
+	private sealed class CollectionStateComponent : ComponentBase
+	{
+		[TrackState(TrackCollectionContents = true)]
+		private readonly List<int> _values = [];
+
+		public void AddValue(int value) => _values.Add(value);
+	}
+
 	private sealed class TestLogger : IWhyDidYouRenderLogger
 	{
 		public List<RenderEvent> RenderEvents { get; } = new();
@@ -209,6 +217,7 @@ public class RenderTrackerServiceTests
 			cfg.DetectUnnecessaryRerenders = false;
 			cfg.EnableStateTracking = false;
 			cfg.LogStateChanges = false;
+			cfg.FrequentRerenderThreshold = 5.0; // use default threshold explicitly to avoid test cross-talk
 		});
 
 		tracker.ClearAllTrackingData();
@@ -291,6 +300,54 @@ public class RenderTrackerServiceTests
 		Assert.Same(loggerEvent, browserEvent);
 		Assert.Equal(nameof(DummyComponent), loggerEvent.ComponentName);
 		Assert.Equal("OnParametersSet", loggerEvent.Method);
+	}
+
+	[Fact]
+	public void TrackRender_StateHasChanged_WithNoStateChanges_LogsSameUnnecessaryRerenderEvent_ToUnifiedAndBrowserLoggers()
+	{
+		var tracker = RenderTrackerService.Instance;
+		var logger = new TestLogger();
+		var browserLogger = new TestBrowserConsoleLogger();
+		RenderTrackerService.SetUnifiedLogger(logger);
+
+		tracker.Configure(cfg =>
+		{
+			cfg.Enabled = true;
+			cfg.Output = TrackingOutput.BrowserConsole;
+			cfg.TrackParameterChanges = false;
+			cfg.TrackPerformance = false;
+			cfg.IncludeSessionInfo = false;
+			cfg.DetectUnnecessaryRerenders = true;
+			cfg.EnableStateTracking = true;
+			cfg.LogStateChanges = true;
+			cfg.LogDetailedStateChanges = false;
+		});
+
+		tracker.ClearAllTrackingData();
+		tracker.SetBrowserLogger(browserLogger);
+
+		var component = new StatefulComponent();
+
+		// first render primes the state snapshot for this component.
+		tracker.TrackRender(component, "OnParametersSet", false);
+
+		// second render via StateHasChanged without any state mutation should be
+		// considered unnecessary when state tracking is enabled.
+		tracker.TrackRender(component, "StateHasChanged", false);
+
+		Assert.NotEmpty(logger.RenderEvents);
+		Assert.NotEmpty(browserLogger.RenderEvents);
+
+		var loggerEvent = logger.RenderEvents[^1];
+		var browserEvent = browserLogger.RenderEvents[^1];
+
+		Assert.Same(loggerEvent, browserEvent);
+		Assert.Equal(nameof(StatefulComponent), loggerEvent.ComponentName);
+		Assert.Equal("StateHasChanged", loggerEvent.Method);
+		Assert.True(loggerEvent.IsUnnecessaryRerender);
+		Assert.Equal("StateHasChanged called but no state changes detected", loggerEvent.UnnecessaryRerenderReason);
+		Assert.Equal(loggerEvent.IsUnnecessaryRerender, browserEvent.IsUnnecessaryRerender);
+		Assert.Equal(loggerEvent.UnnecessaryRerenderReason, browserEvent.UnnecessaryRerenderReason);
 	}
 
 	[Fact]
@@ -423,5 +480,91 @@ public class RenderTrackerServiceTests
 		// ignored fields should not appear in StateChanges.
 		Assert.DoesNotContain("_ignoredCounter", fieldNames);
 		Assert.DoesNotContain("_ignoredItemsWithTrackState", fieldNames);
+	}
+
+	[Fact]
+	public void TrackRender_StateHasChanged_CollectionWithTrackCollectionContents_NoContentChange_ProducesNoStateChanges()
+	{
+		var tracker = RenderTrackerService.Instance;
+		var logger = new TestLogger();
+		RenderTrackerService.SetUnifiedLogger(logger);
+
+		tracker.Configure(cfg =>
+		{
+			cfg.Enabled = true;
+			cfg.Output = TrackingOutput.Console;
+			cfg.TrackParameterChanges = false;
+			cfg.TrackPerformance = false;
+			cfg.IncludeSessionInfo = false;
+			cfg.DetectUnnecessaryRerenders = true;
+			cfg.EnableStateTracking = true;
+			cfg.LogStateChanges = true;
+			cfg.LogDetailedStateChanges = true;
+		});
+
+		tracker.ClearAllTrackingData();
+
+		var component = new CollectionStateComponent();
+		component.AddValue(1);
+
+		// baseline snapshot with initial collection contents
+		tracker.TrackRender(component, "OnParametersSet", false);
+
+		// call StateHasChanged without mutating the collection; with
+		// TrackCollectionContents enabled we should treat this as having no
+		// state changes.
+		tracker.TrackRender(component, "StateHasChanged", false);
+
+		Assert.NotEmpty(logger.RenderEvents);
+		var renderEvent = logger.RenderEvents[^1];
+		Assert.Equal(nameof(CollectionStateComponent), renderEvent.ComponentName);
+		Assert.Equal("StateHasChanged", renderEvent.Method);
+		Assert.NotNull(renderEvent.StateChanges);
+		Assert.Empty(renderEvent.StateChanges);
+	}
+
+	[Fact]
+	public void TrackRender_FrequentRerenders_FlaggedAndLoggedToUnifiedAndBrowserLoggers()
+	{
+		var tracker = RenderTrackerService.Instance;
+		var logger = new TestLogger();
+		var browserLogger = new TestBrowserConsoleLogger();
+		RenderTrackerService.SetUnifiedLogger(logger);
+
+		tracker.Configure(cfg =>
+		{
+			cfg.Enabled = true;
+			cfg.Output = TrackingOutput.BrowserConsole;
+			cfg.TrackParameterChanges = false;
+			cfg.TrackPerformance = false;
+			cfg.IncludeSessionInfo = false;
+			cfg.DetectUnnecessaryRerenders = false;
+			cfg.EnableStateTracking = false;
+			cfg.LogStateChanges = false;
+			cfg.FrequentRerenderThreshold = 0.1; // extremely low threshold to make the test deterministic
+		});
+
+		tracker.ClearAllTrackingData();
+		tracker.SetBrowserLogger(browserLogger);
+
+		var component = new DummyComponent();
+
+		// simulate a burst of renders that should exceed the configured threshold
+		for (var i = 0; i < 5; i++)
+		{
+			tracker.TrackRender(component, "OnParametersSet", i == 0);
+		}
+
+		Assert.NotEmpty(logger.RenderEvents);
+		Assert.NotEmpty(browserLogger.RenderEvents);
+
+		var loggerEvent = logger.RenderEvents[^1];
+		var browserEvent = browserLogger.RenderEvents[^1];
+
+		Assert.Same(loggerEvent, browserEvent);
+		Assert.Equal(nameof(DummyComponent), loggerEvent.ComponentName);
+		Assert.Equal("OnParametersSet", loggerEvent.Method);
+		Assert.True(loggerEvent.IsFrequentRerender);
+		Assert.True(browserEvent.IsFrequentRerender);
 	}
 }

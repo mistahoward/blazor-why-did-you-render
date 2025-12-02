@@ -111,8 +111,11 @@ public class StateSnapshot(Type componentType, IReadOnlyDictionary<string, objec
 		List<StateChange> changes = [];
 
 		foreach (var kvp in FieldValues)
+		{
 			if (previous.FieldValues.TryGetValue(kvp.Key, out var previousValue))
+			{
 				if (!AreValuesEqual(kvp.Value, previousValue))
+				{
 					changes.Add(
 						new StateChange
 						{
@@ -122,16 +125,22 @@ public class StateSnapshot(Type componentType, IReadOnlyDictionary<string, objec
 							ChangeType = StateChangeType.Modified,
 						}
 					);
-				else
-					changes.Add(
-						new StateChange
-						{
-							FieldName = kvp.Key,
-							PreviousValue = null,
-							CurrentValue = kvp.Value,
-							ChangeType = StateChangeType.Added,
-						}
-					);
+				}
+			}
+			else
+			{
+				// New field added in current snapshot
+				changes.Add(
+					new StateChange
+					{
+						FieldName = kvp.Key,
+						PreviousValue = null,
+						CurrentValue = kvp.Value,
+						ChangeType = StateChangeType.Added,
+					}
+				);
+			}
+		}
 
 		foreach (var kvp in previous.FieldValues)
 			if (!FieldValues.ContainsKey(kvp.Key))
@@ -144,6 +153,105 @@ public class StateSnapshot(Type componentType, IReadOnlyDictionary<string, objec
 						ChangeType = StateChangeType.Removed,
 					}
 				);
+
+		return changes;
+	}
+
+	/// <summary>
+	/// Gets the changes between this snapshot and a previous snapshot using
+	/// field metadata and the <see cref="StateComparer"/> to ensure
+	/// comparison semantics (including collection content tracking) are
+	/// consistent with the overall state tracking system.
+	/// </summary>
+	/// <param name="previous">The previous snapshot to compare against.</param>
+	/// <param name="metadata">The field metadata used for tracking.</param>
+	/// <param name="comparer">The state comparer to use for equality checks.</param>
+	/// <returns>An enumerable of state changes.</returns>
+	public IEnumerable<StateChange> GetChangesFrom(StateSnapshot? previous, StateFieldMetadata metadata, StateComparer comparer)
+	{
+		if (metadata == null)
+			throw new ArgumentNullException(nameof(metadata));
+		if (comparer == null)
+			throw new ArgumentNullException(nameof(comparer));
+
+		// When there is no previous snapshot, treat all tracked fields as added.
+		if (previous == null)
+		{
+			var addedChanges = new List<StateChange>();
+			foreach (var fieldInfo in metadata.AllTrackedFields)
+			{
+				if (!FieldValues.TryGetValue(fieldInfo.FieldInfo.Name, out var currentValue))
+					continue;
+
+				addedChanges.Add(
+					new StateChange
+					{
+						FieldName = fieldInfo.FieldInfo.Name,
+						PreviousValue = null,
+						CurrentValue = currentValue,
+						ChangeType = StateChangeType.Added,
+					}
+				);
+			}
+
+			return addedChanges;
+		}
+
+		// Component type mismatch indicates an invalid comparison scenario.
+		if (previous.ComponentType != ComponentType)
+			throw new ArgumentException("Cannot compare snapshots from different component types.", nameof(previous));
+
+		var changes = new List<StateChange>();
+
+		foreach (var fieldInfo in metadata.AllTrackedFields)
+		{
+			var fieldName = fieldInfo.FieldInfo.Name;
+			var hasCurrent = FieldValues.TryGetValue(fieldName, out var currentValue);
+			var hasPrevious = previous.FieldValues.TryGetValue(fieldName, out var previousValue);
+
+			if (hasCurrent && hasPrevious)
+			{
+				var areEqual = comparer.AreEqual(previousValue, currentValue, fieldInfo.FieldInfo.FieldType, fieldInfo);
+				if (!areEqual)
+				{
+					changes.Add(
+						new StateChange
+						{
+							FieldName = fieldName,
+							PreviousValue = previousValue,
+							CurrentValue = currentValue,
+							ChangeType = StateChangeType.Modified,
+						}
+					);
+				}
+			}
+			else if (hasCurrent)
+			{
+				// Newly tracked field.
+				changes.Add(
+					new StateChange
+					{
+						FieldName = fieldName,
+						PreviousValue = null,
+						CurrentValue = currentValue,
+						ChangeType = StateChangeType.Added,
+					}
+				);
+			}
+			else if (hasPrevious)
+			{
+				// Field was present but is no longer tracked or available.
+				changes.Add(
+					new StateChange
+					{
+						FieldName = fieldName,
+						PreviousValue = previousValue,
+						CurrentValue = null,
+						ChangeType = StateChangeType.Removed,
+					}
+				);
+			}
+		}
 
 		return changes;
 	}

@@ -122,12 +122,14 @@ public class StateSnapshotManager
 				_optimizedStorage.StoreSnapshot(component, currentSnapshot);
 				PerformPeriodicCleanup();
 
-				return (currentSnapshot.HasValues, currentSnapshot.GetChangesFrom(null));
+				return (currentSnapshot.HasValues, currentSnapshot.GetChangesFrom(null, metadata, _stateComparer));
 			}
 
 			var comparisonResult = _stateComparer.GetDetailedComparison(previousSnapshot, currentSnapshot, metadata);
 			var hasChanges = comparisonResult.HasChanges;
-			var changes = hasChanges ? currentSnapshot.GetChangesFrom(previousSnapshot) : Enumerable.Empty<StateChange>();
+			var changes = hasChanges
+				? currentSnapshot.GetChangesFrom(previousSnapshot, metadata, _stateComparer)
+				: Enumerable.Empty<StateChange>();
 
 			// store the new snapshot for next comparison
 			_optimizedStorage.StoreSnapshot(component, currentSnapshot);

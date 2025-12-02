@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Blazor.WhyDidYouRender.Abstractions;
+using Blazor.WhyDidYouRender.Attributes;
 using Blazor.WhyDidYouRender.Configuration;
 using Blazor.WhyDidYouRender.Core;
 using Blazor.WhyDidYouRender.Helpers;
@@ -29,6 +31,37 @@ public class RenderTrackerServiceTests
 		public int Counter => _counter;
 
 		public void Increment() => _counter++;
+	}
+
+	private sealed class MixedStateComponent : ComponentBase
+	{
+		// Auto-tracked simple field (tracked by default when AutoTrackSimpleTypes is enabled).
+		private int _autoTrackedCounter;
+
+		// Explicitly tracked complex field with collection content tracking.
+		[TrackState(TrackCollectionContents = true)]
+		private readonly List<string> _trackedItems = new();
+
+		// Would normally be auto-tracked, but explicitly ignored.
+		[IgnoreState]
+		private int _ignoredCounter;
+
+		// Has both TrackState and IgnoreState; IgnoreState should win and exclude it.
+		[TrackState(TrackCollectionContents = true)]
+		[IgnoreState]
+		private readonly List<string> _ignoredItemsWithTrackState = new();
+
+		public void MutateTracked()
+		{
+			_autoTrackedCounter++;
+			_trackedItems.Add("tracked");
+		}
+
+		public void MutateIgnored()
+		{
+			_ignoredCounter++;
+			_ignoredItemsWithTrackState.Add("ignored");
+		}
 	}
 
 	private sealed class TestLogger : IWhyDidYouRenderLogger
@@ -344,5 +377,55 @@ public class RenderTrackerServiceTests
 		Assert.Contains("State changes detected", renderEvent.UnnecessaryRerenderReason);
 		Assert.NotNull(renderEvent.StateChanges);
 		Assert.NotEmpty(renderEvent.StateChanges);
+	}
+
+	[Fact]
+	public void TrackRender_StateHasChanged_MixedTrackAndIgnoreState_OnlyTrackedFieldsAppearInStateChanges()
+	{
+		var tracker = RenderTrackerService.Instance;
+		var logger = new TestLogger();
+		RenderTrackerService.SetUnifiedLogger(logger);
+
+		tracker.Configure(cfg =>
+		{
+			cfg.Enabled = true;
+			cfg.Output = TrackingOutput.Console;
+			cfg.TrackParameterChanges = false;
+			cfg.TrackPerformance = false;
+			cfg.IncludeSessionInfo = false;
+			cfg.DetectUnnecessaryRerenders = true;
+			cfg.EnableStateTracking = true;
+			cfg.LogStateChanges = true;
+			cfg.LogDetailedStateChanges = true;
+		});
+
+		tracker.ClearAllTrackingData();
+
+		var component = new MixedStateComponent();
+
+		// Prime the snapshot with initial values.
+		tracker.TrackRender(component, "OnParametersSet", false);
+
+		// Mutate both tracked and ignored fields. Only the tracked ones should
+		// appear in the resulting StateChanges list.
+		component.MutateTracked();
+		component.MutateIgnored();
+		tracker.TrackRender(component, "StateHasChanged", false);
+
+		Assert.NotEmpty(logger.RenderEvents);
+		var renderEvent = logger.RenderEvents[^1];
+
+		Assert.Equal(nameof(MixedStateComponent), renderEvent.ComponentName);
+		Assert.Equal("StateHasChanged", renderEvent.Method);
+		Assert.NotNull(renderEvent.StateChanges);
+		var fieldNames = renderEvent.StateChanges!.Select(c => c.FieldName).ToList();
+
+		// Tracked fields should be present.
+		Assert.Contains("_autoTrackedCounter", fieldNames);
+		Assert.Contains("_trackedItems", fieldNames);
+
+		// Ignored fields should not appear in StateChanges.
+		Assert.DoesNotContain("_ignoredCounter", fieldNames);
+		Assert.DoesNotContain("_ignoredItemsWithTrackState", fieldNames);
 	}
 }

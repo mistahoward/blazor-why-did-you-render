@@ -37,6 +37,16 @@ There may be some mistakes. YMMV. Please let me know if anything looks strange o
 - Extensive logger parity tests to keep server structured logging, console output, and browser console logging in sync for:
   - unnecessary and frequent re-renders
   - parameter/state change tables and complex-object comparison output
+- **OpenTelemetry/Aspire integration tests** (`AspireOpenTelemetryTests.cs`):
+  - Activity/span creation with correct `wdyrl.*` tags
+  - Metrics emission (`wdyrl.renders`, `wdyrl.rerenders.unnecessary`, `wdyrl.render.duration.ms`)
+  - `EnableOtelTraces`/`EnableOtelMetrics` configuration flag behavior
+  - `ComponentWhitelist` filtering
+  - CompositeLogger ambient activity correlation
+  - Correlation ID propagation
+- **Cross-backend parity tests** (`LoggerParityTests.cs`):
+  - Verify OpenTelemetry, server structured logs, and browser console all receive consistent data from the same `RenderEvent`
+  - State change, parameter change, and correlation ID parity across all backends
 
 ### Removed
 - Sample Diagnostics.razor dashboard and all references/links; prefer Aspire/OTel and console-based diagnostics

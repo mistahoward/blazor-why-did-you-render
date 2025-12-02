@@ -1,6 +1,8 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Diagnostics.Metrics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -294,4 +296,378 @@ public sealed class LoggerParityTests
 		Assert.Equal(stats.RendersLastSecond / 1.0, data["rendersPerSecond"]);
 		Assert.Equal(true, data["fromStats"]);
 	}
+
+	#region OpenTelemetry, Server, and Browser Parity Tests
+
+	/// <summary>
+	/// Verifies that the same RenderEvent produces consistent data across all three logging backends:
+	/// OpenTelemetry (ActivitySource), Server structured logs, and Browser console (JSInterop).
+	/// </summary>
+	[Fact]
+	public async Task AllLoggers_SameRenderEvent_ProduceConsistentCoreData()
+	{
+		// Arrange: Create a RenderEvent with all key properties populated
+		var ts = DateTime.UtcNow;
+		var renderEvent = new RenderEvent
+		{
+			Timestamp = ts,
+			ComponentName = "MyComponent",
+			ComponentType = "My.Namespace.MyComponent",
+			Method = "OnParametersSet",
+			DurationMs = 5.67,
+			FirstRender = false,
+			IsUnnecessaryRerender = true,
+			UnnecessaryRerenderReason = "StateHasChanged called but no state changes detected",
+			IsFrequentRerender = true,
+			SessionId = Guid.NewGuid().ToString(),
+		};
+
+		// --- Server structured logger ---
+		var serverLogger = new TestStructuredLogger();
+		serverLogger.LogRenderEvent(renderEvent);
+
+		// --- Browser console logger ---
+		var js = new TestJsRuntime();
+		var browserLogger = new BrowserConsoleLogger(js);
+		await browserLogger.LogRenderEventAsync(renderEvent);
+
+		// --- OpenTelemetry logger ---
+		var capturedActivities = new List<Activity>();
+		using var activityListener = new ActivityListener
+		{
+			ShouldListenTo = source => source.Name == "Blazor.WhyDidYouRender",
+			Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
+			ActivityStarted = activity => capturedActivities.Add(activity),
+		};
+		ActivitySource.AddActivityListener(activityListener);
+
+		var otelConfig = new WhyDidYouRenderConfig
+		{
+			EnableOpenTelemetry = true,
+			EnableOtelTraces = true,
+			EnableOtelMetrics = false,
+		};
+		var otelLogger = new AspireWhyDidYouRenderLogger(otelConfig);
+		otelLogger.LogRenderEvent(renderEvent);
+
+		// --- Assertions ---
+
+		// 1. Server logger produces structured data with correct keys
+		Assert.NotNull(serverLogger.LastData);
+		var serverData = serverLogger.LastData!;
+		Assert.Equal("render", serverData["event"]);
+		Assert.Equal(renderEvent.ComponentName, serverData["component"]);
+		Assert.Equal(renderEvent.Method, serverData["method"]);
+		Assert.Equal(renderEvent.DurationMs, serverData["duration.ms"]);
+		Assert.Equal(renderEvent.IsUnnecessaryRerender, serverData["unnecessary"]);
+		Assert.Equal(renderEvent.IsFrequentRerender, serverData["frequent"]);
+		Assert.Equal(renderEvent.UnnecessaryRerenderReason, serverData["reason"]);
+
+		// 2. Browser logger emits console calls with consistent data
+		var tableInvocation = js.Invocations.FirstOrDefault(i => i.Identifier == "console.table");
+		Assert.NotNull(tableInvocation);
+		var tableArg = tableInvocation.Args[0]!;
+		var tableType = tableArg.GetType();
+		Assert.Equal(renderEvent.ComponentName, tableType.GetProperty("component")!.GetValue(tableArg));
+		Assert.Equal(renderEvent.ComponentType, tableType.GetProperty("componentType")!.GetValue(tableArg));
+		Assert.Equal(renderEvent.Method, tableType.GetProperty("method")!.GetValue(tableArg));
+		Assert.Equal(renderEvent.DurationMs, tableType.GetProperty("duration")!.GetValue(tableArg));
+		Assert.Equal(renderEvent.FirstRender, tableType.GetProperty("firstRender")!.GetValue(tableArg));
+
+		// Browser should emit warnings for both unnecessary and frequent rerenders
+		var warnInvocations = js.Invocations.Where(i => i.Identifier == "console.warn").ToList();
+		Assert.True(warnInvocations.Count >= 2, "Expected at least 2 warnings (one for unnecessary, one for frequent)");
+		Assert.Contains(warnInvocations, w => w.Args[0]?.ToString()?.Contains(renderEvent.UnnecessaryRerenderReason!) == true);
+		Assert.Contains(warnInvocations, w => w.Args[0]?.ToString()?.Contains("Performance Warning") == true);
+
+		// 3. OpenTelemetry logger sets Activity tags with consistent data
+		var activity = capturedActivities.FirstOrDefault();
+		Assert.NotNull(activity);
+		Assert.Equal("render", activity.GetTagItem("wdyrl.event"));
+		Assert.Equal(renderEvent.ComponentName, activity.GetTagItem("wdyrl.component"));
+		Assert.Equal(renderEvent.ComponentType, activity.GetTagItem("wdyrl.component.type"));
+		Assert.Equal(renderEvent.Method, activity.GetTagItem("wdyrl.method"));
+		Assert.Equal(renderEvent.DurationMs, activity.GetTagItem("wdyrl.duration.ms"));
+		Assert.Equal(renderEvent.IsUnnecessaryRerender, activity.GetTagItem("wdyrl.unnecessary"));
+		Assert.Equal(renderEvent.IsFrequentRerender, activity.GetTagItem("wdyrl.frequent"));
+		Assert.Equal(renderEvent.UnnecessaryRerenderReason, activity.GetTagItem("wdyrl.reason"));
+		Assert.Equal(renderEvent.FirstRender, activity.GetTagItem("wdyrl.first_render"));
+	}
+
+	/// <summary>
+	/// Verifies that state changes are consistently represented across all loggers.
+	/// </summary>
+	[Fact]
+	public async Task AllLoggers_StateChanges_ProduceConsistentData()
+	{
+		// Arrange
+		var stateChanges = new List<StateChange>
+		{
+			new()
+			{
+				FieldName = "_counter",
+				PreviousValue = 10,
+				CurrentValue = 20,
+				ChangeType = StateChangeType.Modified,
+			},
+			new()
+			{
+				FieldName = "_items",
+				PreviousValue = null,
+				CurrentValue = new List<string> { "a", "b" },
+				ChangeType = StateChangeType.Added,
+			},
+		};
+
+		var renderEvent = new RenderEvent
+		{
+			ComponentName = "StatefulComponent",
+			ComponentType = "My.StatefulComponent",
+			Method = "StateHasChanged",
+			StateChanges = stateChanges,
+			IsUnnecessaryRerender = false,
+			IsFrequentRerender = false,
+		};
+
+		// --- Server logger ---
+		var serverLogger = new TestStructuredLogger();
+		serverLogger.LogRenderEvent(renderEvent);
+
+		// --- Browser logger ---
+		var js = new TestJsRuntime();
+		var browserLogger = new BrowserConsoleLogger(js);
+		await browserLogger.LogRenderEventAsync(renderEvent);
+
+		// --- OpenTelemetry logger ---
+		var capturedActivities = new List<Activity>();
+		using var activityListener = new ActivityListener
+		{
+			ShouldListenTo = source => source.Name == "Blazor.WhyDidYouRender",
+			Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
+			ActivityStarted = activity => capturedActivities.Add(activity),
+		};
+		ActivitySource.AddActivityListener(activityListener);
+
+		var otelConfig = new WhyDidYouRenderConfig
+		{
+			EnableOpenTelemetry = true,
+			EnableOtelTraces = true,
+			EnableOtelMetrics = false,
+		};
+		var otelLogger = new AspireWhyDidYouRenderLogger(otelConfig);
+		otelLogger.LogRenderEvent(renderEvent);
+
+		// --- Assertions ---
+
+		// Server logger has expected component
+		Assert.NotNull(serverLogger.LastData);
+		Assert.Equal(renderEvent.ComponentName, serverLogger.LastData!["component"]);
+
+		// Browser logger emits state changes header and table
+		var stateHeader = js.Invocations.FirstOrDefault(i =>
+			i.Identifier == "console.log" && i.Args.Length > 0 && i.Args[0] is string s && s.Contains("State Changes:")
+		);
+		Assert.NotNull(stateHeader);
+
+		// There should be a table with state change data
+		var stateTable = js.Invocations.Last(i => i.Identifier == "console.table");
+		Assert.NotNull(stateTable);
+		var tableArg = stateTable.Args[0]!;
+		var dict = Assert.IsAssignableFrom<IDictionary>(tableArg);
+		Assert.True(dict.Contains("_counter"), "State table should contain _counter field");
+
+		// OTel logger sets state change count tag
+		var activity = capturedActivities.FirstOrDefault();
+		Assert.NotNull(activity);
+		Assert.Equal(stateChanges.Count, activity.GetTagItem("wdyrl.state.change.count"));
+	}
+
+	/// <summary>
+	/// Verifies that correlation IDs are consistently set across all loggers.
+	/// </summary>
+	[Fact]
+	public void AllLoggers_CorrelationId_PropagatesToAllBackends()
+	{
+		// Arrange
+		var correlationId = "test-correlation-123";
+		var renderEvent = new RenderEvent
+		{
+			ComponentName = "CorrelatedComponent",
+			ComponentType = "My.CorrelatedComponent",
+			Method = "OnInitialized",
+			IsUnnecessaryRerender = false,
+			IsFrequentRerender = false,
+		};
+
+		// --- Server logger with correlation ---
+		var serverLogger = new TestStructuredLogger();
+		serverLogger.SetCorrelationId(correlationId);
+
+		// --- OpenTelemetry logger with correlation ---
+		var capturedActivities = new List<Activity>();
+		using var activityListener = new ActivityListener
+		{
+			ShouldListenTo = source => source.Name == "Blazor.WhyDidYouRender",
+			Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
+			ActivityStarted = activity => capturedActivities.Add(activity),
+		};
+		ActivitySource.AddActivityListener(activityListener);
+
+		var otelConfig = new WhyDidYouRenderConfig
+		{
+			EnableOpenTelemetry = true,
+			EnableOtelTraces = true,
+			EnableOtelMetrics = false,
+		};
+		var otelLogger = new AspireWhyDidYouRenderLogger(otelConfig);
+		otelLogger.SetCorrelationId(correlationId);
+		otelLogger.LogRenderEvent(renderEvent);
+
+		// --- Assertions ---
+
+		// Server logger stores correlation ID
+		Assert.Equal(correlationId, serverLogger.GetCorrelationId());
+
+		// OTel logger sets correlation ID tag on activity
+		var activity = capturedActivities.FirstOrDefault();
+		Assert.NotNull(activity);
+		Assert.Equal(correlationId, activity.GetTagItem("wdyrl.correlationId"));
+	}
+
+	/// <summary>
+	/// Verifies that parameter changes are logged consistently across loggers.
+	/// </summary>
+	[Fact]
+	public async Task AllLoggers_ParameterChanges_ProduceConsistentData()
+	{
+		// Arrange
+		var parameterChanges = new Dictionary<string, object?>
+		{
+			["Count"] = new { Previous = 1, Current = 2 },
+			["Name"] = new { Previous = "old", Current = "new" },
+		};
+
+		var renderEvent = new RenderEvent
+		{
+			ComponentName = "ParameterComponent",
+			ComponentType = "My.ParameterComponent",
+			Method = "OnParametersSet",
+			ParameterChanges = parameterChanges,
+			IsUnnecessaryRerender = false,
+			IsFrequentRerender = false,
+		};
+
+		// --- Server logger ---
+		var serverLogger = new TestStructuredLogger();
+		serverLogger.LogRenderEvent(renderEvent);
+
+		// --- Browser logger ---
+		var js = new TestJsRuntime();
+		var browserLogger = new BrowserConsoleLogger(js);
+		await browserLogger.LogRenderEventAsync(renderEvent);
+
+		// --- Assertions ---
+
+		// Server logger has component
+		Assert.NotNull(serverLogger.LastData);
+		Assert.Equal(renderEvent.ComponentName, serverLogger.LastData!["component"]);
+
+		// Browser logger emits parameter changes header
+		var paramHeader = js.Invocations.FirstOrDefault(i =>
+			i.Identifier == "console.log" && i.Args.Length > 0 && i.Args[0] is string s && s.Contains("Parameter Changes:")
+		);
+		Assert.NotNull(paramHeader);
+
+		// Browser logger emits group for each parameter
+		var paramGroups = js
+			.Invocations.Where(i => i.Identifier == "console.group" && i.Args.Length > 0 && i.Args[0] is string s && s.Contains("📝"))
+			.ToList();
+		Assert.Equal(2, paramGroups.Count); // Count and Name
+
+		// Verify "Previous" and "Current" logs are emitted
+		var previousLogs = js
+			.Invocations.Where(i => i.Identifier == "console.log" && i.Args.Length > 0 && i.Args[0] is string s && s.Contains("Previous:"))
+			.ToList();
+		var currentLogs = js
+			.Invocations.Where(i => i.Identifier == "console.log" && i.Args.Length > 0 && i.Args[0] is string s && s.Contains("Current:"))
+			.ToList();
+		Assert.Equal(2, previousLogs.Count);
+		Assert.Equal(2, currentLogs.Count);
+	}
+
+	/// <summary>
+	/// Verifies that metrics are recorded by OpenTelemetry with the same data that server and browser loggers produce.
+	/// </summary>
+	[Fact]
+	public void OTelMetrics_MatchesRenderEventData()
+	{
+		// Arrange
+		var capturedCounters = new Dictionary<string, List<(long Value, KeyValuePair<string, object?>[] Tags)>>();
+
+		using var meterListener = new MeterListener
+		{
+			InstrumentPublished = (instrument, listener) =>
+			{
+				if (instrument.Meter.Name == "Blazor.WhyDidYouRender")
+				{
+					listener.EnableMeasurementEvents(instrument);
+				}
+			},
+		};
+		meterListener.SetMeasurementEventCallback<long>(
+			(Instrument instrument, long measurement, ReadOnlySpan<KeyValuePair<string, object?>> tags, object? state) =>
+			{
+				if (!capturedCounters.TryGetValue(instrument.Name, out var list))
+				{
+					list = new();
+					capturedCounters[instrument.Name] = list;
+				}
+				list.Add((measurement, tags.ToArray()));
+			}
+		);
+		meterListener.Start();
+
+		var renderEvent = new RenderEvent
+		{
+			ComponentName = "MetricsComponent",
+			ComponentType = "My.MetricsComponent",
+			Method = "StateHasChanged",
+			DurationMs = 3.14,
+			IsUnnecessaryRerender = true,
+			UnnecessaryRerenderReason = "No parameter or state changes",
+			IsFrequentRerender = false,
+		};
+
+		var otelConfig = new WhyDidYouRenderConfig
+		{
+			EnableOpenTelemetry = true,
+			EnableOtelTraces = false,
+			EnableOtelMetrics = true,
+		};
+		var otelLogger = new AspireWhyDidYouRenderLogger(otelConfig);
+		otelLogger.LogRenderEvent(renderEvent);
+		meterListener.RecordObservableInstruments();
+
+		// --- Assertions ---
+
+		// Render counter was recorded
+		Assert.True(capturedCounters.ContainsKey("wdyrl.renders"));
+		var renderMetrics = capturedCounters["wdyrl.renders"].Last();
+		Assert.Equal(1, renderMetrics.Value);
+		var renderTags = renderMetrics.Tags.ToDictionary(t => t.Key, t => t.Value);
+		Assert.Equal(renderEvent.ComponentName, renderTags["component"]);
+		Assert.Equal(renderEvent.Method, renderTags["method"]);
+		Assert.Equal(renderEvent.IsUnnecessaryRerender, renderTags["unnecessary"]);
+		Assert.Equal(renderEvent.IsFrequentRerender, renderTags["frequent"]);
+
+		// Unnecessary rerender counter was recorded
+		Assert.True(capturedCounters.ContainsKey("wdyrl.rerenders.unnecessary"));
+		var unnecessaryMetrics = capturedCounters["wdyrl.rerenders.unnecessary"].Last();
+		Assert.Equal(1, unnecessaryMetrics.Value);
+		var unnecessaryTags = unnecessaryMetrics.Tags.ToDictionary(t => t.Key, t => t.Value);
+		Assert.Equal(renderEvent.ComponentName, unnecessaryTags["component"]);
+		Assert.Equal(renderEvent.UnnecessaryRerenderReason, unnecessaryTags["reason"]);
+	}
+
+	#endregion
 }

@@ -56,8 +56,10 @@ app.MapRazorPages();
 app.MapBlazorHub();
 app.MapFallbackToPage("/_Host");
 
+app.Run();
+```
 
-### Optional: Enable .NET Aspire / OpenTelemetry (Server/SSR)
+#### Optional: Enable .NET Aspire / OpenTelemetry
 
 ```csharp
 // Add Aspire service defaults
@@ -72,10 +74,7 @@ builder.Services.AddWhyDidYouRender(config =>
 });
 ```
 
-See also: docs/observability.md for verification steps and troubleshooting.
-
-app.Run();
-```
+See [docs/observability.md](docs/observability.md) for verification steps and troubleshooting.
 
 #### Step 4: Update Components
 Update `Pages/Counter.razor`:

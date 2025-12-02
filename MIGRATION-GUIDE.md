@@ -1,50 +1,59 @@
-# Migration Guide: v1.x to v2.0+
+# Migration Guide
 
-This guide helps you migrate from WhyDidYouRender v1.x to v2.0+, which introduces cross-platform support for Blazor Server, WebAssembly, and SSR, plus advanced state tracking capabilities.
+This guide helps you migrate between versions of WhyDidYouRender.
 
 ## Upgrading from 2.x to 3.0
 
-3.0 introduces optional .NET Aspire/OpenTelemetry integration and an internal logging refactor. Defaults are unchanged unless you opt in.
+Version 3.0 is a major release with breaking changes and new features:
 
-- Breaking changes: None by default
-- Opt-in features:
-  - EnableOpenTelemetry = true
-  - EnableOtelLogs = true, EnableOtelTraces = true, EnableOtelMetrics = true
-- Host wiring:
-  - Prefer builder.AddServiceDefaults(); or manually add AddSource("Blazor.WhyDidYouRender") and AddMeter("Blazor.WhyDidYouRender") and an OTLP exporter
+### What's New
+- **.NET Aspire/OpenTelemetry integration** - Structured logs, traces, and metrics
+- **Unified logging system** - `Logging.IWhyDidYouRenderLogger` replaces legacy loggers
+- **Comprehensive test suite** - Full test coverage for all features
+
+### Breaking Changes
+- Removed legacy `Diagnostics.IErrorTracker` (sync) - use `Abstractions.IErrorTracker` (async)
+- Removed `ITrackingLogger`, `ServerTrackingLogger`, `WasmTrackingLogger`
+- Removed WASM browser storage (localStorage/sessionStorage) - session IDs are ephemeral only
+- Removed `Diagnostics.razor` sample dashboard
+
+### Opt-in Features
+- `EnableOpenTelemetry = true` - Master switch for OTel
+- `EnableOtelLogs = true`, `EnableOtelTraces = true`, `EnableOtelMetrics = true`
+
+### Host Wiring for Aspire
+- Prefer `builder.AddServiceDefaults();` or manually add:
+  - `AddSource("Blazor.WhyDidYouRender")` for traces
+  - `AddMeter("Blazor.WhyDidYouRender")` for metrics
+  - OTLP exporter
 - What you’ll see in Aspire:
   - Traces: WhyDidYouRender.Render spans with wdyrl.* attributes
   - Metrics: wdyrl.renders, wdyrl.rerenders.unnecessary, wdyrl.render.duration.ms
   - Structured logs: correlated to traces via Activity.Current
 
-### Package Update (3.0)
+### Package Update
 
 ```xml
 <PackageReference Include="Blazor.WhyDidYouRender" Version="3.0.0" />
 ```
 
 ```bash
-# Update via CLI
 dotnet add package Blazor.WhyDidYouRender --version 3.0.0
 ```
 
+### Removed Types
+- `Blazor.WhyDidYouRender.Diagnostics.IErrorTracker` (sync version)
+- `Diagnostics/ErrorTracker` and `Diagnostics/ErrorTrackerAdapter`
+- `Abstractions/ITrackingLogger` and `Services/ServerTrackingLogger`, `Services/WasmTrackingLogger`
+- `WasmStorageOptions` and all browser storage (localStorage/sessionStorage) support
 
-## WIP: Breaking changes — unified async error tracking and logging
+### Replacement APIs
+- `Abstractions.IErrorTracker` (async): `TrackErrorAsync`, `GetRecentErrorsAsync`, `GetErrorStatisticsAsync`, etc.
+- `Logging.IWhyDidYouRenderLogger` (unified logger used by Console/Aspire/Composite variants)
 
-This upcoming release removes legacy diagnostics/logging types and consolidates on the async error tracker and unified logger.
+### Code Migration Examples
 
-### Removed
-- Blazor.WhyDidYouRender.Diagnostics.IErrorTracker (sync)
-- Diagnostics/ErrorTracker and Diagnostics/ErrorTrackerAdapter
-- Abstractions/ITrackingLogger and Services/ServerTrackingLogger, Services/WasmTrackingLogger
-
-### Use instead
-- Abstractions.IErrorTracker (async): TrackErrorAsync, GetRecentErrorsAsync, GetErrorStatisticsAsync, etc.
-- Logging.IWhyDidYouRenderLogger (unified logger used by Console/Aspire/Composite variants)
-
-### Code migration examples
-
-Before (legacy sync tracker):
+**Before (legacy sync tracker):**
 ```csharp
 using Blazor.WhyDidYouRender.Diagnostics;
 
@@ -55,7 +64,7 @@ void Trigger()
 }
 ```
 
-After (async tracker + await):
+**After (async tracker):**
 ```csharp
 using Blazor.WhyDidYouRender.Abstractions;
 using Blazor.WhyDidYouRender.Records;
@@ -68,12 +77,11 @@ async Task Trigger()
 }
 ```
 
-### DI and initialization
-- Keep using builder.Services.AddWhyDidYouRender(...)
-- No manual wiring of legacy loggers is needed; the library initializes RenderTrackerService with the async IErrorTracker automatically.
-- If you previously referenced ITrackingLogger directly, migrate to Logging.IWhyDidYouRenderLogger.
-
-Notes: This section is a WIP during active development. See CHANGELOG.md (Unreleased) for the latest details.
+### DI and Initialization
+- Keep using `builder.Services.AddWhyDidYouRender(...)`
+- No manual wiring of legacy loggers needed; the library initializes RenderTrackerService with the async IErrorTracker automatically
+- If you previously referenced `ITrackingLogger` directly, migrate to `Logging.IWhyDidYouRenderLogger`
+- Remove any `config.WasmStorage*` configuration - no longer supported
 
 
 ## 🚨 Breaking Changes Overview

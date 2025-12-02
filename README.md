@@ -1,6 +1,121 @@
-# Blazor WhyDidYouRender - Integration Guide
+# Blazor.WhyDidYouRender
 
-This guide provides step-by-step instructions for integrating WhyDidYouRender into new and existing Blazor applications.
+[![NuGet](https://img.shields.io/nuget/v/Blazor.WhyDidYouRender)](https://www.nuget.org/packages/Blazor.WhyDidYouRender)
+[![License: LGPL v3](https://img.shields.io/badge/License-LGPL%20v3-blue.svg)](https://www.gnu.org/licenses/lgpl-3.0)
+
+A powerful cross-platform performance monitoring and debugging tool for Blazor applications (Server, WebAssembly, SSR) that helps identify unnecessary re-renders and optimize component performance. Inspired by the React [why-did-you-render](https://github.com/welldone-software/why-did-you-render) library.
+
+## 🌟 Features
+
+- **Cross-Platform Support**: Works with Blazor Server, WebAssembly, and SSR
+- **Render Tracking**: Monitor when and why components re-render
+- **Parameter Change Detection**: Identify which parameter changes trigger re-renders
+- **State Tracking**: Field-level change detection with `[TrackState]` and `[IgnoreState]` attributes
+- **Unnecessary Render Detection**: Automatically detect and flag unnecessary re-renders
+- **Performance Metrics**: Track render duration and frequency
+- **OpenTelemetry/Aspire Integration**: Optional structured logs, traces, and metrics for observability dashboards
+- **Browser Console Logging**: Rich logging output in browser developer tools
+
+## 📦 Installation
+
+```bash
+dotnet add package Blazor.WhyDidYouRender
+```
+
+## 🚀 Quick Start
+
+### 1. Register Services
+
+```csharp
+using Blazor.WhyDidYouRender.Extensions;
+
+builder.Services.AddWhyDidYouRender(config =>
+{
+    config.Enabled = builder.Environment.IsDevelopment();
+    config.Verbosity = TrackingVerbosity.Normal;
+    config.Output = TrackingOutput.Both;
+    config.TrackParameterChanges = true;
+    config.EnableStateTracking = true;
+});
+```
+
+### 2. Initialize Services
+
+```csharp
+var app = builder.Build();
+
+// For Server/SSR
+app.Services.InitializeSSRServices();
+```
+
+### 3. Initialize Browser Logging (Required for Console Output)
+
+In a component that runs after JavaScript is available (e.g., `MainLayout.razor` or `App.razor`):
+
+```csharp
+@inject IServiceProvider ServiceProvider
+@inject IJSRuntime JSRuntime
+
+@code {
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await ServiceProvider.InitializeWhyDidYouRenderAsync(JSRuntime);
+        }
+    }
+}
+```
+
+> **Note:** This step is required to see output in the browser's developer console. Without it, browser console logging won't work.
+
+### 4. Track Components
+
+```csharp
+@using Blazor.WhyDidYouRender.Components
+@inherits TrackedComponentBase
+
+<h1>Counter</h1>
+<p>Count: @currentCount</p>
+
+@code {
+    private int currentCount = 0; // Auto-tracked
+}
+```
+
+## 📡 .NET Aspire / OpenTelemetry Integration
+
+Enable rich observability with the Aspire dashboard:
+
+```csharp
+// Add Aspire service defaults
+builder.AddServiceDefaults();
+
+builder.Services.AddWhyDidYouRender(config =>
+{
+    config.Enabled = true;
+    config.EnableOpenTelemetry = true;
+    config.EnableOtelLogs = true;
+    config.EnableOtelTraces = true;
+    config.EnableOtelMetrics = true;
+});
+```
+
+**What you'll see in Aspire:**
+- **Traces**: `WhyDidYouRender.Render` spans with `wdyrl.*` attributes
+- **Metrics**: `wdyrl.renders`, `wdyrl.rerenders.unnecessary`, `wdyrl.render.duration.ms`
+- **Structured Logs**: Correlated to traces via `Activity.Current`
+
+See [docs/observability.md](docs/observability.md) for detailed setup and troubleshooting.
+
+## 📚 Documentation
+
+- [Integration Guide](INTEGRATION-GUIDE.md) - Step-by-step setup for different scenarios
+- [Configuration Guide](CONFIGURATION-GUIDE.md) - All configuration options explained
+- [API Documentation](API-DOCUMENTATION.md) - Complete API reference
+- [Migration Guide](MIGRATION-GUIDE.md) - Upgrading from previous versions
+- [Examples & Best Practices](EXAMPLES-AND-BEST-PRACTICES.md) - Usage patterns and optimization tips
+- [Observability Guide](docs/observability.md) - Aspire/OpenTelemetry setup
 
 ## 🎯 Integration Scenarios
 
@@ -56,8 +171,11 @@ app.MapRazorPages();
 app.MapBlazorHub();
 app.MapFallbackToPage("/_Host");
 
+app.Run();
+```
 
-### Optional: Enable .NET Aspire / OpenTelemetry (Server/SSR)
+#### Optional: Enable .NET Aspire / OpenTelemetry
+
 ```csharp
 // Add Aspire service defaults
 builder.AddServiceDefaults();
@@ -70,10 +188,8 @@ builder.Services.AddWhyDidYouRender(config =>
     config.EnableOtelMetrics = true;
 });
 ```
-See also: docs/observability.md for verification steps and troubleshooting.
 
-app.Run();
-```
+See [docs/observability.md](docs/observability.md) for verification steps and troubleshooting.
 
 #### Step 4: Update Components
 Update `Pages/Counter.razor`:
@@ -394,3 +510,15 @@ After successful integration:
 3. Optimize component parameters and state management
 4. Use insights to improve application performance
 5. Consider enabling .NET Aspire/OpenTelemetry for ongoing monitoring
+
+## 📄 License
+
+This project is licensed under the GNU Lesser General Public License v3.0 (LGPL-3.0) - see the [LICENSE](LICENSE) file for details.
+
+## 🤝 Contributing
+
+Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+## 📋 Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for a list of changes and version history.

@@ -9,19 +9,19 @@
     <!-- NuGet Package Metadata -->
     <PackageId>Blazor.WhyDidYouRender</PackageId>
     <Version>3.0.0</Version>
-    <PackageReleaseNotes>Unreleased: Working log for upcoming release — breaking: removed Diagnostics.IErrorTracker and legacy ITrackingLogger; unified async Abstractions.IErrorTracker and Logging.IWhyDidYouRenderLogger; .NET 9 SDK pinned; Aspire extension added. See CHANGELOG.md.</PackageReleaseNotes>
-    <Authors>Your Name</Authors>
-    <Company>Your Company</Company>
+    <PackageReleaseNotes>v3.0.0: Major release — .NET Aspire/OpenTelemetry integration (traces, metrics, structured logs); unified logging system; removed legacy ITrackingLogger and sync IErrorTracker; removed WASM browser storage (session IDs now ephemeral); comprehensive test suite. See CHANGELOG.md for full details.</PackageReleaseNotes>
+    <Authors>Alex Howard</Authors>
+    <Company>mistahoward</Company>
     <Product>Blazor WhyDidYouRender</Product>
     <Description>A powerful cross-platform performance monitoring and debugging tool for Blazor applications (Server, WebAssembly, SSR) that helps identify unnecessary re-renders and optimize component performance. Features automatic environment detection, browser console logging, and comprehensive tracking. Inspired by the React why-did-you-render library.</Description>
     <Summary>Cross-platform performance monitoring and debugging tool for Blazor Server, WebAssembly, and SSR applications.</Summary>
     <PackageTags>blazor;performance;debugging;monitoring;render;optimization;component;aspnetcore;dotnet;webassembly;wasm;server;ssr;cross-platform</PackageTags>
-    <PackageProjectUrl>https://github.com/yourusername/blazor-why-did-you-render</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/yourusername/blazor-why-did-you-render</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/mistahoward/blazor-why-did-you-render</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/mistahoward/blazor-why-did-you-render</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageLicenseExpression>LGPL-3.0-or-later</PackageLicenseExpression>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-    <Copyright>Copyright (c) 2024 Your Name</Copyright>
+    <Copyright>Copyright (c) 2024-2025 Alex Howard</Copyright>
 
     <!-- Package Build Configuration -->
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
@@ -49,6 +49,9 @@
     <PackageReference Include="Microsoft.AspNetCore.Http.Extensions" Version="2.2.0" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.2" />
     <PackageReference Include="Microsoft.AspNetCore.Http" Version="2.2.2" />
+
+    <!-- Security: Override vulnerable transitive dependency (CVE-2021-26701) -->
+    <PackageReference Include="System.Text.Encodings.Web" Version="9.0.2" />
   </ItemGroup>
 
   <!-- Package Content -->

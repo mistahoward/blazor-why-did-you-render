@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using Blazor.WhyDidYouRender.Configuration;
@@ -24,8 +25,8 @@ public sealed class AspireOpenTelemetryTests : IDisposable
 	private readonly ActivityListener _activityListener;
 	private readonly List<Activity> _capturedActivities = new();
 	private readonly MeterListener _meterListener;
-	private readonly Dictionary<string, List<MetricMeasurement<long>>> _capturedCounters = new();
-	private readonly Dictionary<string, List<MetricMeasurement<double>>> _capturedHistograms = new();
+	private readonly ConcurrentDictionary<string, List<MetricMeasurement<long>>> _capturedCounters = new();
+	private readonly ConcurrentDictionary<string, List<MetricMeasurement<double>>> _capturedHistograms = new();
 
 	public AspireOpenTelemetryTests()
 	{
@@ -52,26 +53,34 @@ public sealed class AspireOpenTelemetryTests : IDisposable
 		_meterListener.SetMeasurementEventCallback<long>(OnMeasurement);
 		_meterListener.SetMeasurementEventCallback<double>(OnMeasurement);
 		_meterListener.Start();
+
+		// Clear any captured data from previous tests (static Meter/ActivitySource is shared)
+		ClearCapturedData();
+	}
+
+	private void ClearCapturedData()
+	{
+		_capturedActivities.Clear();
+		_capturedCounters.Clear();
+		_capturedHistograms.Clear();
 	}
 
 	private void OnMeasurement(Instrument instrument, long measurement, ReadOnlySpan<KeyValuePair<string, object?>> tags, object? state)
 	{
-		if (!_capturedCounters.TryGetValue(instrument.Name, out var list))
+		var list = _capturedCounters.GetOrAdd(instrument.Name, _ => new List<MetricMeasurement<long>>());
+		lock (list)
 		{
-			list = new();
-			_capturedCounters[instrument.Name] = list;
+			list.Add(new MetricMeasurement<long>(measurement, tags.ToArray()));
 		}
-		list.Add(new MetricMeasurement<long>(measurement, tags.ToArray()));
 	}
 
 	private void OnMeasurement(Instrument instrument, double measurement, ReadOnlySpan<KeyValuePair<string, object?>> tags, object? state)
 	{
-		if (!_capturedHistograms.TryGetValue(instrument.Name, out var list))
+		var list = _capturedHistograms.GetOrAdd(instrument.Name, _ => new List<MetricMeasurement<double>>());
+		lock (list)
 		{
-			list = new();
-			_capturedHistograms[instrument.Name] = list;
+			list.Add(new MetricMeasurement<double>(measurement, tags.ToArray()));
 		}
-		list.Add(new MetricMeasurement<double>(measurement, tags.ToArray()));
 	}
 
 	public void Dispose()
@@ -296,8 +305,8 @@ public sealed class AspireOpenTelemetryTests : IDisposable
 		var logger = new AspireWhyDidYouRenderLogger(config);
 		var renderEvent = new RenderEvent
 		{
-			ComponentName = "TestComponent",
-			ComponentType = "Test.TestComponent",
+			ComponentName = "DurationTestComponent",
+			ComponentType = "Test.DurationTestComponent",
 			Method = "OnAfterRender",
 			DurationMs = 12.34,
 			IsUnnecessaryRerender = false,
@@ -311,10 +320,13 @@ public sealed class AspireOpenTelemetryTests : IDisposable
 		var durations = _capturedHistograms["wdyrl.render.duration.ms"];
 		Assert.NotEmpty(durations);
 
-		var measurement = durations.Last();
+		// Filter by expected component to avoid test pollution from shared static Meter
+		var measurement = durations
+			.Where(m => m.Tags.Any(t => t.Key == "component" && (string?)t.Value == renderEvent.ComponentName))
+			.Last();
 		Assert.Equal(12.34, measurement.Value);
 		var tagDict = measurement.Tags.ToDictionary(t => t.Key, t => t.Value);
-		Assert.Equal("TestComponent", tagDict["component"]);
+		Assert.Equal("DurationTestComponent", tagDict["component"]);
 		Assert.Equal("OnAfterRender", tagDict["method"]);
 	}
 

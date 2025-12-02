@@ -1,11 +1,33 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-  <ItemGroup>
-    <ProjectReference Include="..\Blazor.WhyDidYouRender\Blazor.WhyDidYouRender.csproj" />
-  </ItemGroup>
-
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
+
+  <!-- NuGet Package Metadata -->
+  <PropertyGroup>
+    <PackageId>Blazor.WhyDidYouRender.Aspire</PackageId>
+    <Version>3.0.0</Version>
+    <PackageReleaseNotes>v3.0.0: Aspire/OpenTelemetry integration extensions for Blazor.WhyDidYouRender. See CHANGELOG.md for details.</PackageReleaseNotes>
+    <Authors>Alex Howard</Authors>
+    <Company>mistahoward</Company>
+    <Description>Aspire/OpenTelemetry integration extensions for Blazor.WhyDidYouRender - a cross-platform performance monitoring tool for Blazor applications.</Description>
+    <PackageTags>blazor;aspire;opentelemetry;otel;performance;debugging;render-tracking;wasm;server;ssr</PackageTags>
+    <PackageProjectUrl>https://github.com/mistahoward/blazor-why-did-you-render</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/mistahoward/blazor-why-did-you-render</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageLicenseExpression>LGPL-3.0-or-later</PackageLicenseExpression>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <Copyright>Copyright (c) 2024-2025 Alex Howard</Copyright>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="../../README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Blazor.WhyDidYouRender\Blazor.WhyDidYouRender.csproj" />
+  </ItemGroup>
 </Project>

@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
@@ -602,7 +603,7 @@ public sealed class LoggerParityTests
 	public void OTelMetrics_MatchesRenderEventData()
 	{
 		// Arrange
-		var capturedCounters = new Dictionary<string, List<(long Value, KeyValuePair<string, object?>[] Tags)>>();
+		var capturedCounters = new ConcurrentDictionary<string, List<(long Value, KeyValuePair<string, object?>[] Tags)>>();
 
 		using var meterListener = new MeterListener
 		{
@@ -617,12 +618,11 @@ public sealed class LoggerParityTests
 		meterListener.SetMeasurementEventCallback<long>(
 			(Instrument instrument, long measurement, ReadOnlySpan<KeyValuePair<string, object?>> tags, object? state) =>
 			{
-				if (!capturedCounters.TryGetValue(instrument.Name, out var list))
+				var list = capturedCounters.GetOrAdd(instrument.Name, _ => new List<(long, KeyValuePair<string, object?>[])>());
+				lock (list)
 				{
-					list = new();
-					capturedCounters[instrument.Name] = list;
+					list.Add((measurement, tags.ToArray()));
 				}
-				list.Add((measurement, tags.ToArray()));
 			}
 		);
 		meterListener.Start();
@@ -650,9 +650,11 @@ public sealed class LoggerParityTests
 
 		// --- Assertions ---
 
-		// Render counter was recorded
+		// Render counter was recorded - filter by expected component name to avoid test pollution
 		Assert.True(capturedCounters.ContainsKey("wdyrl.renders"));
-		var renderMetrics = capturedCounters["wdyrl.renders"].Last();
+		var renderMetrics = capturedCounters["wdyrl.renders"]
+			.Where(m => m.Tags.Any(t => t.Key == "component" && (string?)t.Value == renderEvent.ComponentName))
+			.Last();
 		Assert.Equal(1, renderMetrics.Value);
 		var renderTags = renderMetrics.Tags.ToDictionary(t => t.Key, t => t.Value);
 		Assert.Equal(renderEvent.ComponentName, renderTags["component"]);
@@ -660,9 +662,11 @@ public sealed class LoggerParityTests
 		Assert.Equal(renderEvent.IsUnnecessaryRerender, renderTags["unnecessary"]);
 		Assert.Equal(renderEvent.IsFrequentRerender, renderTags["frequent"]);
 
-		// Unnecessary rerender counter was recorded
+		// Unnecessary rerender counter was recorded - filter by expected component name
 		Assert.True(capturedCounters.ContainsKey("wdyrl.rerenders.unnecessary"));
-		var unnecessaryMetrics = capturedCounters["wdyrl.rerenders.unnecessary"].Last();
+		var unnecessaryMetrics = capturedCounters["wdyrl.rerenders.unnecessary"]
+			.Where(m => m.Tags.Any(t => t.Key == "component" && (string?)t.Value == renderEvent.ComponentName))
+			.Last();
 		Assert.Equal(1, unnecessaryMetrics.Value);
 		var unnecessaryTags = unnecessaryMetrics.Tags.ToDictionary(t => t.Key, t => t.Value);
 		Assert.Equal(renderEvent.ComponentName, unnecessaryTags["component"]);

@@ -92,16 +92,25 @@ public class StateFieldAnalyzer
 	{
 		ArgumentNullException.ThrowIfNull(field);
 
+		// member-level attributes always take precedence over heuristic skipping rules.
+		// this ensures that developers can explicitly opt in or out of tracking even for
+		// fields that would normally be skipped (e.g., readonly backing fields).
 		var ignoreAttribute = field.GetCustomAttribute<IgnoreStateAttribute>();
+		var trackAttribute = field.GetCustomAttribute<TrackStateAttribute>();
+
+		// IgnoreState always wins when present. !!
 		if (ignoreAttribute != null)
 			return TrackingStrategy.Ignore;
 
-		if (ShouldSkipField(field))
-			return TrackingStrategy.Skip;
-
-		var trackAttribute = field.GetCustomAttribute<TrackStateAttribute>();
+		// explicit TrackState should be honored even for fields that would normally be skipped
+		// by ShouldSkipField (such as readonly fields). This allows scenarios like explicitly
+		// tracking collection fields whose contents change over time.
 		if (trackAttribute != null)
 			return TrackingStrategy.ExplicitTrack;
+
+		// for fields without explicit attributes, fall back to skip heuristics
+		if (ShouldSkipField(field))
+			return TrackingStrategy.Skip;
 
 		var autoTrackSimpleTypes =
 			componentOptions?.GetEffectiveAutoTrackSimpleTypes(_config.AutoTrackSimpleTypes) ?? _config.AutoTrackSimpleTypes;

@@ -56,7 +56,7 @@
 
   <!-- Package Content -->
   <ItemGroup>
-    <None Include="README.md" Pack="true" PackagePath="\" />
+    <None Include="../../README.md" Pack="true" PackagePath="/" />
   </ItemGroup>
 
   <!-- Exclude Sample Apps and Tests from Package -->

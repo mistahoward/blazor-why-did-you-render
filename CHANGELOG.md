@@ -28,10 +28,15 @@ There may be some mistakes. YMMV. Please let me know if anything looks strange o
 - Samples updated to use async error tracker methods
 - Pinned .NET SDK to 9.0.200 in global.json
 - WASM: Browser storage has been removed; session IDs are ephemeral (in-memory).
+- State tracking: honor `[TrackState]` and `[IgnoreState]` precedence over heuristics and improve collection content comparison to avoid false "unnecessary re-render" signals.
+- Frequent re-render detection: tighten render frequency stats used to flag components as frequent re-renderers.
 
 ### Added
 - AspireExtensions: useful entry point for .NET Aspire/OpenTelemetry scenarios
 - ConsoleWhyDidYouRenderLogger as a safe fallback when MEL logger is unavailable
+- Extensive logger parity tests to keep server structured logging, console output, and browser console logging in sync for:
+  - unnecessary and frequent re-renders
+  - parameter/state change tables and complex-object comparison output
 
 ### Removed
 - Sample Diagnostics.razor dashboard and all references/links; prefer Aspire/OTel and console-based diagnostics

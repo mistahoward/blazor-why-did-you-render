@@ -18,7 +18,11 @@ public class ServerErrorTracker : IErrorTracker
 	private readonly WhyDidYouRenderConfig _config;
 	private readonly ILogger<ServerErrorTracker>? _logger;
 	private readonly IWhyDidYouRenderLogger? _unifiedLogger;
+#if NET9_0_OR_GREATER
 	private readonly Lock _statsLock = new();
+#else
+	private readonly object _statsLock = new();
+#endif
 	private int _totalErrorCount = 0;
 	private readonly JsonSerializerOptions _jsonOptions;
 

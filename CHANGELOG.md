@@ -14,6 +14,11 @@ There may be some mistakes. YMMV. Please let me know if anything looks strange o
 
 ### 🆕 Added
 
+-   **Multi-targeting support for .NET 8 LTS**: The library now targets both `net8.0` and `net9.0`
+    -   Users on the stable .NET 8 LTS runtime can now use the library seamlessly
+    -   Conditional compilation handles .NET 9-specific APIs (e.g., `Lock` class)
+    -   Framework-specific package references ensure correct dependency versions
+    -   Tests run against both frameworks to ensure feature parity
 -   **StateHasChanged Batching Detection**: Detect when Blazor batches multiple `StateHasChanged()` calls into a single render
     -   New `RenderEvent.StateHasChangedCallCount` property tracks how many `StateHasChanged` calls contributed to a render
     -   New `RenderEvent.IsBatchedRender` computed property returns `true` when count > 1
@@ -29,9 +34,8 @@ There may be some mistakes. YMMV. Please let me know if anything looks strange o
 
 ### 🔧 Changed
 
--   **Improved thread synchronization**: Replaced legacy `object` locks with .NET 9 `Lock` class (thanks MrLyttleG on Reddit)
-    -   `WasmSessionContextService` now uses `Lock` instead of `object` for session ID generation
-    -   `RenderFrequencyTracker` now uses dedicated `Lock` objects per component instead of locking on collection objects directly
+-   **Improved thread synchronization**: Uses .NET 9 `Lock` class on .NET 9+, falls back to `object` locks on .NET 8
+    -   `WasmSessionContextService`, `RenderFrequencyTracker`, `HostingEnvironmentDetector`, `LazyStateTrackingProvider`, `ServerErrorTracker`, and `WasmErrorTracker` all use conditional compilation for lock types
 
 ### 📚 Documentation
 

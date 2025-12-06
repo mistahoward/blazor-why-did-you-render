@@ -418,20 +418,6 @@ public class WhyDidYouRenderConfig
 	///   <item>Browser storage quota considerations</item>
 	/// </list>
 	/// </remarks>
-	/// <summary>
-	/// Validates the Server/SSR-specific configuration settings.
-	/// </summary>
-	/// <param name="errors">The list to which validation errors will be added.</param>
-	/// <remarks>
-	/// Performs validation checks for:
-	/// <list type="bullet">
-	///   <item>Error tracking and cleanup settings</item>
-	///   <item>Session management configuration</item>
-	///   <item>Performance settings for server environments</item>
-	///   <item>Threading and concurrency limits</item>
-	///   <item>Memory management settings</item>
-	/// </list>
-	/// </remarks>
 	private void ValidateServerConfiguration(List<string> errors)
 	{
 		if (EnableErrorTracking && MaxErrorHistorySize > 10000)

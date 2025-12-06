@@ -18,7 +18,11 @@ public class HostingEnvironmentDetector(IServiceProvider serviceProvider) : IHos
 {
 	private readonly IServiceProvider _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
 	private BlazorHostingModel? _cachedHostingModel;
+#if NET9_0_OR_GREATER
 	private readonly Lock _lock = new();
+#else
+	private readonly object _lock = new();
+#endif
 
 	/// <inheritdoc />
 	public BlazorHostingModel DetectHostingModel()

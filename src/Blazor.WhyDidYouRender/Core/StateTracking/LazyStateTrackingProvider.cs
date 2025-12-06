@@ -43,7 +43,11 @@ public class LazyStateTrackingProvider
 	/// <summary>
 	/// Synchronization object for initialization.
 	/// </summary>
+#if NET9_0_OR_GREATER
 	private readonly Lock _initializationLock = new();
+#else
+	private readonly object _initializationLock = new();
+#endif
 
 	/// <summary>
 	/// Initializes a new instance of the <see cref="LazyStateTrackingProvider"/> class.

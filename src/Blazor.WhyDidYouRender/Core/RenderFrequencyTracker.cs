@@ -14,7 +14,11 @@ namespace Blazor.WhyDidYouRender.Core;
 internal sealed class RenderHistoryEntry
 {
 	public List<DateTime> History { get; } = [];
+#if NET9_0_OR_GREATER
 	public Lock Lock { get; } = new();
+#else
+	public object Lock { get; } = new();
+#endif
 }
 
 /// <summary>

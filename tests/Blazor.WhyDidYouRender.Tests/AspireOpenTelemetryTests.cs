@@ -197,6 +197,85 @@ public sealed class AspireOpenTelemetryTests : IDisposable
 	}
 
 	[Fact]
+	public void LogRenderEvent_WithBatchedStateHasChangedCalls_IncludesBatchingTags()
+	{
+		var config = new WhyDidYouRenderConfig
+		{
+			EnableOpenTelemetry = true,
+			EnableOtelTraces = true,
+			EnableOtelMetrics = false,
+		};
+		var logger = new AspireWhyDidYouRenderLogger(config);
+		var renderEvent = new RenderEvent
+		{
+			ComponentName = "BatchedComponent",
+			ComponentType = "Test.BatchedComponent",
+			Method = "OnAfterRender",
+			StateHasChangedCallCount = 5,
+		};
+
+		logger.LogRenderEvent(renderEvent);
+
+		var activity = _capturedActivities.Last(a => a.OperationName == "WhyDidYouRender.Render");
+		Assert.NotNull(activity);
+		Assert.Equal(5, activity.GetTagItem("wdyrl.statehaschanged.call.count"));
+		Assert.Equal(true, activity.GetTagItem("wdyrl.batched"));
+	}
+
+	[Fact]
+	public void LogRenderEvent_WithSingleStateHasChangedCall_BatchedTagIsFalse()
+	{
+		var config = new WhyDidYouRenderConfig
+		{
+			EnableOpenTelemetry = true,
+			EnableOtelTraces = true,
+			EnableOtelMetrics = false,
+		};
+		var logger = new AspireWhyDidYouRenderLogger(config);
+		var renderEvent = new RenderEvent
+		{
+			ComponentName = "SingleCallComponent",
+			ComponentType = "Test.SingleCallComponent",
+			Method = "OnAfterRender",
+			StateHasChangedCallCount = 1,
+		};
+
+		logger.LogRenderEvent(renderEvent);
+
+		var activity = _capturedActivities.Last(a => a.OperationName == "WhyDidYouRender.Render");
+		Assert.NotNull(activity);
+		Assert.Equal(1, activity.GetTagItem("wdyrl.statehaschanged.call.count"));
+		Assert.Equal(false, activity.GetTagItem("wdyrl.batched"));
+	}
+
+	[Fact]
+	public void LogRenderEvent_WithZeroStateHasChangedCalls_DoesNotIncludeCallCountTag()
+	{
+		var config = new WhyDidYouRenderConfig
+		{
+			EnableOpenTelemetry = true,
+			EnableOtelTraces = true,
+			EnableOtelMetrics = false,
+		};
+		var logger = new AspireWhyDidYouRenderLogger(config);
+		var renderEvent = new RenderEvent
+		{
+			ComponentName = "NoCallsComponent",
+			ComponentType = "Test.NoCallsComponent",
+			Method = "OnParametersSet",
+			StateHasChangedCallCount = 0,
+		};
+
+		logger.LogRenderEvent(renderEvent);
+
+		var activity = _capturedActivities.Last(a => a.OperationName == "WhyDidYouRender.Render");
+		Assert.NotNull(activity);
+		// When StateHasChangedCallCount is 0, the tag should not be set
+		Assert.Null(activity.GetTagItem("wdyrl.statehaschanged.call.count"));
+		Assert.Equal(false, activity.GetTagItem("wdyrl.batched"));
+	}
+
+	[Fact]
 	public void LogRenderEvent_WithOtelTracesDisabled_DoesNotCreateActivity()
 	{
 		var config = new WhyDidYouRenderConfig
@@ -328,6 +407,41 @@ public sealed class AspireOpenTelemetryTests : IDisposable
 		var tagDict = measurement.Tags.ToDictionary(t => t.Key, t => t.Value);
 		Assert.Equal("DurationTestComponent", tagDict["component"]);
 		Assert.Equal("OnAfterRender", tagDict["method"]);
+	}
+
+	[Fact]
+	public void LogRenderEvent_WithBatchedRender_IncludesBatchedTagInMetrics()
+	{
+		var config = new WhyDidYouRenderConfig
+		{
+			EnableOpenTelemetry = true,
+			EnableOtelTraces = false,
+			EnableOtelMetrics = true,
+		};
+		var logger = new AspireWhyDidYouRenderLogger(config);
+		var renderEvent = new RenderEvent
+		{
+			ComponentName = "BatchedMetricsComponent",
+			ComponentType = "Test.BatchedMetricsComponent",
+			Method = "OnAfterRender",
+			StateHasChangedCallCount = 3,
+			IsUnnecessaryRerender = false,
+			IsFrequentRerender = false,
+		};
+
+		logger.LogRenderEvent(renderEvent);
+		_meterListener.RecordObservableInstruments();
+
+		Assert.True(_capturedCounters.ContainsKey("wdyrl.renders"));
+		var renders = _capturedCounters["wdyrl.renders"];
+		Assert.NotEmpty(renders);
+
+		// Filter by expected component to avoid test pollution
+		var measurement = renders.Where(m => m.Tags.Any(t => t.Key == "component" && (string?)t.Value == renderEvent.ComponentName)).Last();
+		Assert.Equal(1, measurement.Value);
+		var tagDict = measurement.Tags.ToDictionary(t => t.Key, t => t.Value);
+		Assert.Equal("BatchedMetricsComponent", tagDict["component"]);
+		Assert.Equal(true, tagDict["batched"]);
 	}
 
 	[Fact]
@@ -623,6 +737,28 @@ public sealed class AspireOpenTelemetryTests : IDisposable
 		Assert.Equal("Counter", activity.GetTagItem("wdyrl.component"));
 		Assert.Equal("StateHasChanged", activity.GetTagItem("wdyrl.method"));
 		Assert.Equal(7.89, activity.GetTagItem("wdyrl.duration.ms"));
+	}
+
+	[Fact]
+	public void CompositeLogger_LogRenderEvent_SetsBatchingTagsOnActivity()
+	{
+		var config = new WhyDidYouRenderConfig();
+		var innerLogger = new TestInnerLogger();
+		var compositeLogger = new CompositeWhyDidYouRenderLogger(config, innerLogger);
+		var renderEvent = new RenderEvent
+		{
+			ComponentName = "BatchedCounter",
+			ComponentType = "App.BatchedCounter",
+			Method = "OnAfterRender",
+			StateHasChangedCallCount = 4,
+		};
+
+		compositeLogger.LogRenderEvent(renderEvent);
+
+		var activity = innerLogger.AmbientActivityDuringLog;
+		Assert.NotNull(activity);
+		Assert.Equal(4, activity.GetTagItem("wdyrl.statehaschanged.call.count"));
+		Assert.Equal(true, activity.GetTagItem("wdyrl.batched"));
 	}
 
 	[Fact]

@@ -96,6 +96,9 @@ public class AspireWhyDidYouRenderLogger : WhyDidYouRenderLoggerBase
 				activity.SetTag("wdyrl.correlationId", _correlationId);
 			if (renderEvent.StateChangeCount > 0)
 				activity.SetTag("wdyrl.state.change.count", renderEvent.StateChangeCount);
+			if (renderEvent.StateHasChangedCallCount > 0)
+				activity.SetTag("wdyrl.statehaschanged.call.count", renderEvent.StateHasChangedCallCount);
+			activity.SetTag("wdyrl.batched", renderEvent.IsBatchedRender);
 		}
 		if (createdNew)
 			activity?.Dispose();
@@ -108,6 +111,7 @@ public class AspireWhyDidYouRenderLogger : WhyDidYouRenderLoggerBase
 				{ "method", renderEvent.Method },
 				{ "unnecessary", renderEvent.IsUnnecessaryRerender },
 				{ "frequent", renderEvent.IsFrequentRerender },
+				{ "batched", renderEvent.IsBatchedRender },
 			};
 			_renderCounter.Add(1, tags);
 			if (renderEvent.IsUnnecessaryRerender)

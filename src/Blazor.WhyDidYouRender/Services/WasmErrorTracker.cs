@@ -15,7 +15,11 @@ public class WasmErrorTracker : IErrorTracker
 	private readonly WhyDidYouRenderConfig _config;
 	private readonly JsonSerializerOptions _jsonOptions;
 	private readonly List<TrackingError> _memoryErrors = [];
+#if NET9_0_OR_GREATER
 	private readonly Lock _lock = new();
+#else
+	private readonly object _lock = new();
+#endif
 	private int _totalErrorCount = 0;
 
 	/// <summary>

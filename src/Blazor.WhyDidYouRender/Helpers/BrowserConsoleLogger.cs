@@ -100,6 +100,8 @@ public class BrowserConsoleLogger(IJSRuntime jsRuntime, IWhyDidYouRenderLogger? 
 				session = renderEvent.SessionId,
 				parameterChanges = renderEvent.ParameterChanges,
 				stateChanges = renderEvent.StateChanges,
+				stateHasChangedCalls = renderEvent.StateHasChangedCallCount > 0 ? renderEvent.StateHasChangedCallCount : (int?)null,
+				isBatchedRender = renderEvent.IsBatchedRender ? true : (bool?)null,
 			};
 
 			var message = $"🔄 WhyDidYouRender | {renderEvent.ComponentName} | {renderEvent.Method}";
@@ -165,6 +167,16 @@ public class BrowserConsoleLogger(IJSRuntime jsRuntime, IWhyDidYouRenderLogger? 
 					"console.warn",
 					cancellationToken,
 					"🔥 Performance Warning: This component is re-rendering frequently. Consider using ShouldRender(), reducing StateHasChanged() calls, or implementing IDisposable to unsubscribe from events."
+				);
+			}
+
+			if (renderEvent.IsBatchedRender)
+			{
+				cancellationToken.ThrowIfCancellationRequested();
+				await _jsRuntime.InvokeVoidAsync(
+					"console.info",
+					cancellationToken,
+					$"📦 Batched Render: {renderEvent.StateHasChangedCallCount} StateHasChanged() calls were coalesced into 1 render. Consider calling StateHasChanged() once after all state updates are complete."
 				);
 			}
 

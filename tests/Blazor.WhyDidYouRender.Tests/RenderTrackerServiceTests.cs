@@ -567,4 +567,148 @@ public class RenderTrackerServiceTests
 		Assert.True(loggerEvent.IsFrequentRerender);
 		Assert.True(browserEvent.IsFrequentRerender);
 	}
+
+	#region StateHasChanged Batching Detection Tests
+
+	[Fact]
+	public void RenderEvent_IsBatchedRender_ReturnsTrueWhenStateHasChangedCallCountGreaterThanOne()
+	{
+		var renderEvent = new RenderEvent
+		{
+			ComponentName = "TestComponent",
+			ComponentType = "Test.TestComponent",
+			Method = "OnAfterRender",
+			StateHasChangedCallCount = 5,
+		};
+
+		Assert.True(renderEvent.IsBatchedRender);
+		Assert.Equal(5, renderEvent.StateHasChangedCallCount);
+	}
+
+	[Fact]
+	public void RenderEvent_IsBatchedRender_ReturnsFalseWhenStateHasChangedCallCountIsOne()
+	{
+		var renderEvent = new RenderEvent
+		{
+			ComponentName = "TestComponent",
+			ComponentType = "Test.TestComponent",
+			Method = "OnAfterRender",
+			StateHasChangedCallCount = 1,
+		};
+
+		Assert.False(renderEvent.IsBatchedRender);
+	}
+
+	[Fact]
+	public void RenderEvent_IsBatchedRender_ReturnsFalseWhenStateHasChangedCallCountIsZero()
+	{
+		var renderEvent = new RenderEvent
+		{
+			ComponentName = "TestComponent",
+			ComponentType = "Test.TestComponent",
+			Method = "OnAfterRender",
+			StateHasChangedCallCount = 0,
+		};
+
+		Assert.False(renderEvent.IsBatchedRender);
+	}
+
+	[Fact]
+	public void TrackRender_WithStateHasChangedCallCount_IncludesCountInRenderEvent()
+	{
+		var tracker = RenderTrackerService.Instance;
+		var logger = new TestLogger();
+		RenderTrackerService.SetUnifiedLogger(logger);
+
+		tracker.Configure(cfg =>
+		{
+			cfg.Enabled = true;
+			cfg.Output = TrackingOutput.Console;
+			cfg.TrackParameterChanges = false;
+			cfg.TrackPerformance = false;
+			cfg.IncludeSessionInfo = false;
+			cfg.DetectUnnecessaryRerenders = false;
+			cfg.EnableStateTracking = false;
+			cfg.LogStateChanges = false;
+		});
+
+		tracker.ClearAllTrackingData();
+
+		var component = new DummyComponent();
+		// Simulate OnAfterRender with 3 StateHasChanged calls that were batched
+		tracker.TrackRender(component, "OnAfterRender", false, stateHasChangedCallCount: 3);
+
+		var renderEvent = Assert.Single(logger.RenderEvents);
+		Assert.Equal(nameof(DummyComponent), renderEvent.ComponentName);
+		Assert.Equal("OnAfterRender", renderEvent.Method);
+		Assert.Equal(3, renderEvent.StateHasChangedCallCount);
+		Assert.True(renderEvent.IsBatchedRender);
+	}
+
+	[Fact]
+	public void TrackRender_WithSingleStateHasChangedCall_IsNotBatched()
+	{
+		var tracker = RenderTrackerService.Instance;
+		var logger = new TestLogger();
+		RenderTrackerService.SetUnifiedLogger(logger);
+
+		tracker.Configure(cfg =>
+		{
+			cfg.Enabled = true;
+			cfg.Output = TrackingOutput.Console;
+			cfg.TrackParameterChanges = false;
+			cfg.TrackPerformance = false;
+			cfg.IncludeSessionInfo = false;
+			cfg.DetectUnnecessaryRerenders = false;
+			cfg.EnableStateTracking = false;
+			cfg.LogStateChanges = false;
+		});
+
+		tracker.ClearAllTrackingData();
+
+		var component = new DummyComponent();
+		tracker.TrackRender(component, "OnAfterRender", false, stateHasChangedCallCount: 1);
+
+		var renderEvent = Assert.Single(logger.RenderEvents);
+		Assert.Equal(1, renderEvent.StateHasChangedCallCount);
+		Assert.False(renderEvent.IsBatchedRender);
+	}
+
+	[Fact]
+	public void TrackRender_BatchedRender_LoggedToUnifiedAndBrowserLoggers()
+	{
+		var tracker = RenderTrackerService.Instance;
+		var logger = new TestLogger();
+		var browserLogger = new TestBrowserConsoleLogger();
+		RenderTrackerService.SetUnifiedLogger(logger);
+
+		tracker.Configure(cfg =>
+		{
+			cfg.Enabled = true;
+			cfg.Output = TrackingOutput.BrowserConsole;
+			cfg.TrackParameterChanges = false;
+			cfg.TrackPerformance = false;
+			cfg.IncludeSessionInfo = false;
+			cfg.DetectUnnecessaryRerenders = false;
+			cfg.EnableStateTracking = false;
+			cfg.LogStateChanges = false;
+		});
+
+		tracker.ClearAllTrackingData();
+		tracker.SetBrowserLogger(browserLogger);
+
+		var component = new DummyComponent();
+		tracker.TrackRender(component, "OnAfterRender", false, stateHasChangedCallCount: 5);
+
+		var loggerEvent = Assert.Single(logger.RenderEvents);
+		var browserEvent = Assert.Single(browserLogger.RenderEvents);
+
+		Assert.Same(loggerEvent, browserEvent);
+		Assert.Equal(5, loggerEvent.StateHasChangedCallCount);
+		Assert.True(loggerEvent.IsBatchedRender);
+		Assert.Equal(loggerEvent.StateHasChangedCallCount, browserEvent.StateHasChangedCallCount);
+		Assert.Equal(loggerEvent.IsBatchedRender, browserEvent.IsBatchedRender);
+	}
+
+	#endregion
 }

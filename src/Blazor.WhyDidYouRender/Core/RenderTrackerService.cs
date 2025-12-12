@@ -198,7 +198,9 @@ public class RenderTrackerService
 	/// <param name="component">The component being rendered.</param>
 	/// <param name="method">The lifecycle method that triggered the render.</param>
 	/// <param name="firstRender">Whether this is the first render of the component.</param>
-	public void Track(ComponentBase component, string method, bool? firstRender = null) => TrackRender(component, method, firstRender);
+	/// <param name="stateHasChangedCallCount">Number of StateHasChanged calls that were batched into this render.</param>
+	public void Track(ComponentBase component, string method, bool? firstRender = null, int stateHasChangedCallCount = 0) =>
+		TrackRender(component, method, firstRender, stateHasChangedCallCount);
 
 	/// <summary>
 	/// Tracks a render event for the specified component.
@@ -206,7 +208,8 @@ public class RenderTrackerService
 	/// <param name="component">The component being rendered.</param>
 	/// <param name="method">The lifecycle method that triggered the render.</param>
 	/// <param name="firstRender">Whether this is the first render of the component.</param>
-	public void TrackRender(ComponentBase component, string method, bool? firstRender = null)
+	/// <param name="stateHasChangedCallCount">Number of StateHasChanged calls that were batched into this render.</param>
+	public void TrackRender(ComponentBase component, string method, bool? firstRender = null, int stateHasChangedCallCount = 0)
 	{
 		if (!_config.Enabled)
 			return;
@@ -216,7 +219,7 @@ public class RenderTrackerService
 			"TrackRender",
 			() =>
 			{
-				TrackRenderInternal(component, method, firstRender);
+				TrackRenderInternal(component, method, firstRender, stateHasChangedCallCount);
 				return true;
 			},
 			false,
@@ -230,7 +233,8 @@ public class RenderTrackerService
 	/// <param name="component">The component being rendered.</param>
 	/// <param name="method">The lifecycle method that triggered the render.</param>
 	/// <param name="firstRender">Whether this is the first render of the component.</param>
-	private void TrackRenderInternal(ComponentBase component, string method, bool? firstRender)
+	/// <param name="stateHasChangedCallCount">Number of StateHasChanged calls that were batched into this render.</param>
+	private void TrackRenderInternal(ComponentBase component, string method, bool? firstRender, int stateHasChangedCallCount = 0)
 	{
 		EnsureServicesInitialized();
 
@@ -287,6 +291,7 @@ public class RenderTrackerService
 			UnnecessaryRerenderReason = unnecessaryRerenderInfo.Item2,
 			IsFrequentRerender = isFrequentRerender,
 			StateChanges = stateChanges,
+			StateHasChangedCallCount = stateHasChangedCallCount,
 		};
 
 		_ = LogRenderEventAsync(renderEvent);
@@ -525,6 +530,9 @@ public class RenderTrackerService
 
 		if (renderEvent.IsFrequentRerender)
 			parts.Add("🔥 FREQUENT");
+
+		if (renderEvent.IsBatchedRender)
+			parts.Add($"📦 BATCHED: {renderEvent.StateHasChangedCallCount} StateHasChanged calls → 1 render");
 
 		return string.Join(" ", parts);
 	}

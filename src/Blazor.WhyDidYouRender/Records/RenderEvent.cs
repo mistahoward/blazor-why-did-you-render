@@ -74,4 +74,15 @@ public record RenderEvent
 	/// Number of state changes detected during this render.
 	/// </summary>
 	public int StateChangeCount => StateChanges?.Count ?? 0;
+
+	/// <summary>
+	/// Number of StateHasChanged calls that contributed to this render.
+	/// When greater than 1, Blazor batched multiple calls into a single render.
+	/// </summary>
+	public int StateHasChangedCallCount { get; init; }
+
+	/// <summary>
+	/// Indicates if this render was the result of multiple batched StateHasChanged calls.
+	/// </summary>
+	public bool IsBatchedRender => StateHasChangedCallCount > 1;
 }

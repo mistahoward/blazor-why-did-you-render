@@ -9,14 +9,27 @@ using Microsoft.AspNetCore.Components;
 namespace Blazor.WhyDidYouRender.Core;
 
 /// <summary>
+/// Holds render history and its associated lock for thread-safe access.
+/// </summary>
+internal sealed class RenderHistoryEntry
+{
+	public List<DateTime> History { get; } = [];
+#if NET9_0_OR_GREATER
+	public Lock Lock { get; } = new();
+#else
+	public object Lock { get; } = new();
+#endif
+}
+
+/// <summary>
 /// Service responsible for tracking render frequency and detecting frequent re-renders.
 /// </summary>
 public class RenderFrequencyTracker
 {
 	/// <summary>
-	/// Cache to store render history for each component.
+	/// Cache to store render history entries for each component.
 	/// </summary>
-	private readonly ConcurrentDictionary<ComponentBase, List<DateTime>> _renderHistory = new();
+	private readonly ConcurrentDictionary<ComponentBase, RenderHistoryEntry> _renderHistory = new();
 
 	/// <summary>
 	/// Configuration for frequency tracking.
@@ -40,16 +53,16 @@ public class RenderFrequencyTracker
 	public bool TrackRenderFrequency(ComponentBase component)
 	{
 		var now = DateTime.UtcNow;
-		var history = _renderHistory.GetOrAdd(component, static _ => []);
+		var entry = _renderHistory.GetOrAdd(component, static _ => new RenderHistoryEntry());
 
-		lock (history)
+		lock (entry.Lock)
 		{
-			history.Add(now);
+			entry.History.Add(now);
 
 			var cutoff = now.AddSeconds(-1);
-			history.RemoveAll(time => time < cutoff);
+			entry.History.RemoveAll(time => time < cutoff);
 
-			return history.Count > _config.FrequentRerenderThreshold;
+			return entry.History.Count > _config.FrequentRerenderThreshold;
 		}
 	}
 
@@ -60,7 +73,7 @@ public class RenderFrequencyTracker
 	/// <returns>Render statistics for the component.</returns>
 	public RenderStatistics GetRenderStatistics(ComponentBase component)
 	{
-		if (!_renderHistory.TryGetValue(component, out var history))
+		if (!_renderHistory.TryGetValue(component, out var entry))
 		{
 			return new RenderStatistics
 			{
@@ -77,13 +90,13 @@ public class RenderFrequencyTracker
 		var oneSecondAgo = now.AddSeconds(-1);
 		var oneMinuteAgo = now.AddMinutes(-1);
 
-		lock (history)
+		lock (entry.Lock)
 		{
-			var rendersLastSecond = history.Count(t => t >= oneSecondAgo);
-			var rendersLastMinute = history.Count(t => t >= oneMinuteAgo);
-			var totalRenders = history.Count;
+			var rendersLastSecond = entry.History.Count(t => t >= oneSecondAgo);
+			var rendersLastMinute = entry.History.Count(t => t >= oneMinuteAgo);
+			var totalRenders = entry.History.Count;
 
-			var averageRate = totalRenders > 1 && history.Count > 0 ? totalRenders / (now - history.First()).TotalMinutes : 0.0;
+			var averageRate = totalRenders > 1 && entry.History.Count > 0 ? totalRenders / (now - entry.History.First()).TotalMinutes : 0.0;
 
 			return new RenderStatistics
 			{
@@ -116,18 +129,18 @@ public class RenderFrequencyTracker
 
 		foreach (var kvp in _renderHistory.ToList())
 		{
-			var history = kvp.Value;
-			lock (history)
+			var entry = kvp.Value;
+			lock (entry.Lock)
 			{
-				for (int i = history.Count - 1; i >= 0; i--)
+				for (int i = entry.History.Count - 1; i >= 0; i--)
 				{
-					if (history[i] < cutoff)
+					if (entry.History[i] < cutoff)
 					{
-						history.RemoveAt(i);
+						entry.History.RemoveAt(i);
 					}
 				}
 
-				if (history.Count == 0)
+				if (entry.History.Count == 0)
 				{
 					_renderHistory.TryRemove(kvp.Key, out _);
 				}

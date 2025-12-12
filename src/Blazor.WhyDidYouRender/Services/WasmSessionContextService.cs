@@ -8,7 +8,11 @@ namespace Blazor.WhyDidYouRender.Services;
 public class WasmSessionContextService : ISessionContextService
 {
 	private string? _sessionId;
-	private readonly object _lock = new object();
+#if NET9_0_OR_GREATER
+	private readonly Lock _lock = new();
+#else
+	private readonly object _lock = new();
+#endif
 
 	/// <inheritdoc />
 	public string GetSessionId()

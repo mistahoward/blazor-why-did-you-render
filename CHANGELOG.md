@@ -16,7 +16,7 @@ There may be some mistakes. YMMV. Please let me know if anything looks strange o
 
 -   **Multi-targeting support for .NET 10 LTS**: Both packages now target `net8.0`, `net9.0`, and `net10.0`
     -   `Blazor.WhyDidYouRender` v3.2.0 - Full .NET 10 LTS support with all .NET 10 package dependencies (10.0.1)
-    -   `Blazor.WhyDidYouRender.Aspire` v3.1.0 - Now multi-targets all three frameworks
+    -   `Blazor.WhyDidYouRender.Aspire` v3.2.0 - Now multi-targets all three frameworks
     -   Tests run against all three frameworks to ensure feature parity
     -   CI/CD pipeline updated to build and test with .NET 8, 9, and 10 SDKs
 

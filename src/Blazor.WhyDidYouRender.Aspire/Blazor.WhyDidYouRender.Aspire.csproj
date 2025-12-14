@@ -1,6 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
+    <!-- Multi-target net8.0, net9.0, and net10.0 for full LTS support -->
+    <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
@@ -8,8 +9,8 @@
   <!-- NuGet Package Metadata -->
   <PropertyGroup>
     <PackageId>Blazor.WhyDidYouRender.Aspire</PackageId>
-    <Version>3.0.0</Version>
-    <PackageReleaseNotes>v3.0.0: Aspire/OpenTelemetry integration extensions for Blazor.WhyDidYouRender. See CHANGELOG.md for details.</PackageReleaseNotes>
+    <Version>3.1.0</Version>
+    <PackageReleaseNotes>v3.1.0: Added multi-targeting support for .NET 8 LTS, .NET 9, and .NET 10 LTS. Aspire/OpenTelemetry integration extensions for Blazor.WhyDidYouRender. See CHANGELOG.md for details.</PackageReleaseNotes>
     <Authors>Alex Howard</Authors>
     <Company>mistahoward</Company>
     <Description>Aspire/OpenTelemetry integration extensions for Blazor.WhyDidYouRender - a cross-platform performance monitoring tool for Blazor applications.</Description>

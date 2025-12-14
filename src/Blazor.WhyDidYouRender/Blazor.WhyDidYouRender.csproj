@@ -10,8 +10,8 @@
 
     <!-- NuGet Package Metadata -->
     <PackageId>Blazor.WhyDidYouRender</PackageId>
-    <Version>3.2.0</Version>
-    <PackageReleaseNotes>v3.2.0: Added multi-targeting support for .NET 10 LTS. Now supports .NET 8 LTS, .NET 9, and .NET 10 LTS. See CHANGELOG.md for full details.</PackageReleaseNotes>
+    <Version>3.2.1</Version>
+    <PackageReleaseNotes>v3.2.1: Added multi-targeting support for .NET 10 LTS. Now supports .NET 8 LTS, .NET 9, and .NET 10 LTS. Fixed CI/CD packaging. See CHANGELOG.md for full details.</PackageReleaseNotes>
     <Authors>Alex Howard</Authors>
     <Company>mistahoward</Company>
     <Product>Blazor WhyDidYouRender</Product>

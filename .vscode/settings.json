@@ -2,12 +2,14 @@
 	"cSpell.words": [
 		"Antiforgery",
 		"appsettings",
+		"ASPNETCORE",
 		"Blazor",
 		"Finalizers",
 		"hookable",
 		"Hsts",
 		"Lyttle",
 		"onclick",
+		"prerendering",
 		"timespan"
 	],
 	"[csharp]": {

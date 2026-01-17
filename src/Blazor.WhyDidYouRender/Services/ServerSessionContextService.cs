@@ -30,14 +30,43 @@ public class ServerSessionContextService(
 		if (httpContext?.Session == null)
 			return $"server-{httpContext?.TraceIdentifier ?? Guid.NewGuid().ToString("N")}";
 
-		var sessionId = httpContext.Session.GetString($"{_sessionKeyPrefix}SessionId");
-		if (string.IsNullOrEmpty(sessionId))
+		// ! check if the response has already started. In Interactive Server mode during prerendering,
+		// ! accessing session before the response starts will throw "The session cannot be established
+		// ! after the response has started." We fall back to TraceIdentifier in this case.
+		if (httpContext.Response.HasStarted)
 		{
-			sessionId = $"server-{Guid.NewGuid():N}";
-			httpContext.Session.SetString($"{_sessionKeyPrefix}SessionId", sessionId);
+			_logger?.LogDebug(
+				"Response has started, using TraceIdentifier for session ID",
+				new() { ["traceId"] = httpContext.TraceIdentifier }
+			);
+			return $"server-{httpContext.TraceIdentifier ?? Guid.NewGuid().ToString("N")}";
 		}
 
-		return sessionId;
+		try
+		{
+			var sessionId = httpContext.Session.GetString($"{_sessionKeyPrefix}SessionId");
+			if (string.IsNullOrEmpty(sessionId))
+			{
+				sessionId = $"server-{Guid.NewGuid():N}";
+				httpContext.Session.SetString($"{_sessionKeyPrefix}SessionId", sessionId);
+			}
+
+			return sessionId;
+		}
+		catch (Exception ex)
+		{
+			// ! session access failed (e.g., timing issues, session unavailable), fall back to TraceIdentifier
+			if (_logger != null)
+				_logger.LogError(
+					"Failed to access session, using TraceIdentifier fallback",
+					ex,
+					new() { ["traceId"] = httpContext.TraceIdentifier }
+				);
+			else
+				Console.WriteLine($"[WhyDidYouRender] Failed to access session: {ex.Message}. Using TraceIdentifier fallback.");
+
+			return $"server-{httpContext.TraceIdentifier ?? Guid.NewGuid().ToString("N")}";
+		}
 	}
 
 	/// <inheritdoc />

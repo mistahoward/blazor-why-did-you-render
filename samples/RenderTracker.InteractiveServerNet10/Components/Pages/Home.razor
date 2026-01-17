@@ -1,0 +1,79 @@
+@page "/"
+@rendermode InteractiveServer
+@inherits TrackedComponentBase
+
+<PageTitle>Home - Interactive Server Session Test</PageTitle>
+
+<h1>Interactive Server Session Timing Test</h1>
+
+<div class="alert alert-info">
+    <h4>🔍 Session Timing Fix Demonstration</h4>
+    <p>This sample demonstrates the fix for the "The session cannot be established after the response has started" error.</p>
+    <p><strong>Open your browser console to see WhyDidYouRender tracking with session information!</strong></p>
+</div>
+
+<div class="card mt-3">
+    <div class="card-header">
+        <h5>What was the problem?</h5>
+    </div>
+    <div class="card-body">
+        <p>In Interactive Server mode with prerendering, accessing <code>HttpContext.Session</code> during <code>OnInitialized()</code> would throw an error:</p>
+        <blockquote class="alert alert-danger">
+            <code>InvalidOperationException: The session cannot be established after the response has started.</code>
+        </blockquote>
+        <p>This happened because:</p>
+        <ul>
+            <li><code>OnInitialized()</code> runs during prerendering (before HTTP response starts)</li>
+            <li>Accessing session requires setting a cookie (modifying the HTTP response)</li>
+            <li>Response headers cannot be modified before <code>Response.HasStarted == true</code></li>
+        </ul>
+    </div>
+</div>
+
+<div class="card mt-3">
+    <div class="card-header">
+        <h5>The Fix</h5>
+    </div>
+    <div class="card-body">
+        <p>The <code>ServerSessionContextService.GetSessionId()</code> method now:</p>
+        <ol>
+            <li>Checks <code>Response.HasStarted</code> before accessing session</li>
+            <li>Falls back to <code>TraceIdentifier</code> when response has started</li>
+            <li>Wraps session access in try/catch for resilience</li>
+            <li>Logs debug information when using fallback</li>
+        </ol>
+        <p class="alert alert-success">
+            <strong>Result:</strong> Session tracking works correctly in Interactive Server mode!
+        </p>
+    </div>
+</div>
+
+<div class="card mt-3">
+    <div class="card-header">
+        <h5>Testing Instructions</h5>
+    </div>
+    <div class="card-body">
+        <ol>
+            <li>Check the browser console - you should see tracking logs without errors</li>
+            <li>Navigate to the <a href="/counter">Counter</a> page</li>
+            <li>Click buttons and watch the console for render tracking</li>
+            <li>Try the <a href="/state-tracking">State Tracking Demo</a> for advanced scenarios</li>
+        </ol>
+        <p>All pages should track correctly with no session errors!</p>
+    </div>
+</div>
+
+<div class="mt-4">
+    <p>Render count: @renderCount</p>
+    <button class="btn btn-primary" @onclick="IncrementRender">Force Re-render</button>
+</div>
+
+@code {
+    private int renderCount = 0;
+
+    private void IncrementRender()
+    {
+        renderCount++;
+        StateHasChanged();
+    }
+}

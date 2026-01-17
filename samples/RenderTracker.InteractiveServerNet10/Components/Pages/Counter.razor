@@ -1,0 +1,52 @@
+@page "/counter"
+@rendermode InteractiveServer
+@inherits TrackedComponentBase
+@using Blazor.WhyDidYouRender.Attributes
+
+<PageTitle>Counter</PageTitle>
+
+<h1>Counter - Session Tracking Test</h1>
+
+<div class="alert alert-info">
+    <p>This page tests session tracking with Interactive Server components. Check the console for tracking information.</p>
+</div>
+
+<p role="status">Current count: @currentCount</p>
+
+<button class="btn btn-primary" @onclick="IncrementCount">Click me</button>
+<button class="btn btn-secondary" @onclick="ForceRender">Force Re-render</button>
+
+<div class="mt-4">
+    <h5>What to observe:</h5>
+    <ul>
+        <li>Each button click triggers render tracking</li>
+        <li>Session ID appears in console logs (using TraceIdentifier during prerender, then persistent session)</li>
+        <li>No "session cannot be established" errors</li>
+        <li>State changes are tracked (<code>currentCount</code> and <code>lastAction</code>)</li>
+    </ul>
+</div>
+
+@code {
+    [TrackState]
+    private int currentCount = 0;
+
+    [TrackState]
+    private string lastAction = "None";
+
+    [IgnoreState("Performance counter - changes frequently")]
+    private DateTime lastClickTime = DateTime.Now;
+
+    private void IncrementCount()
+    {
+        currentCount++;
+        lastAction = "Increment";
+        lastClickTime = DateTime.Now;
+    }
+
+    private void ForceRender()
+    {
+        lastAction = "Force Render";
+        lastClickTime = DateTime.Now;
+        StateHasChanged();
+    }
+}

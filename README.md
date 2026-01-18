@@ -2,6 +2,7 @@
 
 [![NuGet](https://img.shields.io/nuget/v/Blazor.WhyDidYouRender)](https://www.nuget.org/packages/Blazor.WhyDidYouRender)
 [![License: LGPL v3](https://img.shields.io/badge/License-LGPL%20v3-blue.svg)](https://www.gnu.org/licenses/lgpl-3.0)
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/S6S3XYOL5)
 
 A powerful cross-platform performance monitoring and debugging tool for Blazor applications (Server, WebAssembly, SSR) that helps identify unnecessary re-renders and optimize component performance. Inspired by the React [why-did-you-render](https://github.com/welldone-software/why-did-you-render) library.
 
